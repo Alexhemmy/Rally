@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Rally",
+    "slug": "rally",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "rally",
+    "userInterfaceStyle": "dark",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.rally.app" },
+    "android": { "package": "com.rally.app" },
+    "plugins": ["expo-router"]
+  }
+}
