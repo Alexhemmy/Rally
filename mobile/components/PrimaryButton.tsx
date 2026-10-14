@@ -1,6 +1,7 @@
 import { Pressable, Text, StyleSheet, ActivityIndicator, ViewStyle } from 'react-native';
 import { colors, radii } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useSounds } from '@/hooks/useSounds';
 
 type Props = {
   label: string;
@@ -20,11 +21,13 @@ export function PrimaryButton({
   style,
 }: Props) {
   const { impact } = useHaptics();
+  const { click } = useSounds();
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled || loading}
       onPress={() => {
+        click();
         impact(variant === 'danger' ? 'error' : 'light');
         onPress();
       }}

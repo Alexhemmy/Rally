@@ -5,9 +5,12 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { colors, spacing, radii } from '@/constants/theme';
 import { useState, useCallback } from 'react';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useSounds, setSoundsEnabled, getSoundsEnabled } from '@/hooks/useSounds';
 
 export default function YouTab() {
   const { impact, enabled, setEnabled } = useHaptics();
+  const { click } = useSounds();
+  const [soundOn, setSoundOn] = useState(getSoundsEnabled());
   const [biometrics, setBiometrics] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -21,6 +24,23 @@ export default function YouTab() {
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <Text style={styles.h1}>You</Text>
+      <View style={styles.card}>
+        <Text style={styles.h2}>Sounds & haptics</Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>Click / type feedback</Text>
+          <Switch
+            value={soundOn}
+            onValueChange={(v) => {
+              setSoundOn(v);
+              setSoundsEnabled(v);
+              if (v) click();
+            }}
+            trackColor={{ true: colors.primary, false: colors.border }}
+            thumbColor={colors.text}
+          />
+        </View>
+        <Text style={styles.muted}>UI ticks for taps and typing (haptic stand-in; add expo-av + mp3 for real audio).</Text>
+      </View>
       <View style={styles.card}>
         <Text style={styles.h2}>Haptics</Text>
         <View style={styles.row}>

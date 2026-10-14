@@ -19,3 +19,13 @@
 - Gift grid: 2 / 3 / 4 columns by breakpoint
 - Tablet content max-width 560 centered
 - Min touch targets 44–48px
+
+## Gestures & feedback (added)
+
+| Interaction | Behavior |
+|-------------|----------|
+| **Pull to back** | `SwipeBack` — pull down on detail/modals or swipe from left edge |
+| **Gift animation** | `GiftBurst` spring + particle burst on successful send |
+| **Hold for options** | Long-press gifts, share, wall rows → `LongPressMenu` sheet |
+| **Click sounds** | `useSounds().click` on buttons (haptic tick; optional expo-av) |
+| **Type sounds** | `SoundTextInput` throttled type ticks while typing |

@@ -1,82 +1,83 @@
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { colors, spacing, radii } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useSounds } from '@/hooks/useSounds';
 import { useRouter } from 'expo-router';
+import { SwipeBack } from '@/components/SwipeBack';
+import { SoundTextInput } from '@/components/SoundTextInput';
+import { LongPressMenu } from '@/components/LongPressMenu';
 
-/**
- * Mobile-only compose: camera/gallery hooks via placeholder.
- * Production: expo-image-picker + expo-camera permissions.
- */
 export default function ComposeMoment() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [mediaLabel, setMediaLabel] = useState<string | null>(null);
+  const [menu, setMenu] = useState(false);
   const { impact } = useHaptics();
+  const { success, click } = useSounds();
   const router = useRouter();
 
   function pickMedia(source: 'camera' | 'library') {
     impact('medium');
-    setMediaLabel(source === 'camera' ? 'Camera capture (wire expo-camera)' : 'Library pick (wire expo-image-picker)');
-    Alert.alert(
-      'Media',
-      'Add expo-image-picker / expo-camera for production. Placeholder attached for layout testing.'
-    );
+    click();
+    setMediaLabel(source === 'camera' ? 'Camera (wire expo-camera)' : 'Library (wire expo-image-picker)');
   }
 
   function publish() {
+    if (!title) {
+      Alert.alert('Moment', 'Add a title first');
+      return;
+    }
     impact('success');
-    Alert.alert('Moment', title ? `Queued: ${title}` : 'Add a title first');
-    if (title) router.back();
+    success();
+    router.back();
   }
 
   return (
-    <Screen>
-      <Text style={styles.h1}>New Moment</Text>
-      <Text style={styles.muted}>Mobile capture flow · under 30s publish (PRD)</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Title"
-        placeholderTextColor={colors.muted}
-        value={title}
-        onChangeText={setTitle}
-        maxLength={120}
-      />
-      <TextInput
-        style={[styles.input, styles.area]}
-        placeholder="What's happening?"
-        placeholderTextColor={colors.muted}
-        value={body}
-        onChangeText={setBody}
-        multiline
-        maxLength={1000}
-      />
-      <View style={styles.row}>
-        <View style={{ flex: 1, marginRight: 8 }}>
-          <PrimaryButton label="Camera" variant="ghost" onPress={() => pickMedia('camera')} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <PrimaryButton label="Library" variant="ghost" onPress={() => pickMedia('library')} />
-        </View>
-      </View>
-      {mediaLabel && (
-        <View style={styles.media}>
-          <Text style={styles.muted}>{mediaLabel}</Text>
-          <View style={styles.placeholder}>
-            <Text style={{ color: colors.primary }}>🖼</Text>
-          </View>
-        </View>
-      )}
-      <PrimaryButton label="Publish" onPress={publish} style={{ marginTop: 16 }} />
-    </Screen>
+    <SwipeBack pullDown>
+      <Screen>
+        <LongPressMenu
+          visible={menu}
+          title="Add media"
+          actions={[
+            { label: 'Camera', onPress: () => pickMedia('camera') },
+            { label: 'Photo library', onPress: () => pickMedia('library') },
+          ]}
+          onClose={() => setMenu(false)}
+        />
+        <Text style={styles.hint}>Pull down to go back</Text>
+        <Text style={styles.h1}>New Moment</Text>
+        <SoundTextInput
+          style={styles.input}
+          placeholder="Title"
+          placeholderTextColor={colors.muted}
+          value={title}
+          onChangeText={setTitle}
+          maxLength={120}
+        />
+        <SoundTextInput
+          style={[styles.input, styles.area]}
+          placeholder="What's happening?"
+          placeholderTextColor={colors.muted}
+          value={body}
+          onChangeText={setBody}
+          multiline
+          maxLength={1000}
+        />
+        <PrimaryButton label="Hold for media options" variant="ghost" onPress={() => setMenu(true)} />
+        {mediaLabel && <Text style={styles.muted}>{mediaLabel}</Text>}
+        <PrimaryButton label="Publish" onPress={publish} style={{ marginTop: 16 }} />
+      </Screen>
+    </SwipeBack>
   );
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 22, fontWeight: '700', color: colors.text, marginTop: spacing.sm },
-  muted: { color: colors.muted, marginBottom: 12 },
+  hint: { color: colors.muted, fontSize: 12, marginTop: spacing.sm },
+  h1: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 12 },
+  muted: { color: colors.muted, marginTop: 8 },
   input: {
     backgroundColor: colors.bg,
     borderWidth: 1,
@@ -89,17 +90,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   area: { minHeight: 120, textAlignVertical: 'top' },
-  row: { flexDirection: 'row', marginBottom: 12 },
-  media: { marginTop: 8 },
-  placeholder: {
-    height: 160,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    marginTop: 8,
-  },
 });
