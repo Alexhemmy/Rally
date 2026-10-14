@@ -1,26 +1,37 @@
-import { View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
+import { useState } from 'react';
+import { Text, TextInput, StyleSheet } from 'react-native';
+import { Screen } from '@/components/Screen';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import { colors, spacing, radii } from '@/constants/theme';
+import { useHaptics } from '@/hooks/useHaptics';
 
 export default function Support() {
+  const [msg, setMsg] = useState('');
+  const { impact } = useHaptics();
   return (
-    <View style={styles.pad}>
+    <Screen>
       <Text style={styles.h1}>Support</Text>
       <TextInput
         style={[styles.input, { minHeight: 120, textAlignVertical: 'top' }]}
         multiline
+        value={msg}
+        onChangeText={setMsg}
         placeholder="Describe the issue…"
         placeholderTextColor={colors.muted}
       />
-      <Pressable style={styles.btn}>
-        <Text style={styles.btnText}>Send</Text>
-      </Pressable>
-    </View>
+      <PrimaryButton
+        label="Send"
+        onPress={() => {
+          impact('success');
+          setMsg('');
+        }}
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  pad: { flex: 1, padding: spacing.md },
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 12 },
+  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 12, marginTop: spacing.sm },
   input: {
     backgroundColor: colors.bg,
     borderWidth: 1,
@@ -30,11 +41,4 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 12,
   },
-  btn: {
-    backgroundColor: colors.primary,
-    borderRadius: radii.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  btnText: { color: '#04101F', fontWeight: '700' },
 });

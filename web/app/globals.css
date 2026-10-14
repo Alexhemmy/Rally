@@ -234,3 +234,35 @@ ul.clean li { margin-bottom: 0.4rem; }
 @media (hover: none) {
   .btn, .nav a, .gift-item { -webkit-tap-highlight-color: transparent; }
 }
+
+/* Extra responsive utilities */
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--primary);
+  color: #04101f;
+  padding: 0.5rem 1rem;
+  z-index: 100;
+}
+.skip-link:focus { left: 0; }
+
+.container-responsive {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: clamp(0.75rem, 3vw, 1.5rem);
+}
+
+@media (max-width: 360px) {
+  .nav a { font-size: 0.75rem; }
+  h1 { font-size: 1.25rem; }
+}
+
+@media (min-width: 900px) {
+  .header .nav { gap: 0.35rem 1.1rem; }
+}
+
+/* Prefer landscape tablet content width */
+@media (min-width: 600px) and (max-width: 900px) and (orientation: landscape) {
+  .main { max-width: 640px; }
+}

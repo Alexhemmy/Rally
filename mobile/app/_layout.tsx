@@ -1,10 +1,11 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 
 export default function RootLayout() {
   return (
-    <>
+    <SafeAreaProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -15,16 +16,14 @@ export default function RootLayout() {
           headerShadowVisible: false,
         }}
       >
-        <Stack.Screen name="index" options={{ title: 'Rally' }} />
-        <Stack.Screen name="explore" options={{ title: 'Explore' }} />
-        <Stack.Screen name="feed" options={{ title: 'Feed' }} />
-        <Stack.Screen name="wallet" options={{ title: 'Wallet' }} />
-        <Stack.Screen name="settings" options={{ title: 'Settings' }} />
-        <Stack.Screen name="login" options={{ title: 'Log in' }} />
-        <Stack.Screen name="favorite/[handle]" options={{ title: 'Favorite' }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="favorite/[handle]" options={{ title: 'Favorite', presentation: 'card' }} />
+        <Stack.Screen name="login" options={{ title: 'Log in', presentation: 'modal' }} />
         <Stack.Screen name="support" options={{ title: 'Support' }} />
         <Stack.Screen name="how-to-use" options={{ title: 'How to use' }} />
+        <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+        <Stack.Screen name="compose-moment" options={{ title: 'New Moment', presentation: 'modal' }} />
       </Stack>
-    </>
+    </SafeAreaProvider>
   );
 }

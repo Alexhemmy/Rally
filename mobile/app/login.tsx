@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { api } from '@/lib/api';
 import { colors, spacing, radii } from '@/constants/theme';
 import { useRouter } from 'expo-router';
+import { Screen } from '@/components/Screen';
+import { PrimaryButton } from '@/components/PrimaryButton';
+import { useHaptics } from '@/hooks/useHaptics';
 
 export default function Login() {
   const router = useRouter();
+  const { impact } = useHaptics();
   const [email, setEmail] = useState('ada@rally.demo');
   const [password, setPassword] = useState('password123');
   const [error, setError] = useState('');
@@ -19,8 +23,10 @@ export default function Login() {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
+      impact('success');
       router.replace('/');
     } catch (e: any) {
+      impact('error');
       setError(e.message);
     } finally {
       setLoading(false);
@@ -28,7 +34,7 @@ export default function Login() {
   }
 
   return (
-    <View style={styles.pad}>
+    <Screen scroll>
       <Text style={styles.h1}>Log in</Text>
       <Text style={styles.muted}>Demo: ada@rally.demo / password123</Text>
       <TextInput
@@ -49,16 +55,13 @@ export default function Login() {
         placeholderTextColor={colors.muted}
       />
       {!!error && <Text style={styles.error}>{error}</Text>}
-      <Pressable style={styles.btn} onPress={submit} disabled={loading}>
-        <Text style={styles.btnText}>{loading ? '…' : 'Log in'}</Text>
-      </Pressable>
-    </View>
+      <PrimaryButton label="Log in" onPress={submit} loading={loading} />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  pad: { flex: 1, padding: spacing.md },
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text },
+  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: spacing.sm },
   muted: { color: colors.muted, marginBottom: 16 },
   input: {
     backgroundColor: colors.bg,
@@ -71,13 +74,5 @@ const styles = StyleSheet.create({
     minHeight: 48,
     fontSize: 16,
   },
-  btn: {
-    backgroundColor: colors.primary,
-    borderRadius: radii.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-    minHeight: 48,
-  },
-  btnText: { color: '#04101F', fontWeight: '700', fontSize: 16 },
   error: { color: colors.danger, marginBottom: 8 },
 });

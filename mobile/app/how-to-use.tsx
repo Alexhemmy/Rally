@@ -1,22 +1,20 @@
-import { ScrollView, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
+import { Screen } from '@/components/Screen';
 import { colors, spacing, radii } from '@/constants/theme';
 
 export default function HowToUse() {
   return (
-    <ScrollView contentContainerStyle={styles.pad}>
+    <Screen>
       <Text style={styles.h1}>How to use</Text>
-      <Text style={styles.card}>1. Register as Fan or Favorite</Text>
-      <Text style={styles.card}>2. Buy Tokens (Paystack / Flutterwave / Stripe)</Text>
-      <Text style={styles.card}>3. Send Gifts on pages & Moments</Text>
-      <Text style={styles.card}>4. Favorites verify via KYC and cash out Gift Points</Text>
-      <Text style={styles.card}>5. Join live sessions when LiveKit/Agora is configured</Text>
-    </ScrollView>
+      {['Register as Fan or Favorite', 'Buy Tokens', 'Send Gifts on pages & Moments', 'Share profiles from the system sheet', 'Favorites verify KYC and cash out'].map((t) => (
+        <Text key={t} style={styles.card}>{t}</Text>
+      ))}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  pad: { padding: spacing.md, paddingBottom: 40 },
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 12 },
+  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 12, marginTop: spacing.sm },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.md,
