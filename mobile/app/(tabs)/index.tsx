@@ -4,15 +4,19 @@ import { Screen } from '@/components/Screen';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { colors, spacing, useLayout, scaleFont } from '@/constants/theme';
 import { useState, useCallback } from 'react';
+import { useHaptics } from '@/hooks/useHaptics';
 
 export default function HomeTab() {
   const { isTablet, fontScale } = useLayout();
   const [refreshing, setRefreshing] = useState(false);
+  const { impact } = useHaptics();
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  }, []);
+    impact('selection');
+    await new Promise((r) => setTimeout(r, 800));
+    setRefreshing(false);
+  }, [impact]);
 
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>

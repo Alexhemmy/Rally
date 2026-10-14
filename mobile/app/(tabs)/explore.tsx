@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Link } from 'expo-router';
 import { Screen } from '@/components/Screen';
@@ -9,17 +10,25 @@ const CATS = ['Music', 'Sports', 'Comedy', 'Gaming', 'Artisans', 'Writers', 'Fil
 export default function ExploreTab() {
   const { columns, isTablet } = useLayout();
   const { impact } = useHaptics();
+  const [refreshing, setRefreshing] = useState(false);
   const widthPct = columns === 3 ? '31%' : '48%';
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    impact('selection');
+    await new Promise((r) => setTimeout(r, 600));
+    setRefreshing(false);
+  }, [impact]);
+
   return (
-    <Screen>
+    <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <Text style={styles.h1}>Explore</Text>
-      <Text style={styles.muted}>Grid adapts: 2 cols phone · 3 tablet</Text>
+      <Text style={styles.muted}>Pull to refresh · grid adapts to phone/tablet</Text>
       <View style={styles.grid}>
         {CATS.map((c) => (
           <Pressable
             key={c}
-            onPress={() => impact('light')}
+            onPress={() => impact('selection')}
             style={[styles.chip, { width: widthPct as any, minWidth: isTablet ? 140 : 0 }]}
           >
             <Text style={styles.chipText}>{c}</Text>
@@ -29,7 +38,10 @@ export default function ExploreTab() {
       <View style={styles.card}>
         <Text style={styles.h2}>Featured</Text>
         <Link href="/favorite/mia" asChild>
-          <Pressable style={styles.row} onPress={() => impact('medium')}>
+          <Pressable
+            style={styles.row}
+            onPress={() => impact('medium')}
+          >
             <View>
               <Text style={styles.name}>Mia</Text>
               <Text style={styles.muted}>@mia · Afrobeats</Text>

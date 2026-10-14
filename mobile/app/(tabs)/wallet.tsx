@@ -11,13 +11,18 @@ export default function WalletTab() {
   const [refreshing, setRefreshing] = useState(false);
   const { impact } = useHaptics();
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     setRefreshing(true);
-    api<{ packs: any[] }>('/api/tokens/packs')
-      .then((r) => setPacks(r.packs || []))
-      .catch(() => {})
-      .finally(() => setRefreshing(false));
-  }, []);
+    impact('selection');
+    try {
+      const r = await api<{ packs: any[] }>('/api/tokens/packs');
+      setPacks(r.packs || []);
+    } catch {
+      /* offline */
+    } finally {
+      setRefreshing(false);
+    }
+  }, [impact]);
 
   useEffect(() => {
     load();

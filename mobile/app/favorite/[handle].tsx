@@ -100,8 +100,10 @@ export default function FavoriteScreen() {
             refreshing={refreshing}
             onRefresh={async () => {
               setRefreshing(true);
+              impact('selection');
               await load();
               setRefreshing(false);
+              impact('light');
             }}
             tintColor={colors.primary}
             colors={[colors.primary]}

@@ -3,40 +3,61 @@ import { Link } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { colors, spacing, radii } from '@/constants/theme';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useHaptics } from '@/hooks/useHaptics';
 
-/** Mobile-only profile tab: biometrics toggle, quiet hours, deep links */
 export default function YouTab() {
+  const { impact, enabled, setEnabled } = useHaptics();
   const [biometrics, setBiometrics] = useState(false);
-  const [hapticsOn, setHapticsOn] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    impact('selection');
+    await new Promise((r) => setTimeout(r, 500));
+    setRefreshing(false);
+  }, [impact]);
 
   return (
-    <Screen>
+    <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <Text style={styles.h1}>You</Text>
+      <View style={styles.card}>
+        <Text style={styles.h2}>Haptics</Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>Vibration feedback</Text>
+          <Switch
+            value={enabled}
+            onValueChange={(v) => {
+              setEnabled(v);
+              if (v) impact('success');
+            }}
+            trackColor={{ true: colors.primary, false: colors.border }}
+            thumbColor={colors.text}
+          />
+        </View>
+        <Text style={styles.muted}>Affects buttons, gifts, pull-to-refresh, and selection taps.</Text>
+        <PrimaryButton
+          label="Test haptic"
+          variant="ghost"
+          onPress={() => impact('medium')}
+          style={{ marginTop: 12 }}
+        />
+      </View>
       <View style={styles.card}>
         <Text style={styles.h2}>Device security</Text>
         <View style={styles.row}>
           <Text style={styles.label}>Unlock with biometrics</Text>
           <Switch
             value={biometrics}
-            onValueChange={setBiometrics}
+            onValueChange={(v) => {
+              setBiometrics(v);
+              impact('selection');
+            }}
             trackColor={{ true: colors.primary, false: colors.border }}
             thumbColor={colors.text}
           />
         </View>
-        <Text style={styles.muted}>Wire to expo-local-authentication when shipping store builds.</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.h2}>Feedback</Text>
-        <View style={styles.row}>
-          <Text style={styles.label}>Haptic feedback</Text>
-          <Switch
-            value={hapticsOn}
-            onValueChange={setHapticsOn}
-            trackColor={{ true: colors.primary, false: colors.border }}
-            thumbColor={colors.text}
-          />
-        </View>
+        <Text style={styles.muted}>Wire to expo-local-authentication for store builds.</Text>
       </View>
       <View style={styles.card}>
         <Text style={styles.h2}>Links</Text>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
-import { api } from '@/lib/api';
+import { api, setToken } from '@/lib/api';
 import { colors, spacing, radii } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
@@ -19,10 +19,11 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      await api('/api/auth/login', {
+      const res = await api<{ token: string }>('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
+      setToken(res.token);
       impact('success');
       router.replace('/');
     } catch (e: any) {

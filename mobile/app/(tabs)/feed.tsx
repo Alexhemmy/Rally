@@ -4,30 +4,52 @@ import { Screen } from '@/components/Screen';
 import { colors, spacing, radii } from '@/constants/theme';
 import { shareMoment } from '@/hooks/useShare';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { useHaptics } from '@/hooks/useHaptics';
+import { api, getToken } from '@/lib/api';
 
 export default function FeedTab() {
   const [refreshing, setRefreshing] = useState(false);
-  const onRefresh = useCallback(() => {
+  const [moments, setMoments] = useState<any[]>([]);
+  const { impact } = useHaptics();
+
+  const load = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 700);
-  }, []);
+    impact('selection');
+    try {
+      const token = typeof getToken === 'function' ? getToken() : null;
+      if (token) {
+        const res = await api<{ moments: any[] }>('/api/feed/home', { token });
+        setMoments(res.moments || []);
+      }
+    } catch {
+      /* offline or unauthenticated */
+    } finally {
+      setRefreshing(false);
+    }
+  }, [impact]);
 
   return (
-    <Screen refreshing={refreshing} onRefresh={onRefresh}>
+    <Screen refreshing={refreshing} onRefresh={load}>
       <Text style={styles.h1}>Feed</Text>
-      <Text style={styles.muted}>Pull down to refresh · chronological Moments</Text>
+      <Text style={styles.muted}>Pull down to refresh · haptic on complete</Text>
+      {moments.map((m) => (
+        <View key={m.id} style={styles.card}>
+          <Text style={styles.title}>{m.title}</Text>
+          <Text style={styles.muted}>@{m.favorite?.user?.handle}</Text>
+        </View>
+      ))}
       <View style={styles.card}>
         <Text style={styles.title}>Demo Moment</Text>
         <Text style={styles.muted}>@mia · New single snippet</Text>
         <PrimaryButton
           label="Share via system sheet"
           variant="ghost"
-          onPress={() => shareMoment('New single snippet', 'demo')}
+          onPress={() => {
+            impact('light');
+            shareMoment('New single snippet', 'demo');
+          }}
           style={{ marginTop: 12 }}
         />
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.muted}>Follow Favorites after login to fill this feed from the API.</Text>
       </View>
     </Screen>
   );
