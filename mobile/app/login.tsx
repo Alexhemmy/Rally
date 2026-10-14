@@ -66,6 +66,11 @@ export default function Login() {
         />
         {!!err && <Text style={styles.error}>{err}</Text>}
         <PrimaryButton label="Log in" onPress={submit} loading={loading} />
+        <Text style={styles.muted}>
+          <Text style={styles.link} onPress={() => router.push('/forgot-password')}>Forgot password?</Text>
+          {' · '}
+          <Text style={styles.link} onPress={() => router.push('/register')}>Register</Text>
+        </Text>
       </Screen>
     </SwipeBack>
   );
@@ -87,4 +92,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   error: { color: colors.danger, marginBottom: 8 },
+  link: { color: colors.primary, fontWeight: '700' },
 });

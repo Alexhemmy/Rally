@@ -1,61 +1,72 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Link, useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { colors, spacing, useLayout, scaleFont } from '@/constants/theme';
-import { useState, useCallback } from 'react';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useSounds } from '@/hooks/useSounds';
 
 export default function HomeTab() {
+  const router = useRouter();
   const { isTablet, fontScale } = useLayout();
-  const [refreshing, setRefreshing] = useState(false);
   const { impact } = useHaptics();
+  const { click } = useSounds();
+  const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     impact('selection');
-    await new Promise((r) => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 600));
     setRefreshing(false);
   }, [impact]);
 
+  const links = [
+    { href: '/search', label: 'Search' },
+    { href: '/rankings', label: 'Rankings' },
+    { href: '/campaigns', label: 'Campaigns' },
+    { href: '/rivalries', label: 'Rivalries' },
+    { href: '/giveaways', label: 'Giveaways' },
+    { href: '/live', label: 'Live' },
+  ];
+
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <Text style={styles.badge}>Mobile · pull to refresh</Text>
-      <Text style={[styles.title, { fontSize: scaleFont(isTablet ? 40 : 34, fontScale) }]}>Rally</Text>
-      <Text style={styles.subtitle}>
-        Support Favorites with Gifts and Moments. Native share, offline banner, and haptic taps are
-        mobile-only.
+      <Text style={styles.badge}>Fan support</Text>
+      <Text style={[styles.title, { fontSize: scaleFont(isTablet ? 40 : 34, fontScale) }]}>
+        Rally
       </Text>
-      <View style={styles.actions}>
-        <Link href="/favorite/mia" asChild>
-          <View>
-            <PrimaryButton label="Open @mia" onPress={() => {}} />
-          </View>
-        </Link>
-        {/* Link wraps need Pressable — use href buttons via router in production */}
-        <Link href="/explore" asChild>
-          <View style={{ marginTop: 10 }}>
-            <PrimaryButton label="Explore" onPress={() => {}} variant="ghost" />
-          </View>
-        </Link>
-        <Link href="/compose-moment" asChild>
-          <View style={{ marginTop: 10 }}>
-            <PrimaryButton label="Compose Moment" onPress={() => {}} variant="ghost" />
-          </View>
-        </Link>
-        <Link href="/login" asChild>
-          <View style={{ marginTop: 10 }}>
-            <PrimaryButton label="Log in" onPress={() => {}} variant="ghost" />
-          </View>
-        </Link>
-      </View>
+      <Text style={styles.subtitle}>
+        Support Favorites with Gifts, Moments, and live sessions.
+      </Text>
+
+      <PrimaryButton
+        label="Open demo @mia"
+        onPress={() => {
+          click();
+          router.push('/favorite/mia');
+        }}
+      />
+      <PrimaryButton
+        label="Compose Moment"
+        variant="ghost"
+        onPress={() => {
+          click();
+          router.push('/compose-moment');
+        }}
+        style={{ marginTop: 10 }}
+      />
+
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>On this device</Text>
-        <Text style={styles.muted}>• Bottom tabs · safe areas</Text>
-        <Text style={styles.muted}>• System share sheet</Text>
-        <Text style={styles.muted}>• Vibration haptics</Text>
-        <Text style={styles.muted}>• Offline health probe</Text>
-        <Text style={styles.muted}>• Pull-to-refresh</Text>
+        <Text style={styles.cardTitle}>Discover</Text>
+        {links.map((item) => (
+          <Link key={item.href} href={item.href as any} asChild>
+            <Pressable style={styles.linkRow} onPress={() => click()}>
+              <Text style={styles.linkText}>{item.label}</Text>
+              <Text style={styles.chevron}>›</Text>
+            </Pressable>
+          </Link>
+        ))}
       </View>
     </Screen>
   );
@@ -79,14 +90,25 @@ const styles = StyleSheet.create({
   },
   title: { fontWeight: '800', color: colors.primary, marginBottom: 8 },
   subtitle: { fontSize: 15, color: colors.muted, marginBottom: spacing.lg, lineHeight: 22 },
-  actions: { marginBottom: spacing.lg },
   card: {
     backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
+    marginTop: spacing.lg,
   },
   cardTitle: { color: colors.primaryHover, fontWeight: '700', marginBottom: 8 },
-  muted: { color: colors.muted, marginBottom: 4, fontSize: 14 },
+  linkText: { color: colors.text, fontSize: 16 },
+  chevron: { color: colors.muted, fontSize: 22 },
+  linkRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
 });
+EOF
+echo wrote_index
