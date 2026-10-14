@@ -30,7 +30,7 @@ function signToken(user: { id: string; handle: string; roles: string[] }) {
   return jwt.sign(
     { userId: user.id, handle: user.handle, roles: user.roles },
     secret,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '30d' }
   );
 }
 

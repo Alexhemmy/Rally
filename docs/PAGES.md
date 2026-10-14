@@ -2,41 +2,41 @@
 
 | # | Path | Purpose |
 |---|------|---------|
-| 1 | `/` | Home / marketing |
-| 2 | `/login` | Auth |
-| 3 | `/register` | Auth + role |
-| 4 | `/explore` | Discovery by category |
-| 5 | `/feed` | Home Moments feed |
-| 6 | `/f/[handle]` | Favorite page + gifts + wall |
-| 7 | `/moments/[id]` | Moment detail |
-| 8 | `/wallet` | Token packs & balance |
-| 9 | `/search` | Search Favorites |
-| 10 | `/rankings` | Category/country rankings |
-| 11 | `/campaigns` | Charity campaign list |
-| 12 | `/campaigns/[id]` | Campaign detail + transparency |
-| 13 | `/u/[handle]` | Fan profile + upgrade progress |
-| 14 | `/dashboard` | Favorite hub |
-| 15 | `/dashboard/earnings` | Gift Points & payouts |
-| 16 | `/settings` | Locale, spend cap, safety, logout |
-| 17 | `/how-to-use` | Product guide |
-| 18 | `/faq` | FAQs |
-| 19 | `/support` | Help & reports |
-| 20 | `/privacy` | Privacy policy |
-| 21 | `/terms` | Terms of use |
-| 22 | `/about` | Vision / mission |
-| 23 | `/notifications` | In-app alerts |
-| 24 | `/rivalries` | Rivalry / banter (P1 surface) |
-| 25 | `/giveaways` | Spend-neutral giveaways (P1 surface) |
-| 26 | `/live` | Live sessions (LiveKit / Agora) |
+| 1 | `/` | Home |
+| 2 | `/login` | Log in (7-day inactivity session) |
+| 3 | `/register` | Register |
+| 4 | `/forgot-password` | Password reset request |
+| 5 | `/explore` | Discovery |
+| 6 | `/feed` | Home feed |
+| 7 | `/f/[handle]` | Favorite + gifts + wall |
+| 8 | `/moments/[id]` | Moment detail |
+| 9 | `/wallet` | Tokens |
+| 10 | `/search` | Search |
+| 11 | `/rankings` | Rally Score rankings |
+| 12 | `/campaigns` | Charity list |
+| 13 | `/campaigns/[id]` | Campaign detail |
+| 14 | `/u/[handle]` | Fan profile |
+| 15 | `/dashboard` | Favorite hub |
+| 16 | `/dashboard/earnings` | Earnings |
+| 17 | `/dashboard/payouts` | Payouts |
+| 18 | `/dashboard/verify` | KYC |
+| 19 | `/onboarding` | Go-live checklist |
+| 20 | `/settings` | Settings |
+| 21 | `/how-to-use` | Guide |
+| 22 | `/faq` | FAQ |
+| 23 | `/support` | Support / reports |
+| 24 | `/privacy` | Privacy |
+| 25 | `/terms` | Terms |
+| 26 | `/about` | About |
+| 27 | `/notifications` | Alerts |
+| 28 | `/rivalries` | Rivalries |
+| 29 | `/giveaways` | Giveaways |
+| 30 | `/live` | Live sessions |
 
-**Total: 26 pages** (under 30).
+**Total: 30 pages (at cap).**
 
-## Theme
+## Session policy
 
-- Primary: sky blue `#0EA5E9`
-- Secondary: galactic blue `#0B1D3A` / `#1E3A5F`
-- Responsive: mobile-first CSS + RN `useWindowDimensions`
-
-## Mobile screens
-
-Home, Explore, Feed, Wallet, Login, Settings, Support, How-to-use, Favorite `[handle]` — same palette.
+- Authenticated activity updates `lastActiveAt` on the server.
+- After **7 days without activity**, API returns 401 and clients clear the token.
+- JWT max lifetime defaults to 30d; **inactivity is the binding rule**.

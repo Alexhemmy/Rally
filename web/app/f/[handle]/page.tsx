@@ -1,67 +1,38 @@
 'use client';
-
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { api } from '@/lib/api';
+import { api, getToken } from '@/lib/api';
 
-type FavoriteData = {
-  favorite: {
-    id: string;
-    handle: string;
-    displayName: string;
-    avatarUrl?: string;
-    bio?: string;
-    coverUrl?: string;
-    supporterCount: number;
-    verificationStatus: string;
-  };
-  supporterWall: {
-    recent: Array<{
-      sender: { handle: string; displayName: string };
-      message?: string;
-      tokenCost: number;
-      createdAt: string;
-    }>;
-  };
-};
-
-type CatalogItem = {
-  id: string;
-  slug: string;
-  name: string;
-  tokenCost: number;
-  type: string;
-};
-
-export default function FavoritePage() {
-  const params = useParams();
-  const handle = params.handle as string;
-  const [data, setData] = useState<FavoriteData | null>(null);
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+export default function FavoritePage({ params }: { params: { handle: string } }) {
+  const handle = params.handle;
+  const [data, setData] = useState<any>(null);
+  const [catalog, setCatalog] = useState<any[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [status, setStatus] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api<FavoriteData>(`/api/favorites/${handle}`)
-      .then(setData)
-      .catch((e) => setError(e.message));
-    api<{ items: CatalogItem[] }>('/api/gifts/catalog')
-      .then((r) => setCatalog(r.items))
-      .catch(() => {});
+    Promise.all([
+      api<any>(`/api/favorites/${handle}`),
+      api<{ items: any[] }>('/api/gifts/catalog'),
+    ])
+      .then(([fav, cat]) => {
+        setData(fav);
+        setCatalog(cat.items || []);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
   }, [handle]);
 
   async function sendGift() {
+    const token = getToken();
+    if (!token) {
+      setError('Log in to send gifts');
+      return;
+    }
     if (!selected) return;
-    setStatus('sending');
     try {
-      const token = localStorage.getItem('rally_token');
-      if (!token) {
-        setError('Please log in first');
-        setStatus('error');
-        return;
-      }
       await api('/api/gifts/send', {
         method: 'POST',
         token,
@@ -71,42 +42,38 @@ export default function FavoritePage() {
           message: message || undefined,
         }),
       });
-      setStatus('sent');
-      setMessage('');
-      // refresh wall
-      const refreshed = await api<FavoriteData>(`/api/favorites/${handle}`);
-      setData(refreshed);
+      setStatus('Gift sent!');
+      const fav = await api<any>(`/api/favorites/${handle}`);
+      setData(fav);
     } catch (e: any) {
       setError(e.message);
-      setStatus('error');
     }
   }
 
+  if (loading) return <p className="muted">Loading…</p>;
   if (error && !data) {
-    return <div className="card"><p>{error}</p></div>;
-  }
-  if (!data) {
-    return <div className="muted">Loading…</div>;
+    return (
+      <div className="card">
+        <p className="error">{error}</p>
+        <a href="/explore">Explore</a>
+      </div>
+    );
   }
 
-  const { favorite, supporterWall } = data;
+  const fav = data?.favorite;
+  if (!fav) return <p className="error">Favorite not found</p>;
 
   return (
     <div>
-      <div className="card" style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
-        <div className="avatar" />
-        <div>
-          <h1>
-            {favorite.displayName}{' '}
-            {favorite.verificationStatus === 'VERIFIED' && (
-              <span style={{ color: 'var(--accent)', fontSize: '0.9rem' }}>✓</span>
-            )}
-          </h1>
-          <p className="muted">@{favorite.handle}</p>
-          {favorite.bio && <p style={{ marginTop: '0.5rem' }}>{favorite.bio}</p>}
-          <p className="muted" style={{ marginTop: '0.35rem' }}>
-            {favorite.supporterCount} supporters
-          </p>
+      <div className="card">
+        <span className="badge">{fav.verificationStatus || 'profile'}</span>
+        <h1 style={{ marginTop: 8 }}>{fav.displayName}</h1>
+        <p className="muted">@{fav.handle}</p>
+        {fav.bio && <p style={{ marginTop: 8 }}>{fav.bio}</p>}
+        <p className="muted">{fav.supporterCount} supporters</p>
+        <div className="row" style={{ marginTop: 12 }}>
+          <a className="btn btn-ghost" href={`/u/${fav.handle}`}>Fan profile</a>
+          <a className="btn btn-ghost" href="/live">Live</a>
         </div>
       </div>
 
@@ -114,66 +81,39 @@ export default function FavoritePage() {
         <h2>Send a Gift</h2>
         <div className="gift-grid">
           {catalog.map((g) => (
-            <div
+            <button
               key={g.id}
+              type="button"
               className={`gift-item ${selected === g.id ? 'selected' : ''}`}
               onClick={() => setSelected(g.id)}
             >
-              <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>
-                {g.slug === 'heart' ? '❤️' : g.slug === 'clap' ? '👏' : g.slug === 'flame' ? '🔥' : '🎁'}
-              </div>
-              <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{g.name}</div>
-              <div className="muted">{g.tokenCost} tokens</div>
-            </div>
+              <div>{g.name}</div>
+              <div className="muted">{g.tokenCost} tok</div>
+            </button>
           ))}
         </div>
-        <textarea
-          placeholder="Add a message (optional, max 280)"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          maxLength={280}
-          style={{
-            width: '100%',
-            marginTop: '1rem',
-            padding: '0.75rem',
-            borderRadius: 8,
-            border: '1px solid var(--border)',
-            background: 'var(--bg)',
-            color: 'var(--text)',
-            resize: 'vertical',
-            minHeight: 60,
-          }}
-        />
-        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <button className="btn" disabled={!selected || status === 'sending'} onClick={sendGift}>
-            {status === 'sending' ? 'Sending…' : status === 'sent' ? 'Sent ✓' : 'Send Gift'}
-          </button>
-          {status === 'error' && <span style={{ color: '#f87171' }}>{error}</span>}
-        </div>
+        {catalog.length === 0 && <p className="muted">Start API + seed for gift catalog</p>}
+        <label style={{ marginTop: 12 }}>Message</label>
+        <input className="input" value={message} onChange={(e) => setMessage(e.target.value)} maxLength={280} />
+        <button className="btn" type="button" onClick={sendGift} disabled={!selected}>Send Gift</button>
+        {status && <p className="success">{status}</p>}
+        {error && <p className="error">{error}</p>}
       </div>
 
       <div className="card">
-        <h2>Supporter Wall</h2>
-        {supporterWall.recent.length === 0 && (
-          <p className="muted">Be the first to support {favorite.displayName}</p>
-        )}
-        {supporterWall.recent.map((s, i) => (
-          <div
-            key={i}
-            style={{
-              padding: '0.75rem 0',
-              borderBottom: '1px solid var(--border)',
-              display: 'flex',
-              justifyContent: 'space-between',
-            }}
-          >
+        <h2>Supporter wall</h2>
+        {(data.supporterWall?.recent || []).map((g: any, i: number) => (
+          <div key={i} className="list-row">
             <div>
-              <strong>@{s.sender.handle}</strong>
-              {s.message && <p className="muted">{s.message}</p>}
+              <strong>@{g.sender?.handle}</strong>
+              {g.message && <p className="muted">{g.message}</p>}
             </div>
-            <span className="muted">{s.tokenCost} tok</span>
+            <span className="muted">{g.tokenCost} tok</span>
           </div>
         ))}
+        {(data.supporterWall?.recent || []).length === 0 && (
+          <p className="muted">Be the first supporter</p>
+        )}
       </div>
     </div>
   );

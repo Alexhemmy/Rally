@@ -18,8 +18,9 @@ export default function RegisterPage() {
     try {
       const res = await api<{ token: string }>('/api/auth/register', {
         method: 'POST',
+        skipAuth: true,
         body: JSON.stringify(form),
-      });
+      } as any);
       setToken(res.token);
       router.push(form.role === 'FAVORITE' ? '/dashboard' : '/explore');
     } catch (err: any) {

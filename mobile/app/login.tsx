@@ -25,6 +25,7 @@ export default function Login() {
     try {
       const res = await api<{ token: string }>('/api/auth/login', {
         method: 'POST',
+        skipAuth: true,
         body: JSON.stringify({ email, password }),
       });
       setToken(res.token);

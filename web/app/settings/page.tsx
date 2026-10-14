@@ -7,6 +7,7 @@ export default function SettingsPage() {
   return (
     <div>
       <h1>Settings</h1>
+      <p className="muted" style={{ marginBottom: 16 }}>Your session stays active while you use Rally. After 7 days of inactivity you will need to log in again.</p>
       <div className="card stack">
         <h2>Account</h2>
         <label>Interface language</label>

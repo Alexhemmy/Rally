@@ -17,8 +17,9 @@ export default function LoginPage() {
     try {
       const res = await api<{ token: string }>('/api/auth/login', {
         method: 'POST',
+        skipAuth: true,
         body: JSON.stringify({ email, password }),
-      });
+      } as any);
       setToken(res.token);
       router.push('/feed');
     } catch (err: any) {
@@ -31,6 +32,9 @@ export default function LoginPage() {
   return (
     <div className="card" style={{ maxWidth: 400, margin: '0 auto' }}>
       <h1>Log in</h1>
+      <p className="muted" style={{ marginBottom: 16 }}>
+        Session stays valid with activity; after <strong>7 days inactive</strong> you must sign in again.
+      </p>
       <p className="muted" style={{ marginBottom: 16 }}>Demo: ada@rally.demo / password123</p>
       <form onSubmit={onSubmit} className="stack">
         <div>
@@ -45,7 +49,9 @@ export default function LoginPage() {
         <button className="btn" type="submit" disabled={loading}>{loading ? '…' : 'Log in'}</button>
       </form>
       <p className="muted" style={{ marginTop: 12 }}>
-        No account? <a href="/register" style={{ color: 'var(--accent)' }}>Register</a>
+        <a href="/forgot-password" style={{ color: 'var(--primary)' }}>Forgot password?</a>
+        {' · '}
+        <a href="/register" style={{ color: 'var(--primary)' }}>Register</a>
       </p>
     </div>
   );

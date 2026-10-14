@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from './errorHandler';
+import { prisma } from '../utils/prisma';
 
 export interface AuthPayload {
   userId: string;
@@ -8,12 +9,36 @@ export interface AuthPayload {
   roles: string[];
 }
 
+/** 7 days of inactivity → must log in again */
+export const INACTIVITY_MS = 7 * 24 * 60 * 60 * 1000;
+
 declare global {
   namespace Express {
     interface Request {
       user?: AuthPayload;
     }
   }
+}
+
+async function assertActiveSession(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, lastActiveAt: true, handle: true, roles: true },
+  });
+  if (!user) throw new AppError('Authentication required', 401);
+
+  const last = user.lastActiveAt ? new Date(user.lastActiveAt).getTime() : 0;
+  if (Date.now() - last > INACTIVITY_MS) {
+    throw new AppError('Session expired after 7 days of inactivity. Please log in again.', 401);
+  }
+
+  // Sliding activity window
+  await prisma.user.update({
+    where: { id: userId },
+    data: { lastActiveAt: new Date() },
+  });
+
+  return user;
 }
 
 export function authenticate(req: Request, _res: Response, next: NextFunction) {
@@ -26,8 +51,16 @@ export function authenticate(req: Request, _res: Response, next: NextFunction) {
   try {
     const secret = process.env.JWT_SECRET || 'dev-secret';
     const payload = jwt.verify(token, secret) as AuthPayload;
-    req.user = payload;
-    next();
+    assertActiveSession(payload.userId)
+      .then((user) => {
+        req.user = {
+          userId: user.id,
+          handle: user.handle,
+          roles: user.roles as string[],
+        };
+        next();
+      })
+      .catch(next);
   } catch {
     next(new AppError('Invalid or expired token', 401));
   }
@@ -40,11 +73,20 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   }
   try {
     const secret = process.env.JWT_SECRET || 'dev-secret';
-    req.user = jwt.verify(header.slice(7), secret) as AuthPayload;
+    const payload = jwt.verify(header.slice(7), secret) as AuthPayload;
+    assertActiveSession(payload.userId)
+      .then((user) => {
+        req.user = {
+          userId: user.id,
+          handle: user.handle,
+          roles: user.roles as string[],
+        };
+        next();
+      })
+      .catch(() => next());
   } catch {
-    // ignore invalid token for optional auth
+    next();
   }
-  next();
 }
 
 export function requireRole(...roles: string[]) {
