@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, Pressable, TextInput, ActivityIndicator,
+  View, Text, StyleSheet, FlatList, Pressable, TextInput, ActivityIndicator, useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { api } from '@/lib/api';
+import { colors, spacing, radii } from '@/constants/theme';
 
 type CatalogItem = { id: string; slug: string; name: string; tokenCost: number };
 
 export default function FavoriteScreen() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
+  const { width } = useWindowDimensions();
+  const giftW = width < 360 ? (width - 48) / 2 : (width - 56) / 3;
   const [profile, setProfile] = useState<any>(null);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -34,7 +37,6 @@ export default function FavoriteScreen() {
     if (!selected) return;
     setSending(true);
     try {
-      // Token would come from secure storage in production
       await api('/api/gifts/send', {
         method: 'POST',
         body: JSON.stringify({
@@ -55,7 +57,7 @@ export default function FavoriteScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#a78bfa" />
+        <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
@@ -63,7 +65,7 @@ export default function FavoriteScreen() {
   if (!profile) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>{status || 'Not found'}</Text>
+        <Text style={{ color: colors.danger }}>{status || 'Not found'}</Text>
       </View>
     );
   }
@@ -85,7 +87,11 @@ export default function FavoriteScreen() {
             {catalog.map((g) => (
               <Pressable
                 key={g.id}
-                style={[styles.gift, selected === g.id && styles.giftSelected]}
+                style={[
+                  styles.gift,
+                  { width: giftW },
+                  selected === g.id && styles.giftSelected,
+                ]}
                 onPress={() => setSelected(g.id)}
               >
                 <Text style={styles.giftEmoji}>
@@ -100,7 +106,7 @@ export default function FavoriteScreen() {
           <TextInput
             style={styles.input}
             placeholder="Message (optional)"
-            placeholderTextColor="#71717a"
+            placeholderTextColor={colors.muted}
             value={message}
             onChangeText={setMessage}
             maxLength={280}
@@ -133,52 +139,52 @@ export default function FavoriteScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, paddingBottom: 40 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  name: { fontSize: 24, fontWeight: '700', color: '#f4f4f5' },
-  handle: { color: '#a1a1aa', marginBottom: 8 },
-  bio: { color: '#d4d4d8', marginBottom: 4 },
-  meta: { color: '#71717a', marginBottom: 16 },
-  section: { fontSize: 18, fontWeight: '600', color: '#f4f4f5', marginBottom: 12 },
+  container: { padding: spacing.md, paddingBottom: 40 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+  name: { fontSize: 24, fontWeight: '700', color: colors.text },
+  handle: { color: colors.muted, marginBottom: 8 },
+  bio: { color: colors.text, marginBottom: 4 },
+  meta: { color: colors.muted, marginBottom: 16 },
+  section: { fontSize: 18, fontWeight: '600', color: colors.primaryHover, marginBottom: 12 },
   giftRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   gift: {
-    width: 90,
-    backgroundColor: '#16161d',
-    borderRadius: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: '#27272a',
+    borderColor: colors.border,
     padding: 10,
     alignItems: 'center',
   },
-  giftSelected: { borderColor: '#a78bfa' },
+  giftSelected: { borderColor: colors.primary },
   giftEmoji: { fontSize: 22, marginBottom: 4 },
-  giftName: { color: '#f4f4f5', fontSize: 12, fontWeight: '600' },
-  giftCost: { color: '#a1a1aa', fontSize: 11 },
+  giftName: { color: colors.text, fontSize: 12, fontWeight: '600' },
+  giftCost: { color: colors.muted, fontSize: 11 },
   input: {
-    backgroundColor: '#16161d',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#27272a',
-    borderRadius: 8,
+    borderColor: colors.border,
+    borderRadius: radii.md,
     padding: 12,
-    color: '#f4f4f5',
+    color: colors.text,
     marginBottom: 12,
+    minHeight: 48,
   },
   btn: {
-    backgroundColor: '#a78bfa',
+    backgroundColor: colors.primary,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: radii.md,
     alignItems: 'center',
+    minHeight: 48,
   },
   btnDisabled: { opacity: 0.5 },
-  btnText: { color: '#000', fontWeight: '600' },
-  status: { color: '#34d399', marginTop: 8 },
-  error: { color: '#f87171' },
+  btnText: { color: '#04101F', fontWeight: '700' },
+  status: { color: colors.success, marginTop: 8 },
   wallItem: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
+    borderBottomColor: colors.border,
   },
-  wallName: { color: '#f4f4f5', fontWeight: '600' },
-  wallMsg: { color: '#a1a1aa', marginTop: 2 },
-  wallCost: { color: '#71717a', fontSize: 12, marginTop: 2 },
+  wallName: { color: colors.text, fontWeight: '600' },
+  wallMsg: { color: colors.muted, marginTop: 2 },
+  wallCost: { color: colors.muted, fontSize: 12, marginTop: 2 },
 });

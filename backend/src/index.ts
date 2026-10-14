@@ -13,6 +13,7 @@ import { momentsRouter } from './routes/moments';
 import { feedRouter } from './routes/feed';
 import { campaignsRouter } from './routes/campaigns';
 import { notificationsRouter } from './routes/notifications';
+import { providersRouter } from './routes/providers';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -38,6 +39,7 @@ app.use('/api/moments', momentsRouter);
 app.use('/api/feed', feedRouter);
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/providers', providersRouter);
 
 app.use(errorHandler);
 

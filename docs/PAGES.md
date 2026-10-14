@@ -27,17 +27,16 @@
 | 23 | `/notifications` | In-app alerts |
 | 24 | `/rivalries` | Rivalry / banter (P1 surface) |
 | 25 | `/giveaways` | Spend-neutral giveaways (P1 surface) |
+| 26 | `/live` | Live sessions (LiveKit / Agora) |
 
-**Total: 25 pages** (under 30).
+**Total: 26 pages** (under 30).
 
-Dynamic segments (`[handle]`, `[id]`) count as one page template each, not unlimited routes.
+## Theme
 
-## PRD surface coverage (UI + API)
+- Primary: sky blue `#0EA5E9`
+- Secondary: galactic blue `#0B1D3A` / `#1E3A5F`
+- Responsive: mobile-first CSS + RN `useWindowDimensions`
 
-- Accounts, Favorite pages, Tokens/Gifts, Moments, Feed, Wallet
-- Charity campaigns, Rankings narrative, Rivalries, Giveaways
-- Settings, legal, FAQ, how-to, support
-- Backend: auth, users, favorites, tokens, gifts, moments, feed, campaigns, notifications
-- Schema: taxonomy, badges, earnings, payouts, reports, beneficiaries
+## Mobile screens
 
-Full live payment, KYC, live video, and multi-language packs ship via providers/config — models and pages are in place.
+Home, Explore, Feed, Wallet, Login, Settings, Support, How-to-use, Favorite `[handle]` — same palette.
