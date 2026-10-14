@@ -11,6 +11,8 @@ import { giftsRouter } from './routes/gifts';
 import { tokensRouter } from './routes/tokens';
 import { momentsRouter } from './routes/moments';
 import { feedRouter } from './routes/feed';
+import { campaignsRouter } from './routes/campaigns';
+import { notificationsRouter } from './routes/notifications';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -34,6 +36,8 @@ app.use('/api/gifts', giftsRouter);
 app.use('/api/tokens', tokensRouter);
 app.use('/api/moments', momentsRouter);
 app.use('/api/feed', feedRouter);
+app.use('/api/campaigns', campaignsRouter);
+app.use('/api/notifications', notificationsRouter);
 
 app.use(errorHandler);
 

@@ -8,13 +8,23 @@ export async function api<T>(
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...init.headers,
+    ...((init.headers as object) || {}),
   };
-
   const res = await fetch(`${API_URL}${path}`, { ...init, headers });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data?.error?.message || 'Request failed');
-  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as any)?.error?.message || 'Request failed');
   return data as T;
+}
+
+export function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('rally_token');
+}
+
+export function setToken(t: string) {
+  localStorage.setItem('rally_token', t);
+}
+
+export function clearToken() {
+  localStorage.removeItem('rally_token');
 }
