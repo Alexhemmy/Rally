@@ -2,12 +2,36 @@
   "expo": {
     "name": "Rally",
     "slug": "rally",
+    "scheme": "rally",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "rally",
     "userInterfaceStyle": "dark",
-    "ios": { "supportsTablet": true, "bundleIdentifier": "com.rally.app" },
-    "android": { "package": "com.rally.app" },
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#070B14"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.rally.mobile",
+      "associatedDomains": ["applinks:rally.app"]
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0B1D3A"
+      },
+      "package": "app.rally.mobile",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "rally.app", "pathPrefix": "/f" },
+            { "scheme": "rally", "host": "*" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
     "plugins": ["expo-router"]
   }
 }

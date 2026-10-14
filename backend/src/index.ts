@@ -14,7 +14,13 @@ import { feedRouter } from './routes/feed';
 import { campaignsRouter } from './routes/campaigns';
 import { notificationsRouter } from './routes/notifications';
 import { providersRouter } from './routes/providers';
+import { webhooksRouter } from './routes/webhooks';
+import { payoutsRouter } from './routes/payouts';
+import { moderationRouter } from './routes/moderation';
+import { rankingsRouter } from './routes/rankings';
+import { guestRouter } from './routes/guest';
 import { errorHandler } from './middleware/errorHandler';
+import { log } from './utils/logger';
 
 dotenv.config();
 
@@ -40,9 +46,14 @@ app.use('/api/feed', feedRouter);
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/providers', providersRouter);
+app.use('/api/webhooks', webhooksRouter);
+app.use('/api/payouts', payoutsRouter);
+app.use('/api/moderation', moderationRouter);
+app.use('/api/rankings', rankingsRouter);
+app.use('/api/guest', guestRouter);
 
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`Rally API listening on http://localhost:${PORT}`);
+  log('info', 'api_listen', { port: Number(PORT) });
 });

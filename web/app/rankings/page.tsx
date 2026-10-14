@@ -1,27 +1,33 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+
 export default function RankingsPage() {
+  const [rankings, setRankings] = useState<any[]>([]);
+
+  useEffect(() => {
+    api<{ rankings: any[] }>('/api/rankings')
+      .then((r) => setRankings(r.rankings || []))
+      .catch(() => {});
+  }, []);
+
   return (
     <div>
       <h1>Rankings</h1>
       <p className="muted" style={{ marginBottom: 16 }}>
-        By category and country. Rally Score balances reach, growth, loyalty, engagement — not pure spend (PRD §21).
+        Rally Score balances unique supporters, capped gift signal, content, and rising bonus — not pure spend.
       </p>
       <div className="card">
-        <h2>Windows</h2>
-        <div className="row">
-          <span className="badge">Weekly</span>
-          <span className="badge">Monthly</span>
-          <span className="badge">All-time</span>
-          <span className="badge">Rising</span>
-          <span className="badge">Newcomers</span>
-        </div>
-      </div>
-      <div className="card">
-        <h2>Afrobeats · Rising</h2>
-        <div className="list-row">
-          <span>1. @mia</span>
-          <a href="/f/mia">Open</a>
-        </div>
-        <p className="muted">Cohorts: Rising · Established · Legend. Opt-out available for Favorites.</p>
+        {rankings.length === 0 && <p className="muted">No published Favorites yet — seed demo @mia.</p>}
+        {rankings.map((r, i) => (
+          <div key={r.handle} className="list-row">
+            <div>
+              <strong>#{i + 1} @{r.handle}</strong>
+              <p className="muted">{r.cohort} · score {r.score} · {r.supporterCount} supporters</p>
+            </div>
+            <a href={`/f/${r.handle}`}>Open</a>
+          </div>
+        ))}
       </div>
     </div>
   );

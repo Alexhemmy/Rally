@@ -45,10 +45,18 @@ export default function DashboardPage() {
           <h2>Campaigns</h2>
           <p className="muted">Verified charity only</p>
         </div>
-        <div className="card">
+        <a className="card" href="/dashboard/verify" style={{ textDecoration: 'none', color: 'inherit' }}>
           <h2>Verification</h2>
-          <p className="muted">ID + social proof</p>
-        </div>
+          <p className="muted">KYC · Smile / Sumsub</p>
+        </a>
+        <a className="card" href="/dashboard/payouts" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <h2>Payouts</h2>
+          <p className="muted">Bank / mobile money</p>
+        </a>
+        <a className="card" href="/onboarding" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <h2>Onboarding</h2>
+          <p className="muted">Go-live checklist</p>
+        </a>
       </div>
     </div>
   );

@@ -162,3 +162,36 @@ authRouter.get('/me', authenticate, async (req, res, next) => {
     next(err);
   }
 });
+
+// Refresh session — issues new JWT if user still valid
+authRouter.post('/refresh', authenticate, async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+    if (!user) throw new AppError('User not found', 404);
+    const token = signToken({ id: user.id, handle: user.handle, roles: user.roles as string[] });
+    res.json({ token });
+  } catch (err) {
+    next(err);
+  }
+});
+
+authRouter.post('/password-reset/request', async (req, res, next) => {
+  try {
+    const email = z.string().email().parse(req.body.email);
+    // Always 200 — do not leak whether email exists
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'system',
+          title: 'Password reset requested',
+          body: 'Reset link would be emailed in production',
+        },
+      });
+    }
+    res.json({ ok: true, message: 'If the email exists, reset instructions were sent' });
+  } catch (err) {
+    next(err);
+  }
+});
