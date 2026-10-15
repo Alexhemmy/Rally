@@ -61,6 +61,28 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas init --account alexhemmys-team --non-interactive
 
+      # 🛠️ CLOUD OVERWRITE FIX: Forces the workspace to utilize a local APK configuration profile
+      - name: Configure Production APK Profile
+        run: |
+          echo '{
+            "cli": {
+              "appVersionSource": "remote"
+            },
+            "build": {
+              "development": {
+                "developmentClient": true,
+                "distribution": "internal"
+              },
+              "preview": {
+                "distribution": "internal",
+                "android": {
+                  "buildType": "apk"
+                }
+              },
+              "production": {}
+            }
+          }' > eas.json
+
       - name: Build Native Android APK
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
