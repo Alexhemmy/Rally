@@ -19,6 +19,7 @@ jobs:
       - run: npm install
       - run: npx tsc --noEmit || true
       - run: npx prisma validate
+
   web:
     runs-on: ubuntu-latest
     defaults:
@@ -30,7 +31,9 @@ jobs:
         with:
           node-version: "22"
       - run: npm install
-      - run: npx tsc --noEmit ||   # 🤖 BUILD FOR ANDROID (Generates a true native installable APK file)
+      - run: npx tsc --noEmit || true
+
+  # 🤖 BUILD FOR ANDROID (Generates a true native installable APK file)
   mobile-android-apk:
     runs-on: ubuntu-latest
     defaults:
@@ -62,7 +65,6 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build --platform android --profile preview --non-interactive
-
 
   # 🍏 LIVE TUNNEL FOR IPHONE & ANDROID (Instantly loads your code into the Expo Go app)
   mobile-expo-go-tunnel:
