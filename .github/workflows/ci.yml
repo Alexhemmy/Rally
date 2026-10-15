@@ -51,6 +51,13 @@ jobs:
         run: |
           sed -i '/EOF/d' app/\(tabs\)/index.tsx
           sed -i '/echo wrote_index/d' app/\(tabs\)/index.tsx
+      
+      # 🛠️ FIXED STEP: Automatically creates and configs the project on your Expo dashboard
+      - name: Initialize EAS Project Configuration
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas init --account alexhemmys-team --non-interactive
+
       - name: Build Native Android APK
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
