@@ -32,7 +32,8 @@ jobs:
       - run: npm install
       - run: npx tsc --noEmit || true
 
-  mobile-build:
+  # 🤖 BUILD FOR ANDROID (Generates a true native installable APK file)
+  mobile-android-apk:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -42,24 +43,35 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      
       - name: Setup EAS CLI
         run: npm install -g eas-cli
-
       - name: Install Mobile Dependencies
         run: npm install --ignore-scripts
-
-      # 🧹 AUTOMATED HOTFIX: Removes the 'EOF' and 'echo' text breaking your file
       - name: Clean Broken Code in index.tsx
         run: |
           sed -i '/EOF/d' app/\(tabs\)/index.tsx
           sed -i '/echo wrote_index/d' app/\(tabs\)/index.tsx
+      - name: Build Native Android APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --platform android --profile preview --non-interactive
 
-      - name: Build Web App Bundle
-        run: npx expo export
-
-      - name: Upload Converted Web Bundle
-        uses: actions/upload-artifact@v4
+  # 🍏 LIVE TUNNEL FOR IPHONE & ANDROID (Instantly loads your code into the Expo Go app)
+  mobile-expo-go-tunnel:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile 
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          name: converted-mobile-web-app
-          path: mobile/dist
+          node-version: "22"
+      - name: Install Mobile Dependencies
+        run: npm install --ignore-scripts
+      - name: Clean Broken Code in index.tsx
+        run: |
+          sed -i '/EOF/d' app/\(tabs\)/index.tsx
+          sed -i '/echo wrote_index/d' app/\(tabs\)/index.tsx
+      - name: Start Expo Go Cloud Server
+        run: npx expo start --tunnel
