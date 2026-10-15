@@ -30,9 +30,7 @@ jobs:
         with:
           node-version: "22"
       - run: npm install
-      - run: npx tsc --noEmit || true
-
-  # 🤖 BUILD FOR ANDROID (Generates a true native installable APK file)
+      - run: npx tsc --noEmit ||   # 🤖 BUILD FOR ANDROID (Generates a true native installable APK file)
   mobile-android-apk:
     runs-on: ubuntu-latest
     defaults:
@@ -43,16 +41,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      
       - name: Setup EAS CLI
         run: npm install -g eas-cli
+
       - name: Install Mobile Dependencies
         run: npm install --ignore-scripts
+
       - name: Clean Broken Code in index.tsx
         run: |
           sed -i '/EOF/d' app/\(tabs\)/index.tsx
           sed -i '/echo wrote_index/d' app/\(tabs\)/index.tsx
       
-      # 🛠️ FIXED STEP: Automatically creates and configs the project on your Expo dashboard
       - name: Initialize EAS Project Configuration
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -62,6 +62,7 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build --platform android --profile preview --non-interactive
+
 
   # 🍏 LIVE TUNNEL FOR IPHONE & ANDROID (Instantly loads your code into the Expo Go app)
   mobile-expo-go-tunnel:
