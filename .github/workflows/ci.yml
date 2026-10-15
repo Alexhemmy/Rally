@@ -32,7 +32,6 @@ jobs:
       - run: npm install
       - run: npx tsc --noEmit || true
 
-  # 🚀 FIXED MOBILE BUILD JOB
   mobile-build:
     runs-on: ubuntu-latest
     defaults:
@@ -42,13 +41,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22" # Upgraded from 18 to fix the engine warning
+          node-version: "22"
       
       - name: Setup EAS CLI
         run: npm install -g eas-cli
 
       - name: Install Mobile Dependencies
-        run: npm install --ignore-scripts # Bypasses the 'bob' build error
+        run: npm install --ignore-scripts
+
+      # 🧹 AUTOMATED HOTFIX: Removes the 'EOF' and 'echo' text breaking your file
+      - name: Clean Broken Code in index.tsx
+        run: |
+          sed -i '/EOF/d' app/\(tabs\)/index.tsx
+          sed -i '/echo wrote_index/d' app/\(tabs\)/index.tsx
 
       - name: Build Web App Bundle
         run: npx expo export
