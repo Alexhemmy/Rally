@@ -31,3 +31,30 @@ jobs:
           node-version: "22"
       - run: npm install
       - run: npx tsc --noEmit || true
+
+  # 🚀 CONVERT AND BUILD MOBILE APP
+  mobile-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile 
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+      
+      - name: Setup EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Install Mobile Dependencies
+        run: npm install
+
+      - name: Build Web App Bundle
+        run: npx expo export
+
+      - name: Upload Converted Web Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: converted-mobile-web-app
+          path: mobile/dist
