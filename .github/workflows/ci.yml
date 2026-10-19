@@ -3,70 +3,118 @@ on:
   push:
     branches: [main]
   pull_request:
+
 jobs:
   backend:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: backend/package.json
-      - run: npm install
-      - run: npx tsc --noEmit || true
-      - run: npx prisma validate
+          # NOTE: no npm cache until backend/package-lock.json is committed —
+          # cache-dependency-path must point at a lockfile or this job fails.
+      - name: Install dependencies
+        run: npm install
+      - name: Generate Prisma client (needed before typecheck)
+        run: npx prisma generate
+      - name: Typecheck (report-only until all legacy routes are strict)
+        run: npx tsc --noEmit || true
+      - name: Validate Prisma schema
+        run: npx prisma validate --schema prisma/schema.prisma
 
   web:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: web
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
       - run: npm install
-      - run: npx tsc --noEmit || true
+      - name: Typecheck (report-only)
+        run: npx tsc --noEmit || true
 
-  # 🤖 BUILD FOR ANDROID (Generates a true native installable APK file)
-  mobile-android-apk:
+  # 📦 BUNDLE SMOKE CHECK — verifies every screen actually compiles and
+  # resolves (replaces the old expo-start-tunnel job, which hung forever
+  # in CI because a dev server never exits).
+  mobile-bundle:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mobile 
+        working-directory: mobile
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      
+      - name: Install Mobile Dependencies
+        run: npm install --ignore-scripts
+      - name: Bundle the app (Metro export — fails on any broken screen)
+        run: npx expo export --platform android --output-dir dist-check --non-interactive
+        env:
+          CI: "1"
+      - name: Upload bundle artifact (debug aid)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-android-bundle
+          path: mobile/dist-check
+          retention-days: 3
+
+  # 🤖 BUILD FOR ANDROID (true native installable APK via EAS cloud)
+  # Skips cleanly when EXPO_TOKEN is not configured instead of failing red.
+  mobile-android-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Setup EAS CLI
         run: npm install -g eas-cli
 
       - name: Install Mobile Dependencies
         run: npm install
 
-      - name: Clean Broken Code in index.tsx
+      - name: Check EXPO_TOKEN is available
+        id: token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          sed -i '/EOF/d' app/\(tabs\)/index.tsx
-          sed -i '/echo wrote_index/d' app/\(tabs\)/index.tsx
-      
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "EXPO_TOKEN secret is not set — skipping EAS cloud build."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Initialize EAS Project Configuration
+        if: steps.token.outputs.available == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas init --account alexhemmys-team --non-interactive
 
-      # 🛠️ CLOUD OVERWRITE FIX: Forces the workspace to utilize a local APK configuration profile
+      # Local APK profile (appVersionSource stays local to avoid remote-versioning conflicts)
       - name: Configure Production APK Profile
         run: |
-          echo '{
+          cat > eas.json << 'EOF'
+          {
             "cli": {
-              "appVersionSource": "remote"
+              "version": ">= 9.0.0"
             },
             "build": {
               "development": {
@@ -81,29 +129,12 @@ jobs:
               },
               "production": {}
             }
-          }' > eas.json
+          }
+          EOF
 
       - name: Build Native Android APK
+        if: steps.token.outputs.available == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --platform android --profile preview --non-interactive
-
-  # 🍏 LIVE TUNNEL FOR IPHONE & ANDROID (Instantly loads your code into the Expo Go app)
-  mobile-expo-go-tunnel:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mobile 
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Install Mobile Dependencies
-        run: npm install --ignore-scripts
-      - name: Clean Broken Code in index.tsx
-        run: |
-          sed -i '/EOF/d' app/\(tabs\)/index.tsx
-          sed -i '/echo wrote_index/d' app/\(tabs\)/index.tsx
-      - name: Start Expo Go Cloud Server
-        run: npx expo start --tunnel
+          CI: "1"
+        run: eas build --platform android --profile preview --non-interactive --no-wait
