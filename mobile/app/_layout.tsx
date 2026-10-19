@@ -25,7 +25,11 @@ export default function RootLayout() {
         <Stack.Screen name="campaigns/index" options={{ title: 'Campaigns' }} />
         <Stack.Screen name="campaigns/[id]" options={{ title: 'Campaign' }} />
         <Stack.Screen name="rankings/index" options={{ title: 'Rankings' }} />
+        <Stack.Screen name="cityrankings" options={{ title: 'City rankings' }} />
         <Stack.Screen name="live/index" options={{ title: 'Live' }} />
+        <Stack.Screen name="merch" options={{ title: 'Merch' }} />
+        <Stack.Screen name="predictions" options={{ title: 'Predictions' }} />
+        <Stack.Screen name="junior" options={{ title: 'Junior Favorite' }} />
         <Stack.Screen name="dashboard/index" options={{ title: 'Dashboard' }} />
         <Stack.Screen name="dashboard/earnings/index" options={{ title: 'Earnings' }} />
         <Stack.Screen name="dashboard/payouts/index" options={{ title: 'Payouts' }} />

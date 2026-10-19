@@ -24,14 +24,18 @@ export default function HomeTab() {
   const links = [
     { href: '/search', label: 'Search' },
     { href: '/rankings', label: 'Rankings' },
+    { href: '/cityrankings', label: 'City lanes' },
     { href: '/campaigns', label: 'Campaigns' },
     { href: '/rivalries', label: 'Rivalries' },
     { href: '/giveaways', label: 'Giveaways' },
     { href: '/store', label: 'Store' },
+    { href: '/merch', label: 'Merch' },
+    { href: '/predictions', label: 'Predictions' },
     { href: '/subscriptions', label: 'Fan Clubs' },
     { href: '/fangifts', label: 'Fan Gifts' },
     { href: '/collections', label: 'Collections' },
     { href: '/live', label: 'Live' },
+    { href: '/junior', label: 'Junior Favorites' },
   ];
 
   return (
@@ -114,5 +118,3 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
 });
-EOF
-echo wrote_index
