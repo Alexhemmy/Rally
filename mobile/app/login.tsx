@@ -18,15 +18,46 @@ export default function Login() {
   const [password, setPassword] = useState('password123');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  // P3: two-factor challenge
+  const [challenge, setChallenge] = useState<string | null>(null);
+  const [code, setCode] = useState('');
 
   async function submit() {
     setLoading(true);
     setErr('');
     try {
-      const res = await api<{ token: string }>('/api/auth/login', {
+      const res = await api<
+        { token: string } & { twoFactorRequired?: boolean; challengeToken?: string }
+      >('/api/auth/login', {
         method: 'POST',
         skipAuth: true,
         body: JSON.stringify({ email, password }),
+      });
+      if (res.twoFactorRequired && res.challengeToken) {
+        setChallenge(res.challengeToken);
+        return;
+      }
+      setToken(res.token);
+      success();
+      impact('success');
+      router.replace('/');
+    } catch (e: any) {
+      error();
+      impact('error');
+      setErr(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function verify2fa() {
+    setLoading(true);
+    setErr('');
+    try {
+      const res = await api<{ token: string }>('/api/auth/login/2fa', {
+        method: 'POST',
+        skipAuth: true,
+        body: JSON.stringify({ challengeToken: challenge, code }),
       });
       setToken(res.token);
       success();
@@ -39,6 +70,35 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (challenge) {
+    return (
+      <SwipeBack pullDown>
+        <Screen scroll>
+          <Text style={styles.hint}>Pull down to dismiss</Text>
+          <Text style={styles.h1}>Two-factor check</Text>
+          <Text style={styles.muted}>
+            Enter the 6-digit code from your authenticator app, or one recovery code (works once).
+          </Text>
+          <SoundTextInput
+            style={styles.input}
+            value={code}
+            onChangeText={setCode}
+            placeholder="123456"
+            keyboardType="number-pad"
+            placeholderTextColor={colors.muted}
+          />
+          {!!err && <Text style={styles.error}>{err}</Text>}
+          <PrimaryButton label="Verify" onPress={verify2fa} loading={loading} />
+          <PrimaryButton
+            label="Back"
+            variant="ghost"
+            onPress={() => { setChallenge(null); setCode(''); }}
+          />
+        </Screen>
+      </SwipeBack>
+    );
   }
 
   return (
@@ -70,6 +130,9 @@ export default function Login() {
           <Text style={styles.link} onPress={() => router.push('/forgot-password')}>Forgot password?</Text>
           {' · '}
           <Text style={styles.link} onPress={() => router.push('/register')}>Register</Text>
+        </Text>
+        <Text style={styles.muted}>
+          Rally never asks for your password or a code in a message.
         </Text>
       </Screen>
     </SwipeBack>

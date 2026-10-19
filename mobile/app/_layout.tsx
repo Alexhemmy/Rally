@@ -30,6 +30,7 @@ export default function RootLayout() {
         <Stack.Screen name="merch" options={{ title: 'Merch' }} />
         <Stack.Screen name="predictions" options={{ title: 'Predictions' }} />
         <Stack.Screen name="junior" options={{ title: 'Junior Favorite' }} />
+        <Stack.Screen name="security" options={{ title: 'Security' }} />
         <Stack.Screen name="dashboard/index" options={{ title: 'Dashboard' }} />
         <Stack.Screen name="dashboard/earnings/index" options={{ title: 'Earnings' }} />
         <Stack.Screen name="dashboard/payouts/index" options={{ title: 'Payouts' }} />

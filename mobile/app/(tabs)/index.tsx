@@ -36,6 +36,7 @@ export default function HomeTab() {
     { href: '/collections', label: 'Collections' },
     { href: '/live', label: 'Live' },
     { href: '/junior', label: 'Junior Favorites' },
+    { href: '/security', label: 'Security' },
   ];
 
   return (
