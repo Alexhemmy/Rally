@@ -59,7 +59,7 @@ giftsRouter.post('/send', authenticate, enforceMinorLimits, async (req, res, nex
     const wallet = await prisma.tokenWallet.findUnique({
       where: { userId: req.user!.userId },
     });
-    if (!wallet || wallet.balance < catalogItem.tokenCost) {
+    if (!wallet || wallet.balance + wallet.giftedBalance < catalogItem.tokenCost) {
       throw new AppError('Insufficient tokens', 402);
     }
 
@@ -68,16 +68,36 @@ giftsRouter.post('/send', authenticate, enforceMinorLimits, async (req, res, nex
     const giftPoints = catalogItem.tokenCost * giftPointsRate;
 
     const gift = await prisma.$transaction(async (tx) => {
-      // Atomic balance guard: only decrement if the balance still covers the cost.
-      const debited = await tx.tokenWallet.updateMany({
-        where: {
-          userId: req.user!.userId,
-          balance: { gte: catalogItem.tokenCost },
-        },
-        data: { balance: { decrement: catalogItem.tokenCost } },
-      });
-      if (debited.count === 0) {
-        throw new AppError('Insufficient tokens', 402);
+      // FFG-7: fan-gifted tokens (giftedBalance) are spent FIRST, then balance.
+      const cost = catalogItem.tokenCost;
+      const fromGifted = Math.min(wallet.giftedBalance, cost);
+      const fromBalance = cost - fromGifted;
+
+      if (fromGifted > 0) {
+        const debitedGifted = await tx.tokenWallet.updateMany({
+          where: {
+            userId: req.user!.userId,
+            giftedBalance: { gte: fromGifted },
+          },
+          data: { giftedBalance: { decrement: fromGifted } },
+        });
+        if (debitedGifted.count === 0) {
+          throw new AppError('Insufficient tokens', 402);
+        }
+      }
+
+      // Atomic balance guard: only decrement if the balance still covers the remainder.
+      if (fromBalance > 0) {
+        const debited = await tx.tokenWallet.updateMany({
+          where: {
+            userId: req.user!.userId,
+            balance: { gte: fromBalance },
+          },
+          data: { balance: { decrement: fromBalance } },
+        });
+        if (debited.count === 0) {
+          throw new AppError('Insufficient tokens', 402);
+        }
       }
 
       const g = await tx.gift.create({
@@ -135,9 +155,7 @@ giftsRouter.post('/send', authenticate, enforceMinorLimits, async (req, res, nex
           level: 'bronze',
           cumulative: giftPoints,
         },
-        update: {
-          cumulative: { increment: giftPoints },
-        },
+        update: { cumulative: { increment: giftPoints } },
       });
 
       return g;
@@ -159,7 +177,7 @@ giftsRouter.post('/send', authenticate, enforceMinorLimits, async (req, res, nex
         type: 'gift_received',
         title: data.isAnonymous
           ? 'Anonymous Fan sent you a gift'
-          : `@${req.user!.handle} sent you a gift`,
+          : '@' + req.user!.handle + ' sent you a gift',
         body: data.message || undefined,
         data: { giftId: gift.id, tokenCost: catalogItem.tokenCost },
       },
