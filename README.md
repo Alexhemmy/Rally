@@ -128,3 +128,29 @@ npx expo start
 3. Wire real payment providers (keys already read from env: `PAYSTACK_SECRET_KEY`, `FLUTTERWAVE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`)
 4. Phone OTP (Twilio/termii) + Google/Apple login to finish ACC-1
 5. Phase 2 per roadmap: subscriptions, fan upgrade path, giveaways, rivalries
+
+---
+
+## Phase 2 (P1) API — shipped
+
+| Area | Base path | PRD refs | Highlights |
+| --- | --- | --- | --- |
+| Giveaways | `/api/giveaways` | GVW-1..7 | Non-monetary fan scores (activeness/dedication/passion, no spend data), percentile composite C, weight W = 1 + 4C, seeded weighted draw without replacement, seedHash committed at announce / seed revealed at draw, 3% platform fee, 14d account + 7d follow eligibility, minors blocked, score bands only (never exact scores) |
+| Fan-to-Fan Gifting | `/api/fangifts` | FFG-1..8 | Cosmetic fan gifts, escrowed Token transfers (72h accept window, recoverable), decline refunds, gifted tokens land in restricted giftedBalance, minors blocked, verified phone required for token gifts, daily send limit |
+| Gift spend order | `/api/gifts` | FFG-7 | Fan-gifted tokens are spent FIRST, then purchased balance (atomic guards) |
+| Fan Upgrade Path | `/api/upgrades` | UPG-1..5 | Non-monetary progress signals (account age, verified+18, 10 published, 100 followers, 50 engagers/60d, no strikes), application with declared links, admin approve/conditional/reject, 30-day probation on upgrade |
+| Fan Club Subscriptions | `/api/subscriptions` | SUB-1/2/6 | Max 5 tiers per Favorite, perks, mock payment (wire Stripe/Paystack), subscribe/cancel/pause, ~10% platform fee to Earning |
+| Store & Commissions | `/api/store` | SUB-3..5 | Item CRUD, orders with delivery window + due date, delivery proof makes Earning available, auto-refund on missed window, buyer library; store services never exchangeable for Gifts |
+| Fan Moments | `/api/fanmoments` | MOM-4 | Fans submit (type FAN, unapproved), Favorite/moderator approval queue, approve/hide/feature, fan credited on approval |
+| Collections | `/api/collections` | MOM-5 | CRUD, add/remove Moments, private/public, shareable public view |
+| Leaderboards | `/api/leaderboards` | REC-3 | Weekly/monthly/all-time per-Favorite supporter boards; anonymous fans appear as Anonymous Fan with rank only |
+| Team Roles | `/api/team` | ACC-7 | Invite manager/moderator with scoped permissions, per-member audit log, update/remove |
+| Rivalries | `/api/rivalries` | RIV-1..6 | Admin-documented sourced rivalries (neutral page always), interactive face-offs only when BOTH rivals opt in, Beef Radar heat 1..5, one vote per user, minors blocked from voting |
+
+### Deployment TODOs
+
+- Payments: replace the mock charge in `subscriptions.ts` / `store.ts` with Stripe/Paystack + webhook verification.
+- Giveaway seed storage: keep the secret seed in a vault/KMS rather than process memory for multi-instance deployments.
+- Push/email adapters: set `PUSH_ADAPTER=fcm`, `EMAIL_ADAPTER=ses|resend` and wire providers in `services/notifications.ts`.
+- SMS: set `SMS_PROVIDER=twilio|termii` and wire `services/otp.ts`.
+- Face-off votes: migrate the one-vote marker to a dedicated `FaceOffVote` table before production load.

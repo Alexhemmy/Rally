@@ -20,6 +20,17 @@ import { moderationRouter } from './routes/moderation';
 import { rankingsRouter } from './routes/rankings';
 import { guestRouter } from './routes/guest';
 import { discoverRouter } from './routes/discover';
+// P1 (Phase 2) routers
+import { giveawaysRouter } from './routes/giveaways';
+import { fangiftsRouter } from './routes/fangifts';
+import { upgradesRouter } from './routes/upgrades';
+import { subscriptionsRouter } from './routes/subscriptions';
+import { storeRouter } from './routes/store';
+import { fanmomentsRouter } from './routes/fanmoments';
+import { collectionsRouter } from './routes/collections';
+import { leaderboardsRouter } from './routes/leaderboards';
+import { teamRouter } from './routes/team';
+import { rivalriesRouter } from './routes/rivalries';
 import { errorHandler } from './middleware/errorHandler';
 import { log } from './utils/logger';
 
@@ -37,13 +48,13 @@ app.use(express.json({
   limit: '2mb',
   verify: (req: any, _res, buf) => {
     if (req.originalUrl?.startsWith('/api/webhooks')) {
-      req.rawBody = buf.toString('utf8');
+      req.rawBody = buf.toString('utf-8');
     }
   },
 }));
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'rally-api', version: '1.0.0' });
+  res.json({ status: 'ok', service: 'rally-api', version: '2.0.0' });
 });
 
 app.use('/api/auth', authRouter);
@@ -62,6 +73,18 @@ app.use('/api/moderation', moderationRouter);
 app.use('/api/rankings', rankingsRouter);
 app.use('/api/guest', guestRouter);
 app.use('/api/discover', discoverRouter);
+
+// P1 (Phase 2) routes
+app.use('/api/giveaways', giveawaysRouter); // GVW
+app.use('/api/fangifts', fangiftsRouter); // FFG
+app.use('/api/upgrades', upgradesRouter); // UPG
+app.use('/api/subscriptions', subscriptionsRouter); // SUB-1/2/6
+app.use('/api/store', storeRouter); // SUB-3..5
+app.use('/api/fanmoments', fanmomentsRouter); // MOM-4
+app.use('/api/collections', collectionsRouter); // MOM-5
+app.use('/api/leaderboards', leaderboardsRouter); // REC-3
+app.use('/api/team', teamRouter); // ACC-7
+app.use('/api/rivalries', rivalriesRouter); // RIV
 
 app.use(errorHandler);
 
