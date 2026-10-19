@@ -1,0 +1,52 @@
+name: Lockfiles
+
+# Permanent fix for dependency drift: whenever package.json changes,
+# resolve and commit package-lock.json for both backend and mobile.
+# EAS and CI then install from the lockfile (reproducible) instead of
+# re-resolving against the live npm registry on every build.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/package.json'
+      - 'backend/package.json'
+      - '.github/workflows/lockfiles.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lockfiles
+  cancel-in-progress: true
+
+jobs:
+  lock:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate mobile package-lock.json
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+        working-directory: mobile
+
+      - name: Generate backend package-lock.json
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+        working-directory: backend
+
+      - name: Commit lockfiles if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/package-lock.json backend/package-lock.json
+          if git diff --cached --quiet; then
+            echo "Lockfiles already up to date — nothing to commit."
+          else
+            git commit -m "chore: update package-lock.json files [skip ci]"
+            git push
+            echo "Lockfiles committed."
+          fi
