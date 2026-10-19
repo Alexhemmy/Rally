@@ -42,6 +42,8 @@ model User {
   contentLanguages  String[]           @default(["en"])
   countryCode       String?
   isMinor           Boolean            @default(false)
+  city              String?            // Phase 3: city ranking lanes (RNK)
+  region            String?            // Phase 3: region ranking lanes
   roles             UserRole[]         @default([FAN])
   verificationStatus VerificationStatus @default(UNVERIFIED)
   phoneVerifiedAt   DateTime?           // ACC-1: verified phone before first Token purchase
@@ -118,6 +120,9 @@ model FavoriteProfile {
   cohort              String             @default("rising") // rising, established, legend (RNK-6)
   showInRankings      Boolean            @default(true)     // RNK-6: opt out of public ranking
   probationEndsAt    DateTime?           // UPG-5: 30-day probation for upgraded fans
+  isJunior           Boolean            @default(false) // Phase 3: Junior Favorite (UPG-7), no payouts
+  city               String?            // Phase 3: city/region lane (RNK)
+  region             String?            // Phase 3
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -241,6 +246,7 @@ model Gift {
   momentId        String?
   moment          Moment?          @relation(fields: [momentId], references: [id])
   postId          String?
+  sessionId       String?  // live session gift (GFT-10)
   status          String           @default("completed") // completed, held, refunded
   createdAt       DateTime         @default(now())
 
@@ -354,6 +360,10 @@ model Giveaway {
   seedRevealed      String?
   publicRandom      String?
   countryFilter     String?
+  prizeKind         String             @default("cash") // cash | tokens (Q33 Phase 3, with controls)
+  tokenPrize        Int                @default(0) // tokens per winner when prizeKind=tokens
+  sponsorId         String?            // Phase 3: brand-sponsored giveaway
+  sponsorLabel      String?            // clear labeling on the giveaway page
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -703,4 +713,154 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, isRead])
+}
+
+// ─── Phase 3 (P2) ───────────────────────────────────────────────────────────
+
+// UPG-7: guardian-consent Junior Favorite program (16-17), no payouts.
+model JuniorFavorite {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  guardianName     String
+  guardianPhone    String
+  guardianEmail    String?
+  consentCodeHash  String
+  consentAt       DateTime?
+  status           String    @default("pending") // pending, consented, approved, rejected, revoked
+  favoriteId       String?
+  reviewedBy       String?
+  note             String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status])
+}
+
+// Brand partnerships: sponsor KYB, escrowed token prize pool.
+model BrandSponsor {
+  id           String   @id @default(uuid())
+  name         String
+  contactEmail String
+  countryCode  String   @default("NG")
+  kybDocs      Json?
+  kybStatus    String   @default("pending") // pending, approved, rejected
+  tokenEscrow  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Live audio/video sessions (GFT-10).
+model LiveSession {
+  id          String    @id @default(uuid())
+  favoriteId  String
+  title       String
+  kind        String    @default("audio") // audio | video
+  status      String    @default("scheduled") // scheduled, live, paused, ended
+  streamUrl   String?
+  isPaused    Boolean   @default(false)
+  viewerCount Int       @default(0)
+  startsAt    DateTime?
+  startedAt   DateTime?
+  endedAt     DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([favoriteId, status])
+  @@index([status, createdAt])
+}
+
+model LiveAttendance {
+  id        String   @id @default(uuid())
+  sessionId String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  @@unique([sessionId, userId])
+}
+
+// Merch partners & fulfillment.
+model MerchPartner {
+  id        String   @id @default(uuid())
+  name      String
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+}
+
+model MerchItem {
+  id                   String   @id @default(uuid())
+  favoriteId           String
+  title                String
+  description          String?
+  imageUrl             String?
+  priceCents           Int
+  currency             String   @default("USD")
+  variants             Json?
+  deliveryWindowDays   Int      @default(14)
+  fulfillmentPartnerId String?
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+}
+
+model MerchOrder {
+  id              String   @id @default(uuid())
+  itemId          String
+  favoriteId      String
+  buyerId         String
+  amountCents     Int
+  currency        String   @default("USD")
+  platformFee     Decimal  @default(0) @db.Decimal(10, 2)
+  shippingAddress Json
+  status          String   @default("paid") // paid, shipped, delivered, refunded, cancelled
+  trackingCode    String?
+  dueAt           DateTime
+  fulfilledAt     DateTime?
+  deliveredAt     DateTime?
+  refundedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([buyerId])
+  @@index([favoriteId, status])
+}
+
+// Predictions with prizes where legal.
+model Prediction {
+  id          String    @id @default(uuid())
+  favoriteAId String
+  favoriteBId String
+  question    String
+  closesAt    DateTime
+  outcome     String?
+  prizeKind   String    @default("none") // none | tokens
+  tokenPrize  Int       @default(0)
+  countryCode String?
+  status      String    @default("open") // open, settled
+  createdAt   DateTime  @default(now())
+  settledAt   DateTime?
+
+  @@index([status, closesAt])
+}
+
+model PredictionEntry {
+  id           String   @id @default(uuid())
+  predictionId String
+  userId       String
+  choice       String
+  isCorrect    Boolean?
+  prizeAwarded Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@unique([predictionId, userId])
+}
+
+// City and region ranking lanes (RNK, Phase 3) — monthly snapshots.
+model CityRankingSnapshot {
+  id          String   @id @default(uuid())
+  city        String
+  region      String?
+  periodStart DateTime
+  favoriteId  String
+  rank        Int
+  score       Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now())
+
+  @@index([city, periodStart])
 }

@@ -81,7 +81,8 @@ giveawaysRouter.post('/', authenticate, async (req, res, next) => {
     if (data.entryClosesAt <= data.entryOpensAt) {
       throw new AppError('Entry close must be after entry open');
     }
-    await requireFavoriteOwner(data.favoriteId, req.user!.userId, req.user!.roles);
+    const owningFav = await requireFavoriteOwner(data.favoriteId, req.user!.userId, req.user!.roles);
+    if (owningFav.isJunior) throw new AppError('Junior Favorites cannot run giveaways (UPG-7)', 403);
 
     const fee = data.poolAmount * PLATFORM_FEE_RATE;
     const giveaway = await prisma.giveaway.create({

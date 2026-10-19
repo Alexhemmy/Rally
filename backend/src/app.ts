@@ -30,11 +30,19 @@ import { collectionsRouter } from './routes/collections';
 import { leaderboardsRouter } from './routes/leaderboards';
 import { teamRouter } from './routes/team';
 import { rivalriesRouter } from './routes/rivalries';
+// P2 (Phase 3) routers
+import { juniorRouter } from './routes/junior';
+import { sponsorsRouter } from './routes/sponsors';
+import { liveRouter } from './routes/live';
+import { merchRouter } from './routes/merch';
+import { predictionsRouter } from './routes/predictions';
+import { cityRankingsRouter } from './routes/cityrankings';
+import { publicApiRouter } from './routes/publicapi';
 import { errorHandler } from './middleware/errorHandler';
 
 /**
  * Express app factory — separated from listen() so integration tests
- * (tests/p1.test.ts) can import the app without binding a port.
+ * can import the app without binding a port.
  */
 export function buildApp() {
   const app = express();
@@ -42,8 +50,6 @@ export function buildApp() {
   app.use(helmet());
   app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
   app.use(morgan(process.env.NODE_ENV === 'test' ? 'silent' : 'dev'));
-  // Capture the raw body for webhook endpoints so provider signatures
-  // (computed over the exact bytes sent) can be verified correctly.
   app.use(express.json({
     limit: '2mb',
     verify: (req: any, _res, buf) => {
@@ -54,7 +60,7 @@ export function buildApp() {
   }));
 
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', service: 'rally-api', version: '2.0.0' });
+    res.json({ status: 'ok', service: 'rally-api', version: '3.0.0' });
   });
 
   app.use('/api/auth', authRouter);
@@ -85,6 +91,15 @@ export function buildApp() {
   app.use('/api/leaderboards', leaderboardsRouter);
   app.use('/api/team', teamRouter);
   app.use('/api/rivalries', rivalriesRouter);
+
+  // P2 (Phase 3) routes
+  app.use('/api/junior', juniorRouter);
+  app.use('/api/sponsors', sponsorsRouter);
+  app.use('/api/live', liveRouter);
+  app.use('/api/merch', merchRouter);
+  app.use('/api/predictions', predictionsRouter);
+  app.use('/api/city-rankings', cityRankingsRouter);
+  app.use('/api/public', publicApiRouter);
 
   app.use(errorHandler);
   return app;

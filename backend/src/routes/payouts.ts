@@ -38,6 +38,9 @@ payoutsRouter.post('/request', authenticate, async (req, res, next) => {
     if (profile.verificationStatus !== 'VERIFIED') {
       throw new AppError('Complete KYC verification before payouts', 403);
     }
+    if (profile.isJunior) {
+      throw new AppError('Junior Favorites cannot receive payouts (UPG-7)', 403);
+    }
 
     const fee = data.onDemand ? data.amount * 0.02 : 0;
     const payout = await prisma.$transaction(async (tx) => {
