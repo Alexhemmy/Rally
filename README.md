@@ -108,10 +108,10 @@ npx expo start
 - [x] Rankings with Rally Score (cohorts, non-monetary) — 7.13
 - [x] i18n: message files, translation endpoint, source-language fields — LNG-1..3
 - [x] Payment provider layer + signed webhooks (Paystack, Flutterwave, Stripe) — 11
-- [ ] Phone OTP + Google/Apple social login wiring — ACC-1
+- [x] Phone OTP + Google/Apple social login wiring — ACC-1 (routes + service shipped; wire real SMS/JWKS providers)
 - [ ] Push/email notification delivery (models + API in place) — NTF-1/2
 - [ ] Real KYC provider — GFT-13
-- [ ] Subscriptions, store, giveaways, rivalries, fan-to-fan gifts — Phase 2 (P1)
+- [x] Subscriptions, store, giveaways, rivalries, fan-to-fan gifts — Phase 2 (P1) (see P1 table below)
 
 ## Architecture Notes
 
