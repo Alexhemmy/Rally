@@ -19,6 +19,7 @@ import { payoutsRouter } from './routes/payouts';
 import { moderationRouter } from './routes/moderation';
 import { rankingsRouter } from './routes/rankings';
 import { guestRouter } from './routes/guest';
+import { discoverRouter } from './routes/discover';
 import { errorHandler } from './middleware/errorHandler';
 import { log } from './utils/logger';
 
@@ -60,6 +61,7 @@ app.use('/api/payouts', payoutsRouter);
 app.use('/api/moderation', moderationRouter);
 app.use('/api/rankings', rankingsRouter);
 app.use('/api/guest', guestRouter);
+app.use('/api/discover', discoverRouter);
 
 app.use(errorHandler);
 

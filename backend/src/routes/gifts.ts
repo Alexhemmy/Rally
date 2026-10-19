@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../utils/prisma';
 import { authenticate, optionalAuth } from '../middleware/auth';
 import { enforceMinorLimits } from '../middleware/minors';
+import { awardAutomatedBadges } from '../services/badges';
 import { AppError } from '../middleware/errorHandler';
 
 export const giftsRouter = Router();
@@ -44,6 +45,9 @@ giftsRouter.post('/send', authenticate, enforceMinorLimits, async (req, res, nex
     if (!favoriteUser?.favoriteProfile) {
       throw new AppError('Favorite not found', 404);
     }
+    if (favoriteUser.id === req.user!.userId) {
+      throw new AppError('Cannot send a Gift to yourself'); // ROL-3: no self-gifting
+    }
 
     const catalogItem = await prisma.giftCatalogItem.findUnique({
       where: { id: data.catalogItemId },
@@ -59,7 +63,7 @@ giftsRouter.post('/send', authenticate, enforceMinorLimits, async (req, res, nex
       throw new AppError('Insufficient tokens', 402);
     }
 
-    // Gift Points: target ~60% of token value (configurable later)
+    // Gift Points: target ~60% of token value (PRD GFT-4, configurable later)
     const giftPointsRate = 0.6;
     const giftPoints = catalogItem.tokenCost * giftPointsRate;
 
@@ -117,7 +121,7 @@ giftsRouter.post('/send', authenticate, enforceMinorLimits, async (req, res, nex
         });
       }
 
-      // Upsert supporter level
+      // Upsert supporter level (REC-2)
       await tx.supporterLevel.upsert({
         where: {
           favoriteId_userId: {
@@ -137,6 +141,15 @@ giftsRouter.post('/send', authenticate, enforceMinorLimits, async (req, res, nex
       });
 
       return g;
+    });
+
+    // REC-1: automated badges (best-effort, never blocks the gift)
+    await awardAutomatedBadges({
+      senderId: req.user!.userId,
+      senderHandle: req.user!.handle,
+      favoriteId: favoriteUser.favoriteProfile!.id,
+      favoriteOwnerId: favoriteUser.id,
+      favoriteCreatedAt: favoriteUser.favoriteProfile!.createdAt,
     });
 
     // Notify Favorite (fire-and-forget style)
