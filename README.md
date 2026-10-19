@@ -154,3 +154,20 @@ npx expo start
 - Push/email adapters: set `PUSH_ADAPTER=fcm`, `EMAIL_ADAPTER=ses|resend` and wire providers in `services/notifications.ts`.
 - SMS: set `SMS_PROVIDER=twilio|termii` and wire `services/otp.ts`.
 - Face-off votes: migrate the one-vote marker to a dedicated `FaceOffVote` table before production load.
+
+## Tests
+
+Backend tests use Vitest + Supertest against your local Postgres:
+
+```bash
+cd backend
+npm install
+cp .env.example .env        # set DATABASE_URL + JWT_SECRET
+npx prisma migrate dev      # (or db push for a scratch DB)
+npm test
+```
+
+- `tests/giveaway-engine.test.ts` — pure unit tests for the GVW weighted draw (determinism, no-replacement, weight bounds, score bands).
+- `tests/p1.test.ts` — integration flows for every Phase 2 feature: FFG escrow, GVW lifecycle with seed reveal, UPG gates, SUB tier caps + fees, store delivery/auto-refund, fan-moment approval, collections privacy, anonymous leaderboards, team permissions, rivalry opt-in + one-vote face-offs.
+
+Tests clean up all rows they create (handles prefixed `p1t_`). Prefer a scratch database over your dev DB.
