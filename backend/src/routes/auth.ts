@@ -8,6 +8,7 @@ import { AppError } from '../middleware/errorHandler';
 import { authenticate } from '../middleware/auth';
 import { requestOtp, verifyOtp } from '../services/otp';
 import { rateLimit, clientIp, passwordIssues, verifyTotp } from '../middleware/security';
+import { sendMail, passwordResetEmail } from '../services/mailer';
 
 export const authRouter = Router();
 
@@ -339,18 +340,28 @@ authRouter.post('/password-reset/request', resetLimiter, async (req, res, next) 
         },
       });
       const base = process.env.WEB_URL || 'http://localhost:3000';
+      const resetUrl = base + '/forgot-password?token=' + raw;
+      // In-app copy
       await prisma.notification.create({
         data: {
           userId: user.id,
           type: 'system',
           title: 'Password reset requested',
           body:
-            'A password reset was requested for your Rally account. Open ' + base + '/forgot-password?token=' + raw +
-            ' within ' + RESET_TOKEN_MINUTES + ' minutes to choose a new password. ' +
-            'Rally will NEVER ask for your password, a code, or a Gift in a message. ' +
+            'A password reset was requested for your Rally account. The link was emailed to you and expires in ' +
+            RESET_TOKEN_MINUTES + ' minutes. Rally will NEVER ask for your password, a code, or a Gift in a message. ' +
             'If you did not request this, ignore it — your password stays unchanged.',
         },
       }).catch(() => undefined);
+      // Real email via Gmail SMTP (P3) — the raw token goes by mail, not in the API response
+      if (user.email) {
+        await sendMail({
+          to: user.email,
+          subject: 'Reset your Rally password',
+          html: passwordResetEmail(user.displayName, resetUrl, RESET_TOKEN_MINUTES),
+          category: 'password-reset',
+        });
+      }
       await logSecurityEvent(user.id, 'password_reset_requested', req);
     }
     res.json({ ok: true, message: 'If the email exists, reset instructions were sent' });
