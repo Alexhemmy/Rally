@@ -1,5 +1,6 @@
 import { Pressable, Text, StyleSheet, ActivityIndicator, ViewStyle } from 'react-native';
-import { colors, radii } from '@/constants/theme';
+import { useTheme } from '@/components/ThemeProvider';
+import { radii } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 
@@ -12,6 +13,7 @@ type Props = {
   style?: ViewStyle;
 };
 
+/** Premium CTA — sky-blue fill, soft glow shadow, haptic + sound feedback. */
 export function PrimaryButton({
   label,
   onPress,
@@ -20,8 +22,13 @@ export function PrimaryButton({
   variant = 'primary',
   style,
 }: Props) {
+  const { colors } = useTheme();
   const { impact } = useHaptics();
   const { click } = useSounds();
+
+  const bg =
+    variant === 'primary' ? colors.primary : variant === 'danger' ? colors.danger : colors.surface;
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -33,22 +40,21 @@ export function PrimaryButton({
       }}
       style={({ pressed }) => [
         styles.base,
-        variant === 'primary' && styles.primary,
-        variant === 'ghost' && styles.ghost,
-        variant === 'danger' && styles.danger,
+        { backgroundColor: bg },
+        variant === 'ghost' && { borderWidth: 1, borderColor: colors.border },
+        variant === 'primary' && styles.shadow,
         (disabled || loading) && styles.disabled,
         pressed && styles.pressed,
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#04101F' : colors.primary} />
+        <ActivityIndicator color={variant === 'primary' ? colors.onPrimary : colors.primary} />
       ) : (
         <Text
           style={[
             styles.label,
-            variant === 'primary' && styles.labelPrimary,
-            variant !== 'primary' && styles.labelGhost,
+            { color: variant === 'ghost' ? colors.text : colors.onPrimary },
           ]}
         >
           {label}
@@ -60,19 +66,21 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 48,
-    borderRadius: radii.md,
+    minHeight: 52,
+    borderRadius: radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
   },
-  primary: { backgroundColor: colors.primary },
-  ghost: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  danger: { backgroundColor: colors.danger },
+  shadow: {
+    shadowColor: '#0EA5E9',
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
   disabled: { opacity: 0.5 },
-  pressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
-  label: { fontWeight: '700', fontSize: 16 },
-  labelPrimary: { color: '#04101F' },
-  labelGhost: { color: colors.text },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
+  label: { fontWeight: '700', fontSize: 16, letterSpacing: 0.2 },
 });

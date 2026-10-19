@@ -1,12 +1,14 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { colors } from '@/constants/theme';
+import { ThemeProvider, useTheme } from '@/components/ThemeProvider';
+import { SessionProvider } from '@/components/SessionProvider';
 
-export default function RootLayout() {
+function RootStack() {
+  const { colors, isDark } = useTheme();
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
+    <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.surface },
@@ -48,7 +50,21 @@ export default function RootLayout() {
         <Stack.Screen name="how-to-use" options={{ title: 'How to use' }} />
         <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
         <Stack.Screen name="compose-moment" options={{ title: 'New Moment', presentation: 'modal' }} />
+        <Stack.Screen name="connection" options={{ title: 'Connection', presentation: 'modal' }} />
+        <Stack.Screen name="permissions" options={{ title: 'App permissions', presentation: 'modal' }} />
       </Stack>
-    </SafeAreaProvider>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <SessionProvider>
+        <SafeAreaProvider>
+          <RootStack />
+        </SafeAreaProvider>
+      </SessionProvider>
+    </ThemeProvider>
   );
 }
