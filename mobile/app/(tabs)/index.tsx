@@ -27,6 +27,10 @@ export default function HomeTab() {
     { href: '/campaigns', label: 'Campaigns' },
     { href: '/rivalries', label: 'Rivalries' },
     { href: '/giveaways', label: 'Giveaways' },
+    { href: '/store', label: 'Store' },
+    { href: '/subscriptions', label: 'Fan Clubs' },
+    { href: '/fangifts', label: 'Fan Gifts' },
+    { href: '/collections', label: 'Collections' },
     { href: '/live', label: 'Live' },
   ];
 

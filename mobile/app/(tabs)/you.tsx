@@ -28,6 +28,10 @@ export default function YouTab() {
     { href: '/notifications', label: 'Notifications' },
     { href: '/dashboard', label: 'Dashboard (Favorite)' },
     { href: '/onboarding', label: 'Onboarding checklist' },
+    { href: '/upgrade', label: 'Become a Favorite' },
+    { href: '/subscriptions', label: 'Fan Clubs' },
+    { href: '/store', label: 'Store orders' },
+    { href: '/collections', label: 'Collections' },
     { href: '/search', label: 'Search' },
   ];
   const helpLinks = [
