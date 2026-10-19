@@ -1,9 +1,10 @@
 import { prisma } from '../utils/prisma';
+import { sendMail, mailConfigured, securityAlertEmail } from './mailer';
 
 /**
  * Notification delivery (NTF-1/NTF-2). Creates the in-app notification
- * row and dispatches to adapters. Adapters are pluggable: console in dev;
- * wire FCM (push) and SES/Resend (email) via env in production.
+ * row and dispatches to adapters. Email: Gmail SMTP via nodemailer
+ * (P3) — set SMTP_USER/SMTP_PASS; push: FCM adapter remains a TODO.
  */
 
 export type NotifyInput = {
@@ -14,6 +15,16 @@ export type NotifyInput = {
   data?: Record<string, unknown>;
 };
 
+const SECURITY_TYPES = new Set([
+  'password_changed',
+  'password_reset_completed',
+  'account_locked',
+  'lockout',
+  '2fa_enabled',
+  '2fa_disabled',
+  'sessions_revoked',
+]);
+
 async function dispatchPush(input: NotifyInput) {
   if (process.env.PUSH_ADAPTER === 'fcm') {
     // TODO: FCM send via device tokens
@@ -22,12 +33,32 @@ async function dispatchPush(input: NotifyInput) {
   }
 }
 
-async function dispatchEmail(input: NotifyInput, email: string | null) {
-  if (process.env.EMAIL_ADAPTER === 'ses' || process.env.EMAIL_ADAPTER === 'resend') {
-    // TODO: provider send
-  } else if (email) {
-    console.log('[email:dev]', email, input.title);
+async function dispatchEmail(input: NotifyInput, user: { email: string | null; displayName: string } | null) {
+  if (!user?.email) return;
+  if (!mailConfigured()) {
+    console.log('[email:dev]', user.email, input.title);
+    return;
   }
+  const isSecurity = SECURITY_TYPES.has(input.type);
+  const html = isSecurity
+    ? securityAlertEmail(user.displayName, input.title, input.body || '')
+    : undefined;
+  await sendMail({
+    to: user.email,
+    subject: isSecurity ? 'Rally security alert: ' + input.title : 'Rally: ' + input.title,
+    ...(html ? { html } : {}),
+    ...(!html
+      ? {
+          html:
+            '<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">' +
+            '<div style="font-weight:800;font-size:20px;color:#0ea5e9;margin-bottom:16px">Rally</div>' +
+            '<h2 style="font-size:17px;margin:0 0 12px">' + input.title.replace(/[&<>]/g, '') + '</h2>' +
+            '<p style="margin:0">' + (input.body || '').replace(/[&<>]/g, '') + '</p>' +
+            '</div>',
+        }
+      : {}),
+    category: isSecurity ? 'security' : 'notification',
+  });
 }
 
 /** Create an in-app notification and fan out to delivery adapters (never throws). */
@@ -44,11 +75,11 @@ export async function notify(input: NotifyInput) {
     });
     const user = await prisma.user.findUnique({
       where: { id: input.userId },
-      select: { email: true },
+      select: { email: true, displayName: true },
     });
     await Promise.allSettled([
       dispatchPush(input),
-      dispatchEmail(input, user?.email ?? null),
+      dispatchEmail(input, user),
     ]);
     return n;
   } catch (e) {

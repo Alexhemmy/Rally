@@ -1,12 +1,13 @@
 import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { sendMail, otpEmail } from './mailer';
 
 /**
  * Phone OTP for ACC-1: a verified phone (or social login) is required
- * before the first Token purchase. Provider is abstracted: in dev the
- * code is logged; in production set SMS_PROVIDER env and wire the
- * provider call in sendSms().
+ * before the first Token purchase. Delivery: SMS provider env in
+ * production; the code is also emailed to the account's address via
+ * Gmail SMTP (P3) so users are never locked out by SMS issues.
  */
 
 const OTP_TTL_MIN = 10;
@@ -25,6 +26,21 @@ async function sendSms(phone: string, body: string) {
   }
   // TODO: real provider call (SMS_PROVIDER=twilio|termii)
   console.log('[otp:provider-unimplemented]', phone);
+}
+
+/** Backup delivery: email the OTP via Gmail SMTP (best-effort). */
+async function emailOtpBackup(userId: string, code: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, displayName: true },
+  });
+  if (!user?.email) return;
+  await sendMail({
+    to: user.email,
+    subject: 'Your Rally verification code',
+    html: otpEmail(user.displayName, code, OTP_TTL_MIN),
+    category: 'otp',
+  });
 }
 
 export async function requestOtp(userId: string, phone: string) {
@@ -55,6 +71,8 @@ export async function requestOtp(userId: string, phone: string) {
     },
   });
   await sendSms(normalized, `Your Rally verification code is ${code}. It expires in ${OTP_TTL_MIN} minutes.`);
+  // P3: backup email copy via Gmail so SMS outages never lock users out
+  await emailOtpBackup(userId, code);
   return { phone: normalized, expiresInSeconds: OTP_TTL_MIN * 60 };
 }
 
@@ -66,7 +84,7 @@ export async function verifyOtp(userId: string, phone: string, code: string) {
   });
   if (!otp) throw new AppError('No pending code. Request a new one.', 404);
   if (otp.expiresAt.getTime() < Date.now()) throw new AppError('Code expired. Request a new one.', 410);
-  if (otp.attempts >= MAX_ATTEMPTS) throw new AppError('Too many attempts. Request a new code.', 429);
+  if (otp.attempts >= MAX_ATTEMPTS) throw new AppError('Too many attempts. Request a new one.', 429);
 
   if (otp.codeHash !== hashCode(normalized, code)) {
     await prisma.oTPCode.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
