@@ -63,6 +63,51 @@ rivalriesRouter.get('/', async (_req, res, next) => {
   } catch (err) { next(err); }
 });
 // Admin: document a sourced rivalry (RIV-2: sourced, no fabrication)
+// Public: browse rivalries with recent face-offs
+rivalriesRouter.get('/', async (_req, res, next) => {
+  try {
+    const rivalries = await prisma.rivalry.findMany({
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+    });
+    const ids = rivalries.map((r) => r.id);
+    const faceOffs = ids.length
+      ? await prisma.faceOff.findMany({
+          where: { rivalryId: { in: ids }, status: 'open' },
+          orderBy: { closesAt: 'asc' },
+        })
+      : [];
+    const favIds = rivalries.flatMap((r) => [r.favoriteAId, r.favoriteBId]);
+    const favs = await prisma.favoriteProfile.findMany({
+      where: { id: { in: favIds } },
+      select: { id: true, displayName: true },
+    });
+    const favById = new Map(favs.map((f) => [f.id, f.displayName]));
+    res.json({
+      rivalries: rivalries.map((r) => ({
+        id: r.id,
+        favoriteA: { id: r.favoriteAId, name: favById.get(r.favoriteAId) ?? null },
+        favoriteB: { id: r.favoriteBId, name: favById.get(r.favoriteBId) ?? null },
+        status: r.status,
+        heatLevel: r.heatLevel,
+        summary: r.summary,
+        optInA: r.optInA,
+        optInB: r.optInB,
+        faceOffs: faceOffs
+          .filter((f) => f.rivalryId === r.id)
+          .map((f) => ({
+            id: f.id,
+            question: f.question,
+            favoriteAId: f.favoriteAId,
+            favoriteBId: f.favoriteBId,
+            votesA: f.votesA,
+            votesB: f.votesB,
+            closesAt: f.closesAt,
+          })),
+      })),
+    });
+  } catch (err) { next(err); }
+});
 rivalriesRouter.post('/document', authenticate, requireRole('ADMIN'), async (req, res, next) => {
   try {
     const data = z.object({
