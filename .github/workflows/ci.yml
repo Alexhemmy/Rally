@@ -59,7 +59,7 @@ jobs:
       - name: Install Mobile Dependencies
         run: npm install --ignore-scripts
       - name: Bundle the app (Metro export — fails on any broken screen)
-        run: npx expo export --platform android --output-dir dist-check --non-interactive
+        run: npx expo export --platform android --output-dir dist-check
         env:
           CI: "1"
       - name: Upload bundle artifact (debug aid)
