@@ -177,7 +177,7 @@ storeRouter.post('/orders/:id/refund', authenticate, async (req, res, next) => {
       await tx.storeOrder.update({
         where: { id: order.id },
         data: { status: 'refunded', refundedAt: new Date() },
-      );
+      });
       await tx.earning.updateMany({
         where: { sourceType: 'store', sourceId: order.id },
         data: { status: 'pending', amount: 0 },
