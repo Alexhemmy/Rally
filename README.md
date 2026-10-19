@@ -171,3 +171,40 @@ npm test
 - `tests/p1.test.ts` — integration flows for every Phase 2 feature: FFG escrow, GVW lifecycle with seed reveal, UPG gates, SUB tier caps + fees, store delivery/auto-refund, fan-moment approval, collections privacy, anonymous leaderboards, team permissions, rivalry opt-in + one-vote face-offs.
 
 Tests clean up all rows they create (handles prefixed `p1t_`). Prefer a scratch database over your dev DB.
+
+---
+
+## Phase 3 (P2) API — shipped
+
+| Area | Base path | PRD refs | Highlights |
+| --- | --- | --- | --- |
+| Junior Favorites | `/api/junior` | UPG-7 | 16–17 program with guardian consent code (hashed), admin review, approved → Junior FavoriteProfile; NO payouts, NO giveaways, NO cash prizes; revocable |
+| Brand partnerships | `/api/sponsors` | Q31/Q33 | Brand KYB, token escrow, sponsor-funded giveaways (cash or token prizes), clear sponsor labeling; token prizes credit winners' giftedBalance only (never withdrawable, blocks gift-back loops) |
+| Live sessions | `/api/live` | GFT-10 | Schedule/start/pause/resume/end, join + attendance, live gifting (wallet debit, 0.6 Gift Points, minor limit, self-gift block), live leaderboard, pause switch blocks gifting |
+| Merch fulfillment | `/api/merch` | SUB-3..5 (merch) | Fulfillment partners, items with delivery window, orders with tracking, ~10% platform fee, refund after missed window, buyer library + Favorite fulfillment queue; never exchangeable for Gifts |
+| Predictions | `/api/predictions` | 7.x | Head-to-head predictions with token prizes where legal (allowlist via `PREDICTION_LEGAL_COUNTRIES`, default NG,GB,US,CA), minors blocked, prizes to giftedBalance |
+| City ranking lanes | `/api/city-rankings` | RNK | Monthly lanes per city ranked by UNIQUE local supporters (never spend volume), movement vs previous snapshot, admin snapshot refresh |
+| Public API v1 | `/api/public` | 12 | Embeddable Favorite card (JSON + `?format=html`), public rankings, giveaway results, trust stats, trends; in-memory rate limit 120 req/5min |
+| Junior safety gates | `/api/payouts`, `/api/giveaways` | UPG-7 | Junior Favorites blocked from payout requests and giveaway creation |
+
+### P2 Web pages
+
+- `/live` — session browser + host controls (start/pause/resume/end), join, live gifting, live leaderboard
+- `/merch` — browse a Favorite's merch, order with shipping address, tracking, confirm delivery, refund after missed window, Favorite fulfillment queue
+- `/predictions` — open predictions, pick a side, legal markets shown
+- `/city-rankings` — city lanes with movement indicators
+- `/junior` — Junior Favorite application + guardian consent verification
+- `/sponsors` — brand KYB application, approved sponsor list, admin tools (approve/reject, escrow, fund, settle token prizes)
+
+### P2 Mobile screens
+
+- `live` — sessions, host controls, join, quick gifts, leaderboard
+- `merch` — order library, confirm delivery, refund
+- `predictions`, `cityrankings`, `junior` — full P2 fan flows on the go
+
+### Remaining production TODOs (all phases)
+
+- Wire real providers: SMS (Twilio/Termii), push (FCM), email (SES/Resend), Apple JWKS, real KYC/KYB, payment processors (keys already read from env).
+- Public API: move to API-key auth (issuable keys table) once partners onboard; rate limiting should move to Redis for multi-instance.
+- i18n: `nameI18n` fields exist on taxonomy tables; ship translated catalogs per locale as a deployment concern.
+- Giveaway draw seed: vault/KMS storage for multi-instance deployments.
