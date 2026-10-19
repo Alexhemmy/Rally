@@ -1,6 +1,5 @@
 import { requireSessionOrClear, setToken, getToken, clearToken, touchActivity } from './session';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiUrl } from './config';
 
 export { getToken, setToken, clearToken };
 
@@ -12,11 +11,16 @@ export async function api<T>(
   let token = tokenOpt;
   if (!skipAuth && !token) token = requireSessionOrClear() || undefined;
 
+  const base = await getApiUrl();
+  if (!base) {
+    throw new Error('No server connected yet. Open Connection settings to add your Rally server.');
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(token ? { Authorization: 'Bearer ' + token } : {}),
   };
-  const res = await fetch(`${API_URL}${path}`, { ...init, headers });
+  const res = await fetch(base + path, { ...init, headers });
   const data = await res.json().catch(() => ({}));
 
   if (res.status === 401) {

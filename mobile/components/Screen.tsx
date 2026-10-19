@@ -8,7 +8,8 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, useLayout } from '@/constants/theme';
+import { useLayout } from '@/constants/theme';
+import { useTheme } from '@/components/ThemeProvider';
 import { OfflineBanner } from './OfflineBanner';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -18,11 +19,10 @@ type Props = {
   refreshing?: boolean;
   onRefresh?: () => void | Promise<void>;
   padded?: boolean;
-  /** Enable pull-to-refresh even if parent only wants default haptic refresh */
   enableRefresh?: boolean;
 };
 
-/** Responsive safe-area screen with pull-to-refresh + haptic on complete */
+/** Themed safe-area screen with pull-to-refresh + haptic on complete */
 export function Screen({
   children,
   scroll = true,
@@ -32,6 +32,7 @@ export function Screen({
   enableRefresh = true,
 }: Props) {
   const { horizontalPad, contentMax, isTablet } = useLayout();
+  const { colors } = useTheme();
   const { refreshComplete } = useHaptics();
   const [internalRefreshing, setInternalRefreshing] = useState(false);
 
@@ -80,7 +81,7 @@ export function Screen({
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['left', 'right']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
       <OfflineBanner />
       <KeyboardAvoidingView
         style={styles.flex}
@@ -93,7 +94,7 @@ export function Screen({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
+  safe: { flex: 1 },
   flex: { flex: 1 },
   grow: { flexGrow: 1 },
 });
