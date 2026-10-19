@@ -118,7 +118,7 @@ jobs:
         if: steps.token.outputs.available == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas init --account alexhemmys-team --non-interactive
+        run: eas init --account renecmoons-team --non-interactive
 
       - name: Build Native Android APK
         if: steps.token.outputs.available == 'true'
