@@ -94,10 +94,18 @@ jobs:
         id: token
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN_ALT: ${{ vars.EXPO_TOKEN }}
         run: |
-          if [ -z "$EXPO_TOKEN" ]; then
+          # Diagnostics: GitHub masks secret values, but length is safe to print.
+          echo "EXPO_TOKEN secret length: ${#EXPO_TOKEN}"
+          echo "EXPO_TOKEN var length: ${#EXPO_TOKEN_ALT}"
+          if [ -z "$EXPO_TOKEN" ] && [ -z "$EXPO_TOKEN_ALT" ]; then
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "EXPO_TOKEN secret is not set — skipping EAS cloud build."
+            echo "::warning::EXPO_TOKEN not visible to this job — skipping EAS build. Check: (1) secret is under Settings → Secrets and variables → Actions → 'Repository secrets' (not Environments), (2) exact name EXPO_TOKEN (no spaces), (3) you re-ran the LATEST commit, not an old run."
+          elif [ -z "$EXPO_TOKEN" ]; then
+            echo "EXPO_TOKEN found only as a variable — falling back to it."
+            echo "EXPO_TOKEN=$EXPO_TOKEN_ALT" >> "$GITHUB_ENV"
+            echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=true" >> "$GITHUB_OUTPUT"
           fi
