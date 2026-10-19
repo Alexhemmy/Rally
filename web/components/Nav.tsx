@@ -16,14 +16,16 @@ export function Nav() {
       <nav className="nav" aria-label="Main">
         <a href="/explore">Explore</a>
         <a href="/feed">Feed</a>
-        <a href="/search">Search</a>
         <a href="/rankings">Rankings</a>
-        <a href="/campaigns">Campaigns</a>
-        <a href="/live">Live</a>
+        <a href="/giveaways">Giveaways</a>
+        <a href="/rivalries">Rivalries</a>
+        <a href="/store">Store</a>
+        <a href="/subscriptions">Fan Clubs</a>
+        <a href="/fangifts">Fan Gifts</a>
+        <a href="/collections">Collections</a>
         <a href="/wallet">Wallet</a>
-        <a href="/notifications">Alerts</a>
         <a href="/dashboard">Dashboard</a>
-        <a href="/onboarding">Onboarding</a>
+        <a href="/upgrade">Become a Favorite</a>
         <a href="/settings">Settings</a>
         {authed ? (
           <a
