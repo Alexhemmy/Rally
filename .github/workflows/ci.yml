@@ -75,6 +75,7 @@ jobs:
 
   # 🤖 BUILD FOR ANDROID (true native installable APK via EAS cloud)
   # Skips cleanly when EXPO_TOKEN is not configured instead of failing red.
+  # Build profiles live in mobile/eas.json (committed to the repo).
   mobile-android-apk:
     runs-on: ubuntu-latest
     defaults:
@@ -118,30 +119,6 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas init --account alexhemmys-team --non-interactive
-
-      # Local APK profile (appVersionSource stays local to avoid remote-versioning conflicts)
-      - name: Configure Production APK Profile
-        run: |
-          cat > eas.json << 'EOF'
-          {
-            "cli": {
-              "version": ">= 9.0.0"
-            },
-            "build": {
-              "development": {
-                "developmentClient": true,
-                "distribution": "internal"
-              },
-              "preview": {
-                "distribution": "internal",
-                "android": {
-                  "buildType": "apk"
-                }
-              },
-              "production": {}
-            }
-          }
-          EOF
 
       - name: Build Native Android APK
         if: steps.token.outputs.available == 'true'
