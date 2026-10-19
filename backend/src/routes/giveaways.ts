@@ -26,6 +26,38 @@ async function requireFavoriteOwner(favoriteId: string, userId: string, roles: s
   throw new AppError('Only the Favorite can manage this giveaway', 403);
 }
 
+// Public: browse announced/drawn giveaways across the platform
+giveawaysRouter.get('/', async (req, res, next) => {
+  try {
+    const status = req.query.status as string | undefined;
+    const giveaways = await prisma.giveaway.findMany({
+      where: {
+        status: status ? status : { in: ['announced', 'drawn', 'paid'] },
+      },
+      orderBy: { entryClosesAt: 'asc' },
+      take: 50,
+    });
+    const favs = await prisma.favoriteProfile.findMany({
+      where: { id: { in: giveaways.map((g) => g.favoriteId) } },
+      select: { id: true, displayName: true },
+    });
+    const favById = new Map(favs.map((f) => [f.id, f]));
+    res.json({
+      giveaways: giveaways.map((g) => ({
+        id: g.id,
+        favoriteId: g.favoriteId,
+        favoriteName: favById.get(g.favoriteId)?.displayName ?? null,
+        poolAmount: g.poolAmount,
+        currency: g.currency,
+        winnerCount: g.winnerCount,
+        entryOpensAt: g.entryOpensAt,
+        entryClosesAt: g.entryClosesAt,
+        status: g.status,
+        seedHash: g.seedHash,
+      })),
+    });
+  } catch (err) { next(err); }
+});
 // Create giveaway (draft)
 giveawaysRouter.post('/', authenticate, async (req, res, next) => {
   try {
