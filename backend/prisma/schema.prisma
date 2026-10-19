@@ -1,5 +1,5 @@
 // Rally Fan Support Platform - Database Schema
-// Based on PRD Draft v1.0 - MVP + P0 features
+// Based on PRD v2.0 - MVP (P0) + Phase 2 (P1)
 
 generator client {
   provider = "prisma-client-js"
@@ -44,10 +44,12 @@ model User {
   isMinor           Boolean            @default(false)
   roles             UserRole[]         @default([FAN])
   verificationStatus VerificationStatus @default(UNVERIFIED)
+  phoneVerifiedAt   DateTime?           // ACC-1: verified phone before first Token purchase
+  socialVerifiedAt  DateTime?           // ACC-1: social login counts as verified
   anonymityDefault  Boolean            @default(false)
   monthlySpendCap   Decimal?           @db.Decimal(12, 2)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
   lastActiveAt      DateTime           @default(now())
 
   fanProfile        FanProfile?
@@ -75,6 +77,20 @@ model Session {
   createdAt    DateTime @default(now())
 }
 
+// OTP codes for phone verification (ACC-1). Plain FK, no relation.
+model OtpCode {
+  id         String    @id @default(uuid())
+  userId     String
+  phone      String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, phone])
+}
+
 model FanProfile {
   id              String   @id @default(uuid())
   userId          String   @unique
@@ -99,6 +115,9 @@ model FavoriteProfile {
   shortUrl            String?            @unique
   giftPointsBalance   Decimal            @default(0) @db.Decimal(14, 2)
   pendingGiftPoints   Decimal            @default(0) @db.Decimal(14, 2)
+  cohort              String             @default("rising") // rising, established, legend (RNK-6)
+  showInRankings      Boolean            @default(true)     // RNK-6: opt out of public ranking
+  probationEndsAt    DateTime?           // UPG-5: 30-day probation for upgraded fans
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -155,20 +174,20 @@ model TokenWallet {
   userId          String   @unique
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   balance         Int      @default(0) // tokens
-  giftedBalance   Int      @default(0) // fan-to-fan gifted tokens (restricted)
+  giftedBalance   Int      @default(0) // fan-to-fan gifted tokens (restricted, FFG-2)
   totalPurchased  Int      @default(0)
   updatedAt       DateTime @updatedAt
 }
 
 model TokenPack {
-  id          String   @id @default(uuid())
+  id          String     @id @default(uuid())
   name        String
   tokens      Int
-  bonusTokens Int      @default(0)
+  bonusTokens Int        @default(0)
   priceCents  Int
-  currency    String   @default("USD")
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(0)
+  currency    String     @default("USD")
+  isActive    Boolean    @default(true)
+  sortOrder   Int        @default(0)
 }
 
 model TokenPurchase {
@@ -176,7 +195,7 @@ model TokenPurchase {
   userId          String
   packId          String?
   tokens          Int
-  amountCents     Int
+  amountCents    Int
   currency        String
   paymentMethod   String
   paymentProvider String?
@@ -196,7 +215,7 @@ model GiftCatalogItem {
   tokenCost       Int
   animationUrl    String?
   iconUrl         String?
-  type            String           // standard, category, cultural, limited, signature, combo
+  type            String           // standard, category, cultural, limited, signature, combo, fan_cosmetic
   categoryId      String?
   favoriteId      String?          // for signature gifts
   favorite        FavoriteProfile? @relation("SignatureGifts", fields: [favoriteId], references: [id])
@@ -230,7 +249,213 @@ model Gift {
   @@index([momentId])
 }
 
-// ─── Moments & Feeds ───────────────────────────────────────────────────────
+// ─── Fan-to-Fan Gifting (P1, FFG) ──────────────────────────────────────────
+
+model FanGift {
+  id             String    @id @default(uuid())
+  senderId       String
+  recipientId    String
+  kind           String    // cosmetic | tokens
+  catalogItemId  String?   // cosmetic items
+  tokens         Int       @default(0) // escrowed token gift amount
+  message        String?
+  status         String    @default("pending") // pending, accepted, declined, recovered, expired
+  expiresAt      DateTime  // 72h acceptance window (FFG-8)
+  acceptedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([senderId])
+  @@index([recipientId, status])
+}
+
+// ─── Fan Clubs / Subscriptions (P1, SUB) ────────────────────────────────────
+
+model SubscriptionTier {
+  id          String   @id @default(uuid())
+  favoriteId  String
+  name        String
+  description String?
+  priceCents  Int
+  currency    String   @default("USD")
+  perks       String[]
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Subscription {
+  id                String    @id @default(uuid())
+  userId            String
+  tierId            String
+  favoriteId        String
+  status            String    @default("active") // active, paused, cancelled
+  autoRenew         Boolean   @default(true)
+  startedAt         DateTime  @default(now())
+  currentPeriodEnd  DateTime
+  cancelledAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([favoriteId, status])
+}
+
+// ─── Store & Commissions (P1, SUB-3..5) ────────────────────────────────────
+
+model StoreItem {
+  id                  String   @id @default(uuid())
+  favoriteId          String
+  title               String
+  description         String?
+  previewUrl          String?
+  priceCents          Int
+  currency            String   @default("USD")
+  deliveryType        String   // download, link, message
+  deliveryWindowDays  Int      @default(7)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+}
+
+model StoreOrder {
+  id              String    @id @default(uuid())
+  itemId          String
+  favoriteId      String
+  buyerId         String
+  amountCents     Int
+  currency        String    @default("USD")
+  platformFee     Decimal   @default(0) @db.Decimal(10, 2)
+  status          String    @default("pending") // pending, delivered, refunded
+  deliveryProof   String?
+  dueAt           DateTime
+  deliveredAt     DateTime?
+  refundedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([buyerId])
+  @@index([favoriteId, status])
+}
+
+// ─── Giveaways (P1, GVW) ───────────────────────────────────────────────────
+
+model Giveaway {
+  id                String    @id @default(uuid())
+  favoriteId        String
+  poolAmount        Decimal   @db.Decimal(14, 2)
+  currency          String    @default("USD")
+  winnerCount       Int
+  split             String    @default("equal") // equal | tiered
+  weights           Json?     // { activeness, dedication, passion } each 0.2..0.5
+  scoreWindowDays   Int       @default(30)
+  entryOpensAt      DateTime
+  entryClosesAt     DateTime
+  status            String    @default("draft") // draft, funded, announced, closed, drawn, paid, cancelled
+  fee               Decimal   @default(0) @db.Decimal(10, 2)
+  seedHash          String?   // provable fairness: sha256 of secret seed (GVW-6)
+  seedRevealed      String?
+  publicRandom      String?
+  countryFilter     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([favoriteId, status])
+}
+
+model GiveawayEntry {
+  id               String   @id @default(uuid())
+  giveawayId       String
+  userId           String
+  enteredAt        DateTime @default(now())
+  withdrawnAt      DateTime?
+  activenessScore  Decimal? @db.Decimal(5, 4)
+  dedicationScore  Decimal? @db.Decimal(5, 4)
+  passionScore     Decimal? @db.Decimal(5, 4)
+  drawWeight       Decimal? @db.Decimal(5, 4)
+  isWinner         Boolean  @default(false)
+  isAlternate      Boolean  @default(false)
+  rank             Int?
+
+  @@unique([giveawayId, userId])
+}
+
+// ─── Fan Upgrade Path (P1, UPG) ─────────────────────────────────────────────
+
+model UpgradeRequest {
+  id                 String    @id @default(uuid())
+  userId             String
+  specialtyId        String?
+  pitch              String
+  samples            String[]
+  references         String[]
+  declaredLinks      String?   // relationships with other Favorites (UPG-2)
+  status             String    @default("screening") // screening, pending, approved, rejected, conditional
+  screeningResult    Json?
+  reviewerNote       String?
+  rejectionReasons   String[]
+  probationEndsAt    DateTime?
+  createdAt          DateTime  @default(now())
+  decidedAt          DateTime?
+
+  @@index([userId])
+}
+
+// ─── Collections (P1, MOM-5) ────────────────────────────────────────────────
+
+model Collection {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  isPublic  Boolean  @default(false)
+  momentIds String[]
+  createdAt DateTime @default(now())
+}
+
+// ─── Team Roles (P1, ACC-7) ─────────────────────────────────────────────────
+
+model TeamMember {
+  id          String   @id @default(uuid())
+  favoriteId  String
+  userId      String
+  role        String   // manager | moderator
+  permissions String[] // e.g. moderate_comments, review_moments, pin_posts
+  invitedBy   String?
+  addedAt     DateTime @default(now())
+  auditLog    Json?
+
+  @@unique([favoriteId, userId])
+}
+
+// ─── Rivalries (P1, RIV) ────────────────────────────────────────────────────
+
+model Rivalry {
+  id          String    @id @default(uuid())
+  favoriteAId String
+  favoriteBId String
+  optInA      Boolean   @default(false) // RIV-1: both must opt in for interactive features
+  optInB      Boolean   @default(false)
+  status      String    @default("documented") // documented | active | paused
+  heatLevel   Int       @default(1)            // RIV-6 Beef Radar 1..5
+  summary     String?
+  sources     Json?
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([favoriteAId, favoriteBId])
+}
+
+model FaceOff {
+  id          String   @id @default(uuid())
+  rivalryId   String?
+  favoriteAId String
+  favoriteBId String
+  question    String
+  status      String   @default("open") // open, closed, locked
+  votesA      Int      @default(0)
+  votesB      Int      @default(0)
+  opensAt     DateTime @default(now())
+  closesAt    DateTime
+  createdAt   DateTime  @default(now())
+}
+
+// ─── Moments & Feeds ────────────────────────────────────────────────────────
 
 enum MomentType {
   FAVORITE
@@ -264,7 +489,8 @@ model Moment {
   reactionCount Int         @default(0)
   commentCount  Int         @default(0)
   sourceLang    String?
-  isApproved    Boolean     @default(true)
+  isApproved    Boolean     @default(true)  // false while in Fan Moment approval queue (MOM-4)
+  isFeatured    Boolean     @default(false) // featured by Favorite/moderators (MOM-4)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -351,7 +577,7 @@ model BadgeDefinition {
   nameI18n    Json?
   description String?
   iconUrl     String?
-  ruleType    String   // first_supporter, day_one, top_10, streak, custom
+  ruleType    String   // first_supporter, day_one, top_10, streak, translator, impact, custom
   ruleConfig  Json?
 }
 
@@ -451,7 +677,7 @@ model Report {
   id           String   @id @default(uuid())
   reporterId   String
   reporter     User     @relation("Reporter", fields: [reporterId], references: [id])
-  targetType   String   // user, post, comment, moment, gift
+  targetType   String   // user, post, comment, moment, gift, campaign, giveaway
   targetId     String
   reason       String
   evidence     String?

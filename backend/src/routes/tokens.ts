@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../utils/prisma';
 import { authenticate } from '../middleware/auth';
 import { enforceMinorLimits } from '../middleware/minors';
+import { isPurchaseVerified } from '../services/otp';
 import { AppError } from '../middleware/errorHandler';
 
 export const tokensRouter = Router();
@@ -29,6 +30,18 @@ tokensRouter.post('/purchase', authenticate, enforceMinorLimits, async (req, res
       currency: z.string().default('USD'),
     });
     const data = schema.parse(req.body);
+
+    // ACC-1: verified phone or social login before first Token purchase
+    const buyer = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { phoneVerifiedAt: true, googleId: true, appleId: true },
+    });
+    if (!isPurchaseVerified(buyer!)) {
+      throw new AppError(
+        'Verify your phone number (or sign in with Google/Apple) before buying Tokens',
+        403
+      );
+    }
 
     const pack = await prisma.tokenPack.findUnique({ where: { id: data.packId } });
     if (!pack || !pack.isActive) throw new AppError('Pack not found', 404);

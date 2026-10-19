@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { prisma } from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { authenticate } from '../middleware/auth';
+import { requestOtp, verifyOtp } from '../services/otp';
 
 export const authRouter = Router();
 
@@ -23,6 +24,15 @@ const loginSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   password: z.string(),
+});
+
+const otpRequestSchema = z.object({ phone: z.string().min(8) });
+const otpVerifySchema = z.object({ phone: z.string().min(8), code: z.string().length(6) });
+const socialSchema = z.object({
+  provider: z.enum(['google', 'apple']),
+  token: z.string().min(1),
+  handle: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/).optional(),
+  displayName: z.string().min(1).max(80).optional(),
 });
 
 function signToken(user: { id: string; handle: string; roles: string[] }) {
@@ -142,6 +152,8 @@ authRouter.get('/me', authenticate, async (req, res, next) => {
         contentLanguages: true,
         countryCode: true,
         verificationStatus: true,
+        phoneVerifiedAt: true,
+        socialVerifiedAt: true,
         fanProfile: true,
         favoriteProfile: {
           select: {
@@ -191,6 +203,121 @@ authRouter.post('/password-reset/request', async (req, res, next) => {
       });
     }
     res.json({ ok: true, message: 'If the email exists, reset instructions were sent' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Phone OTP (ACC-1) ────────────────────────────────────────────────────
+
+authRouter.post('/otp/request', authenticate, async (req, res, next) => {
+  try {
+    const { phone } = otpRequestSchema.parse(req.body);
+    const result = await requestOtp(req.user!.userId, phone);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+authRouter.post('/otp/verify', authenticate, async (req, res, next) => {
+  try {
+    const { phone, code } = otpVerifySchema.parse(req.body);
+    const result = await verifyOtp(req.user!.userId, phone, code);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Social login (ACC-1) ─────────────────────────────────────────────────
+
+type SocialProfile = { providerId: string; email?: string; displayName?: string };
+
+async function verifyGoogleToken(token: string): Promise<SocialProfile> {
+  if (process.env.NODE_ENV !== 'production' && process.env.GOOGLE_CLIENT_ID === undefined) {
+    // Dev mode: accept a dev token of the form "dev:<sub>:<name>"
+    const [, sub, name] = token.split(':');
+    return { providerId: sub || 'dev-user', displayName: name || 'Dev User' };
+  }
+  const res = await fetch(
+    `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`
+  );
+  if (!res.ok) throw new AppError('Invalid Google token', 401);
+  const data: any = await res.json();
+  if (process.env.GOOGLE_CLIENT_ID && data.aud !== process.env.GOOGLE_CLIENT_ID) {
+    throw new AppError('Token audience mismatch', 401);
+  }
+  return { providerId: data.sub, email: data.email, displayName: data.name };
+}
+
+async function verifyAppleToken(token: string): Promise<SocialProfile> {
+  // Apple: verify the identity token's signature against Apple's JWKS in
+  // production. Dev mode accepts "dev:<sub>:<name>" like Google.
+  if (process.env.NODE_ENV !== 'production') {
+    const [, sub, name] = token.split(':');
+    return { providerId: sub || 'dev-user', displayName: name || 'Dev User' };
+  }
+  // TODO: JWKS verification (apple-auth / jose)
+  throw new AppError('Apple login production wiring pending', 501);
+}
+
+authRouter.post('/social', async (req, res, next) => {
+  try {
+    const data = socialSchema.parse(req.body);
+    const profile =
+      data.provider === 'google'
+        ? await verifyGoogleToken(data.token)
+        : await verifyAppleToken(data.token);
+
+    const providerField = data.provider === 'google' ? 'googleId' : 'appleId';
+    let user = await prisma.user.findUnique({
+      where: { [providerField]: profile.providerId } as any,
+    });
+
+    if (!user && profile.email) {
+      const byEmail = await prisma.user.findUnique({ where: { email: profile.email } });
+      if (byEmail) {
+        user = await prisma.user.update({
+          where: { id: byEmail.id },
+          data: { [providerField]: profile.providerId, socialVerifiedAt: new Date() },
+        });
+      }
+    }
+
+    if (!user) {
+      if (!data.handle) {
+        throw new AppError('Handle required for new accounts', 422);
+      }
+      const handleTaken = await prisma.user.findUnique({
+        where: { handle: data.handle.toLowerCase() },
+      });
+      if (handleTaken) throw new AppError('Handle already taken', 409);
+
+      user = await prisma.user.create({
+        data: {
+          [providerField]: profile.providerId,
+          email: profile.email,
+          handle: data.handle!.toLowerCase(),
+          displayName: data.displayName || profile.displayName || 'New Fan',
+          socialVerifiedAt: new Date(),
+          fanProfile: { create: {} },
+          tokenWallet: { create: {} },
+        } as any,
+      });
+    } else if (!user.socialVerifiedAt) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { socialVerifiedAt: new Date() },
+      });
+    }
+
+    await prisma.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
+    const token = signToken({ id: user.id, handle: user.handle, roles: user.roles as string[] });
+    res.json({
+      user: { id: user.id, handle: user.handle, displayName: user.displayName, roles: user.roles },
+      token,
+    });
   } catch (err) {
     next(err);
   }
