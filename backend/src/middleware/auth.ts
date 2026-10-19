@@ -7,6 +7,7 @@ export interface AuthPayload {
   userId: string;
   handle: string;
   roles: string[];
+  tv?: number; // P3: tokenVersion at issue time — mismatch means the session was revoked
 }
 
 /** 7 days of inactivity → must log in again */
@@ -16,20 +17,30 @@ declare global {
   namespace Express {
     interface Request {
       user?: AuthPayload;
+      apiKey?: { id: string; userId: string };
     }
   }
 }
 
-async function assertActiveSession(userId: string) {
+async function assertActiveSession(userId: string, tokenVersion?: number) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, lastActiveAt: true, handle: true, roles: true },
+    select: { id: true, lastActiveAt: true, handle: true, roles: true, tokenVersion: true, lockedUntil: true },
   });
   if (!user) throw new AppError('Authentication required', 401);
+
+  if (user.lockedUntil && new Date(user.lockedUntil).getTime() > Date.now()) {
+    throw new AppError('Account temporarily locked. Try again shortly.', 423);
+  }
 
   const last = user.lastActiveAt ? new Date(user.lastActiveAt).getTime() : 0;
   if (Date.now() - last > INACTIVITY_MS) {
     throw new AppError('Session expired after 7 days of inactivity. Please log in again.', 401);
+  }
+
+  // P3: reject tokens issued before a global session revoke / password change
+  if ((tokenVersion ?? 0) !== user.tokenVersion) {
+    throw new AppError('Session revoked. Please log in again.', 401);
   }
 
   // Sliding activity window
@@ -51,7 +62,7 @@ export function authenticate(req: Request, _res: Response, next: NextFunction) {
   try {
     const secret = process.env.JWT_SECRET || 'dev-secret';
     const payload = jwt.verify(token, secret) as AuthPayload;
-    assertActiveSession(payload.userId)
+    assertActiveSession(payload.userId, payload.tv)
       .then((user) => {
         req.user = {
           userId: user.id,
@@ -74,7 +85,7 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const secret = process.env.JWT_SECRET || 'dev-secret';
     const payload = jwt.verify(header.slice(7), secret) as AuthPayload;
-    assertActiveSession(payload.userId)
+    assertActiveSession(payload.userId, payload.tv)
       .then((user) => {
         req.user = {
           userId: user.id,

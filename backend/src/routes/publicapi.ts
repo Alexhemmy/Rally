@@ -1,27 +1,38 @@
 import { Router } from 'express';
 import { prisma } from '../utils/prisma';
+import { resolveApiKey } from '../middleware/security';
 
 /**
  * Phase 3 — Public API (trust data, embeds, platform trends).
- * Read-only, rate-limited, no auth.
+ * Read-only and rate-limited. Anonymous callers: 120 req / 5 min / IP.
+ * Partners with an API key (Bearer rly_live_...): 1000 req / 5 min.
  */
 export const publicApiRouter = Router();
 
 const hits = new Map<string, { count: number; reset: number }>();
-publicApiRouter.use((req, res, next) => {
-  const ip = req.ip || 'unknown';
-  const now = Date.now();
-  const entry = hits.get(ip);
-  if (!entry || now > entry.reset) {
-    hits.set(ip, { count: 1, reset: now + 5 * 60 * 1000 });
-  } else {
-    entry.count++;
-    if (entry.count > 120) {
-      res.setHeader('Retry-After', Math.ceil((entry.reset - now) / 1000));
-      return res.status(429).json({ error: 'Rate limit exceeded' });
+publicApiRouter.use(async (req, res, next) => {
+  try {
+    const apiKey = await resolveApiKey(req);
+    const now = Date.now();
+    const bucketKey = (apiKey ? 'key:' + apiKey.id : 'ip:' + (req.ip || 'unknown'));
+    const max = apiKey ? 1000 : 120;
+    const entry = hits.get(bucketKey);
+    if (!entry || now > entry.reset) {
+      hits.set(bucketKey, { count: 1, reset: now + 5 * 60 * 1000 });
+    } else {
+      entry.count++;
+      if (entry.count > max) {
+        res.setHeader('Retry-After', Math.ceil((entry.reset - now) / 1000));
+        return res.status(429).json({ error: 'Rate limit exceeded' });
+      }
     }
+    if (hits.size > 20000) {
+      for (const [k, v] of hits) if (now > v.reset) hits.delete(k);
+    }
+    next();
+  } catch {
+    next();
   }
-  next();
 });
 
 publicApiRouter.get('/v1/embed/favorite/:handle', async (req, res, next) => {
@@ -178,6 +189,7 @@ publicApiRouter.get('/v1', (_req, res) => {
       'GET /api/public/v1/trust',
       'GET /api/public/v1/trends',
     ],
-    rateLimit: '120 requests / 5 min / IP',
+    auth: 'Optional: pass an API key (Authorization: Bearer rly_live_...) for a higher rate limit. Create keys in Settings → Security.',
+    rateLimit: '120 req / 5 min / IP anonymous · 1000 req / 5 min per API key',
   });
 });

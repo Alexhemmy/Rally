@@ -38,6 +38,9 @@ import { merchRouter } from './routes/merch';
 import { predictionsRouter } from './routes/predictions';
 import { cityRankingsRouter } from './routes/cityrankings';
 import { publicApiRouter } from './routes/publicapi';
+// P3 routers
+import { securityRouter } from './routes/security';
+import { globalIpRateLimit, enforceOrigin } from './middleware/security';
 import { errorHandler } from './middleware/errorHandler';
 
 /**
@@ -47,8 +50,28 @@ import { errorHandler } from './middleware/errorHandler';
 export function buildApp() {
   const app = express();
 
-  app.use(helmet());
-  app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+  // P3: trust the proxy layer so req.ip reflects the real client
+  app.set('trust proxy', 1);
+
+  // P3: hardened headers — CSP, HSTS, noSniff, frameguard (already via helmet)
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: true,
+        // inline styles allowed for the embeddable Favorite card HTML
+        directives: { 'style-src': ["'self'", "'unsafe-inline'"] },
+      },
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    })
+  );
+  app.use(
+    cors({
+      origin: process.env.CORS_ORIGIN
+        ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim())
+        : true,
+      credentials: true,
+    })
+  );
   app.use(morgan(process.env.NODE_ENV === 'test' ? 'silent' : 'dev'));
   app.use(express.json({
     limit: '2mb',
@@ -59,11 +82,19 @@ export function buildApp() {
     },
   }));
 
+  // P3: block cross-site state-changing requests from browsers (CSRF-style),
+  // and cap every client's request rate (payment webhooks are excluded).
+  app.use('/api', enforceOrigin);
+  app.use('/api', (req, res, next) =>
+    req.path.startsWith('/webhooks') ? next() : globalIpRateLimit(req, res, next)
+  );
+
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', service: 'rally-api', version: '3.0.0' });
+    res.json({ status: 'ok', service: 'rally-api', version: '4.0.0' });
   });
 
   app.use('/api/auth', authRouter);
+  app.use('/api/security', securityRouter);
   app.use('/api/users', usersRouter);
   app.use('/api/favorites', favoritesRouter);
   app.use('/api/gifts', giftsRouter);

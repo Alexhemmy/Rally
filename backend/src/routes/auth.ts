@@ -1,11 +1,13 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { authenticate } from '../middleware/auth';
 import { requestOtp, verifyOtp } from '../services/otp';
+import { rateLimit, clientIp, passwordIssues, verifyTotp } from '../middleware/security';
 
 export const authRouter = Router();
 
@@ -35,21 +37,58 @@ const socialSchema = z.object({
   displayName: z.string().min(1).max(80).optional(),
 });
 
-function signToken(user: { id: string; handle: string; roles: string[] }) {
+// P3 security parameters
+const MAX_FAILED_LOGINS = 5;
+const LOCK_MINUTES = 15;
+const RESET_TOKEN_MINUTES = 30;
+
+// P3 rate limits (per IP)
+const attemptLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: 'Too many attempts. Please wait a few minutes.' });
+const resetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many reset requests. Please wait a few minutes.' });
+const socialLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, message: 'Too many attempts. Please wait a few minutes.' });
+
+function signToken(user: { id: string; handle: string; roles: string[]; tokenVersion?: number }) {
   const secret = process.env.JWT_SECRET || 'dev-secret';
   return jwt.sign(
-    { userId: user.id, handle: user.handle, roles: user.roles },
+    { userId: user.id, handle: user.handle, roles: user.roles, tv: user.tokenVersion ?? 0 },
     secret,
     { expiresIn: process.env.JWT_EXPIRES_IN || '30d' }
   );
 }
 
-authRouter.post('/register', async (req, res, next) => {
+/** Short-lived token scoped to the 2FA step only. */
+function sign2faChallenge(userId: string) {
+  const secret = process.env.JWT_SECRET || 'dev-secret';
+  return jwt.sign({ userId, scope: '2fa' }, secret, { expiresIn: '5m' });
+}
+
+async function logSecurityEvent(userId: string, type: string, req: Request, meta?: Record<string, unknown>) {
+  await prisma.securityEvent
+    .create({
+      data: {
+        userId,
+        type,
+        ip: clientIp(req),
+        userAgent: String(req.headers['user-agent'] || '').slice(0, 300),
+        ...(meta ? { meta: meta as any } : {}),
+      },
+    })
+    .catch(() => undefined);
+}
+
+/** Constant-ish delay on failed credential checks to blunt timing/enumeration. */
+async function antiEnumerateDelay() {
+  await new Promise((r) => setTimeout(r, 350));
+}
+
+authRouter.post('/register', attemptLimiter, async (req, res, next) => {
   try {
     const data = registerSchema.parse(req.body);
     if (!data.email && !data.phone) {
       throw new AppError('Email or phone is required');
     }
+    const issues = passwordIssues(data.password);
+    if (issues.length) throw new AppError('Password needs ' + issues.join(', '), 422);
 
     const existing = await prisma.user.findFirst({
       where: {
@@ -91,6 +130,7 @@ authRouter.post('/register', async (req, res, next) => {
       },
     });
 
+    await logSecurityEvent(user.id, 'account_created', req);
     const token = signToken({ id: user.id, handle: user.handle, roles: user.roles });
     res.status(201).json({ user, token });
   } catch (err) {
@@ -98,7 +138,7 @@ authRouter.post('/register', async (req, res, next) => {
   }
 });
 
-authRouter.post('/login', async (req, res, next) => {
+authRouter.post('/login', attemptLimiter, async (req, res, next) => {
   try {
     const data = loginSchema.parse(req.body);
     if (!data.email && !data.phone) {
@@ -108,17 +148,58 @@ authRouter.post('/login', async (req, res, next) => {
     const user = await prisma.user.findFirst({
       where: data.email ? { email: data.email } : { phone: data.phone },
     });
-    if (!user?.passwordHash) throw new AppError('Invalid credentials', 401);
+
+    if (!user?.passwordHash) {
+      await antiEnumerateDelay();
+      throw new AppError('Invalid credentials', 401);
+    }
+
+    // P3: brute-force lockout (423 so honest users see the wait)
+    if (user.lockedUntil && new Date(user.lockedUntil).getTime() > Date.now()) {
+      const minutes = Math.ceil((new Date(user.lockedUntil).getTime() - Date.now()) / 60000);
+      throw new AppError('Account temporarily locked. Try again in ' + minutes + ' minute' + (minutes === 1 ? '' : 's') + '.', 423);
+    }
 
     const valid = await bcrypt.compare(data.password, user.passwordHash);
-    if (!valid) throw new AppError('Invalid credentials', 401);
+    if (!valid) {
+      const failed = (user.failedLoginAttempts || 0) + 1;
+      const update: any = { failedLoginAttempts: failed };
+      let locked = false;
+      if (failed >= MAX_FAILED_LOGINS) {
+        update.lockedUntil = new Date(Date.now() + LOCK_MINUTES * 60000);
+        update.failedLoginAttempts = 0;
+        locked = true;
+      }
+      await prisma.user.update({ where: { id: user.id }, data: update });
+      await logSecurityEvent(user.id, locked ? 'lockout' : 'login_failed', req, { attempts: failed });
+      if (locked) {
+        await prisma.notification.create({
+          data: {
+            userId: user.id,
+            type: 'system',
+            title: 'Account locked',
+            body:
+              'Too many failed sign-in attempts. Your account is locked for ' + LOCK_MINUTES +
+              ' minutes. If this was not you, change your password once unlocked. Rally will never ask for your password in a message.',
+          },
+        }).catch(() => undefined);
+      }
+      await antiEnumerateDelay();
+      throw new AppError('Invalid credentials', 401);
+    }
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastActiveAt: new Date() },
+      data: { lastActiveAt: new Date(), failedLoginAttempts: 0, ...(user.lockedUntil ? { lockedUntil: null } : {}) },
     });
+    await logSecurityEvent(user.id, user.twoFactorEnabled ? 'login_pending_2fa' : 'login', req);
 
-    const token = signToken({ id: user.id, handle: user.handle, roles: user.roles });
+    if (user.twoFactorEnabled) {
+      // Password verified — now demand the second factor.
+      return res.json({ twoFactorRequired: true, challengeToken: sign2faChallenge(user.id) });
+    }
+
+    const token = signToken({ id: user.id, handle: user.handle, roles: user.roles, tokenVersion: user.tokenVersion });
     res.json({
       user: {
         id: user.id,
@@ -129,6 +210,60 @@ authRouter.post('/login', async (req, res, next) => {
         locale: user.locale,
       },
       token,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// P3: complete login with a TOTP or recovery code
+authRouter.post('/login/2fa', attemptLimiter, async (req, res, next) => {
+  try {
+    const { challengeToken, code } = z
+      .object({ challengeToken: z.string().min(1), code: z.string().min(6).max(11) })
+      .parse(req.body);
+
+    let payload: any;
+    try {
+      payload = jwt.verify(challengeToken, process.env.JWT_SECRET || 'dev-secret');
+    } catch {
+      throw new AppError('Challenge expired. Please log in again.', 401);
+    }
+    if (payload.scope !== '2fa' || !payload.userId) throw new AppError('Invalid challenge', 401);
+
+    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) throw new AppError('Invalid challenge', 401);
+
+    const clean = code.replace(/[^A-Za-z0-9-]/g, '');
+    let ok = verifyTotp(user.twoFactorSecret, clean);
+    let usedRecovery = false;
+    if (!ok) {
+      const hash = crypto.createHash('sha256').update(clean.toLowerCase()).digest('hex');
+      const remaining = user.recoveryCodeHashes.filter((h) => h !== hash);
+      if (remaining.length !== user.recoveryCodeHashes.length) {
+        ok = true;
+        usedRecovery = true;
+        await prisma.user.update({ where: { id: user.id }, data: { recoveryCodeHashes: remaining } });
+      }
+    }
+    if (!ok) {
+      await logSecurityEvent(user.id, 'login_failed', req, { reason: 'bad_2fa_code' });
+      await antiEnumerateDelay();
+      throw new AppError('Invalid code', 401);
+    }
+
+    await prisma.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
+    await logSecurityEvent(user.id, usedRecovery ? 'login_recovery_code' : 'login_2fa', req);
+    res.json({
+      user: {
+        id: user.id,
+        handle: user.handle,
+        displayName: user.displayName,
+        email: user.email,
+        roles: user.roles,
+        locale: user.locale,
+      },
+      token: signToken({ id: user.id, handle: user.handle, roles: user.roles, tokenVersion: user.tokenVersion }),
     });
   } catch (err) {
     next(err);
@@ -154,6 +289,7 @@ authRouter.get('/me', authenticate, async (req, res, next) => {
         verificationStatus: true,
         phoneVerifiedAt: true,
         socialVerifiedAt: true,
+        twoFactorEnabled: true,
         fanProfile: true,
         favoriteProfile: {
           select: {
@@ -180,29 +316,89 @@ authRouter.post('/refresh', authenticate, async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
     if (!user) throw new AppError('User not found', 404);
-    const token = signToken({ id: user.id, handle: user.handle, roles: user.roles as string[] });
+    const token = signToken({ id: user.id, handle: user.handle, roles: user.roles as string[], tokenVersion: user.tokenVersion });
     res.json({ token });
   } catch (err) {
     next(err);
   }
 });
 
-authRouter.post('/password-reset/request', async (req, res, next) => {
+// P3: real one-time reset tokens — hashed at rest, 30-minute expiry.
+authRouter.post('/password-reset/request', resetLimiter, async (req, res, next) => {
   try {
     const email = z.string().email().parse(req.body.email);
     // Always 200 — do not leak whether email exists
     const user = await prisma.user.findUnique({ where: { email } });
     if (user) {
+      const raw = crypto.randomBytes(32).toString('base64url');
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: crypto.createHash('sha256').update(raw).digest('hex'),
+          expiresAt: new Date(Date.now() + RESET_TOKEN_MINUTES * 60000),
+        },
+      });
+      const base = process.env.WEB_URL || 'http://localhost:3000';
       await prisma.notification.create({
         data: {
           userId: user.id,
           type: 'system',
           title: 'Password reset requested',
-          body: 'Reset link would be emailed in production',
+          body:
+            'A password reset was requested for your Rally account. Open ' + base + '/forgot-password?token=' + raw +
+            ' within ' + RESET_TOKEN_MINUTES + ' minutes to choose a new password. ' +
+            'Rally will NEVER ask for your password, a code, or a Gift in a message. ' +
+            'If you did not request this, ignore it — your password stays unchanged.',
         },
-      });
+      }).catch(() => undefined);
+      await logSecurityEvent(user.id, 'password_reset_requested', req);
     }
     res.json({ ok: true, message: 'If the email exists, reset instructions were sent' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+authRouter.post('/password-reset/confirm', resetLimiter, async (req, res, next) => {
+  try {
+    const { token, newPassword } = z
+      .object({ token: z.string().min(10), newPassword: z.string().min(8) })
+      .parse(req.body);
+    const issues = passwordIssues(newPassword);
+    if (issues.length) throw new AppError('Password needs ' + issues.join(', '), 422);
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+    if (!record || record.consumedAt || record.expiresAt < new Date()) {
+      await antiEnumerateDelay();
+      throw new AppError('Invalid or expired reset link', 400);
+    }
+    const user = await prisma.user.findUnique({ where: { id: record.userId } });
+    if (!user) throw new AppError('Invalid or expired reset link', 400);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: await bcrypt.hash(newPassword, 12),
+          passwordChangedAt: new Date(),
+          tokenVersion: { increment: 1 }, // sign out every old session
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+        },
+      }),
+      prisma.passwordResetToken.update({ where: { id: record.id }, data: { consumedAt: new Date() } }),
+    ]);
+    await logSecurityEvent(user.id, 'password_reset_completed', req);
+    await prisma.notification.create({
+      data: {
+        userId: user.id,
+        type: 'system',
+        title: 'Password changed',
+        body: 'Your Rally password was changed and all other sessions were signed out. Rally will never ask for your password in a message.',
+      },
+    }).catch(() => undefined);
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }
@@ -241,13 +437,14 @@ async function verifyGoogleToken(token: string): Promise<SocialProfile> {
     return { providerId: sub || 'dev-user', displayName: name || 'Dev User' };
   }
   const res = await fetch(
-    `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`
+    'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token)
   );
   if (!res.ok) throw new AppError('Invalid Google token', 401);
   const data: any = await res.json();
   if (process.env.GOOGLE_CLIENT_ID && data.aud !== process.env.GOOGLE_CLIENT_ID) {
     throw new AppError('Token audience mismatch', 401);
   }
+  if (!data.sub) throw new AppError('Invalid Google token', 401);
   return { providerId: data.sub, email: data.email, displayName: data.name };
 }
 
@@ -262,7 +459,7 @@ async function verifyAppleToken(token: string): Promise<SocialProfile> {
   throw new AppError('Apple login production wiring pending', 501);
 }
 
-authRouter.post('/social', async (req, res, next) => {
+authRouter.post('/social', socialLimiter, async (req, res, next) => {
   try {
     const data = socialSchema.parse(req.body);
     const profile =
@@ -313,7 +510,8 @@ authRouter.post('/social', async (req, res, next) => {
     }
 
     await prisma.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
-    const token = signToken({ id: user.id, handle: user.handle, roles: user.roles as string[] });
+    await logSecurityEvent(user.id, 'login_social', req, { provider: data.provider });
+    const token = signToken({ id: user.id, handle: user.handle, roles: user.roles as string[], tokenVersion: user.tokenVersion });
     res.json({
       user: { id: user.id, handle: user.handle, displayName: user.displayName, roles: user.roles },
       token,

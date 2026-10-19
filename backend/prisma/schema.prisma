@@ -53,6 +53,13 @@ model User {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   lastActiveAt      DateTime           @default(now())
+  tokenVersion       Int                @default(0) // P3: bump to revoke every issued session
+  twoFactorSecret    String?            // P3: TOTP secret (base32), RFC 6238
+  twoFactorEnabled   Boolean            @default(false)
+  recoveryCodeHashes String[]            @default([]) // P3: single-use 2FA recovery codes
+  failedLoginAttempts Int               @default(0)
+  lockedUntil        DateTime?          // P3: brute-force lockout
+  passwordChangedAt  DateTime?
 
   fanProfile        FanProfile?
   favoriteProfile   FavoriteProfile?
@@ -863,4 +870,46 @@ model CityRankingSnapshot {
   createdAt   DateTime @default(now())
 
   @@index([city, periodStart])
+}
+
+// ─── P3: Security hardening ───────────────────────────────────────────────────
+
+// Immutable audit trail for account security events.
+model SecurityEvent {
+  id        String   @id @default(uuid())
+  userId    String   // plain FK; also 'unknown:<identifier>' for unknown-user probes
+  type      String   // login, login_2fa, login_recovery_code, login_social, login_failed, lockout, account_created, password_changed, password_reset_requested, password_reset_completed, 2fa_enabled, 2fa_disabled, sessions_revoked, api_key_created, api_key_revoked, admin_unlock, admin_lock
+  ip        String?
+  userAgent String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+}
+
+// Public API keys — hashed at rest, shown once at creation.
+model ApiKey {
+  id         String    @id @default(uuid())
+  userId     String
+  name       String
+  keyHash    String    @unique
+  keyPrefix  String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// One-time password reset tokens — hashed, 30-minute expiry.
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
