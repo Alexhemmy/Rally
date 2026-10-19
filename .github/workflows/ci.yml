@@ -27,7 +27,7 @@ jobs:
       - name: Validate Prisma schema
         env:
           # prisma validate needs the env var present to parse the schema — value is never used
-          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+          DATABASE_URL: ${{secrets.DATABASE_URL}}
         run: npx prisma validate --schema prisma/schema.prisma
 
   web:
