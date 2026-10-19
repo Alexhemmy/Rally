@@ -40,23 +40,19 @@ async function dispatchEmail(input: NotifyInput, user: { email: string | null; d
     return;
   }
   const isSecurity = SECURITY_TYPES.has(input.type);
+  const fallbackHtml =
+    '<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">' +
+    '<div style="font-weight:800;font-size:20px;color:#0ea5e9;margin-bottom:16px">Rally</div>' +
+    '<h2 style="font-size:17px;margin:0 0 12px">' + input.title.replace(/[&<>]/g, '') + '</h2>' +
+    '<p style="margin:0">' + (input.body || '').replace(/[&<>]/g, '') + '</p>' +
+    '</div>';
   const html = isSecurity
     ? securityAlertEmail(user.displayName, input.title, input.body || '')
-    : undefined;
+    : fallbackHtml;
   await sendMail({
     to: user.email,
     subject: isSecurity ? 'Rally security alert: ' + input.title : 'Rally: ' + input.title,
-    ...(html ? { html } : {}),
-    ...(!html
-      ? {
-          html:
-            '<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">' +
-            '<div style="font-weight:800;font-size:20px;color:#0ea5e9;margin-bottom:16px">Rally</div>' +
-            '<h2 style="font-size:17px;margin:0 0 12px">' + input.title.replace(/[&<>]/g, '') + '</h2>' +
-            '<p style="margin:0">' + (input.body || '').replace(/[&<>]/g, '') + '</p>' +
-            '</div>',
-        }
-      : {}),
+    html,
     category: isSecurity ? 'security' : 'notification',
   });
 }

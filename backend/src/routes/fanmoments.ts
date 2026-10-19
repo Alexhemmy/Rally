@@ -135,8 +135,7 @@ fanmomentsRouter.get('/favorite/:favoriteId', optionalAuth, async (req, res, nex
   try {
     const moments = await prisma.moment.findMany({
       where: { favoriteId: req.params.favoriteId, type: 'FAN', isApproved: true },
-      orderBy: { isFeatured: 'desc' },
-      thenBy: { createdAt: 'desc' },
+      orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
       take: 50,
     });
     res.json({ moments });

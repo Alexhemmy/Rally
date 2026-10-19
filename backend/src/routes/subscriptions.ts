@@ -186,7 +186,6 @@ subscriptionsRouter.get('/me', authenticate, async (req, res, next) => {
   try {
     const subs = await prisma.subscription.findMany({
       where: { userId: req.user!.userId },
-      include: { tier: false },
     });
     const tierIds = subs.map((s) => s.tierId);
     const tiers = await prisma.subscriptionTier.findMany({ where: { id: { in: tierIds } } });

@@ -39,14 +39,14 @@ giveawaysRouter.get('/', async (req, res, next) => {
     });
     const favs = await prisma.favoriteProfile.findMany({
       where: { id: { in: giveaways.map((g) => g.favoriteId) } },
-      select: { id: true, displayName: true },
+      select: { id: true, user: { select: { displayName: true } } },
     });
     const favById = new Map(favs.map((f) => [f.id, f]));
     res.json({
       giveaways: giveaways.map((g) => ({
         id: g.id,
         favoriteId: g.favoriteId,
-        favoriteName: favById.get(g.favoriteId)?.displayName ?? null,
+        favoriteName: favById.get(g.favoriteId)?.user.displayName ?? null,
         poolAmount: g.poolAmount,
         currency: g.currency,
         winnerCount: g.winnerCount,
@@ -113,7 +113,7 @@ giveawaysRouter.post('/:id/fund', authenticate, async (req, res, next) => {
     await requireFavoriteOwner(giveaway.favoriteId, req.user!.userId, req.user!.roles);
     if (giveaway.status !== 'draft') throw new AppError('Giveaway already funded or closed', 409);
 
-    const total = giveaway.poolAmount + giveaway.fee;
+    const total = giveaway.poolAmount.add(giveaway.fee);
     const updated = await prisma.$transaction(async (tx) => {
       const debited = await tx.favoriteProfile.updateMany({
         where: { id: giveaway.favoriteId, giftPointsBalance: { gte: total } },
@@ -227,7 +227,7 @@ giveawaysRouter.post('/:id/draw', authenticate, async (req, res, next) => {
       // refund pool to Favorite
       await prisma.favoriteProfile.update({
         where: { id: giveaway.favoriteId },
-        data: { giftPointsBalance: { increment: giveaway.poolAmount + giveaway.fee } },
+        data: { giftPointsBalance: { increment: giveaway.poolAmount.add(giveaway.fee) } },
       });
       return res.json({ giveaway: cancelled, refunded: true });
     }
@@ -336,7 +336,6 @@ giveawaysRouter.get('/:id/results', optionalAuth, async (req, res, next) => {
 
     const winnerEntries = await prisma.giveawayEntry.findMany({
       where: { giveawayId: giveaway.id, isWinner: true },
-      include: { },
     });
     const winners = await Promise.all(
       winnerEntries
@@ -358,7 +357,7 @@ giveawaysRouter.get('/:id/results', optionalAuth, async (req, res, next) => {
       });
       if (entry) {
         // Composite C is not stored; derive the band from draw weight (1+4C).
-        const c = entry.drawWeight ? (entry.drawWeight - 1) / 4 : null;
+        const c = entry.drawWeight ? (Number(entry.drawWeight) - 1) / 4 : null;
         own = {
           entered: true,
           isWinner: entry.isWinner,

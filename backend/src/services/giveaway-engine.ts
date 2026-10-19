@@ -38,7 +38,7 @@ export async function computeRawScores(userId: string, favoriteId: string, favor
       select: { momentId: true, createdAt: true },
     }),
     prisma.comment.findMany({
-      where: { userId, momentId: { in: momentIds }, isHidden: false, createdAt: { gte: since } },
+      where: { authorId: userId, momentId: { in: momentIds }, isHidden: false, createdAt: { gte: since } },
       select: { body: true, createdAt: true },
     }),
     prisma.follow.findFirst({ where: { followerId: userId, followingId: favoriteOwnerId } }),

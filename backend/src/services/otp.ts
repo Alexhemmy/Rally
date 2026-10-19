@@ -56,13 +56,13 @@ export async function requestOtp(userId: string, phone: string) {
   if (existing) throw new AppError('Phone number already in use', 409);
 
   // Resend cooldown
-  const recent = await prisma.oTPCode.findFirst({
+  const recent = await prisma.otpCode.findFirst({
     where: { userId, phone: normalized, createdAt: { gt: new Date(Date.now() - RESEND_COOLDOWN_SEC * 1000) } },
   });
   if (recent) throw new AppError('Please wait before requesting another code', 429);
 
   const code = String(crypto.randomInt(100000, 999999));
-  await prisma.oTPCode.create({
+  await prisma.otpCode.create({
     data: {
       userId,
       phone: normalized,
@@ -78,7 +78,7 @@ export async function requestOtp(userId: string, phone: string) {
 
 export async function verifyOtp(userId: string, phone: string, code: string) {
   const normalized = phone.replace(/[\s()-]/g, '');
-  const otp = await prisma.oTPCode.findFirst({
+  const otp = await prisma.otpCode.findFirst({
     where: { userId, phone: normalized, consumedAt: null },
     orderBy: { createdAt: 'desc' },
   });
@@ -87,12 +87,12 @@ export async function verifyOtp(userId: string, phone: string, code: string) {
   if (otp.attempts >= MAX_ATTEMPTS) throw new AppError('Too many attempts. Request a new one.', 429);
 
   if (otp.codeHash !== hashCode(normalized, code)) {
-    await prisma.oTPCode.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
+    await prisma.otpCode.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
     throw new AppError('Incorrect code', 401);
   }
 
   await prisma.$transaction([
-    prisma.oTPCode.update({ where: { id: otp.id }, data: { consumedAt: new Date() } }),
+    prisma.otpCode.update({ where: { id: otp.id }, data: { consumedAt: new Date() } }),
     prisma.user.update({ where: { id: userId }, data: { phone: normalized, phoneVerifiedAt: new Date() } }),
   ]);
   return { verified: true };

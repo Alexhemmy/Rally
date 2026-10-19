@@ -34,9 +34,9 @@ rivalriesRouter.get('/', async (_req, res, next) => {
     const favIds = rivalries.flatMap((r) => [r.favoriteAId, r.favoriteBId]);
     const favs = await prisma.favoriteProfile.findMany({
       where: { id: { in: favIds } },
-      select: { id: true, displayName: true },
+      select: { id: true, user: { select: { displayName: true } } },
     });
-    const favById = new Map(favs.map((f) => [f.id, f.displayName]));
+    const favById = new Map(favs.map((f) => [f.id, f.user.displayName]));
     res.json({
       rivalries: rivalries.map((r) => ({
         id: r.id,
@@ -80,9 +80,9 @@ rivalriesRouter.get('/', async (_req, res, next) => {
     const favIds = rivalries.flatMap((r) => [r.favoriteAId, r.favoriteBId]);
     const favs = await prisma.favoriteProfile.findMany({
       where: { id: { in: favIds } },
-      select: { id: true, displayName: true },
+      select: { id: true, user: { select: { displayName: true } } },
     });
-    const favById = new Map(favs.map((f) => [f.id, f.displayName]));
+    const favById = new Map(favs.map((f) => [f.id, f.user.displayName]));
     res.json({
       rivalries: rivalries.map((r) => ({
         id: r.id,

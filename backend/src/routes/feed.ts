@@ -50,7 +50,7 @@ feedRouter.get('/home/chrono', authenticate, async (req, res, next) => {
   try {
     // Same as home but always pure chronological (already is for MVP)
     req.url = '/home';
-    return feedRouter.handle(req, res, next);
+    return (feedRouter as any).handle(req, res, next);
   } catch (err) {
     next(err);
   }

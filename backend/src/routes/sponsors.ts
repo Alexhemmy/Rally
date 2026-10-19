@@ -119,7 +119,7 @@ sponsorsRouter.post('/giveaways/:id/fund', authenticate, requireRole('ADMIN'), a
       return res.json({ giveaway: ok, escrowedTokens: needed });
     }
     const updated = await prisma.giveaway.update({ where: { id: giveaway.id }, data: { status: 'funded' } });
-    res.json({ giveaway: updated, escrowAmount: giveaway.poolAmount + giveaway.fee });
+    res.json({ giveaway: updated, escrowAmount: giveaway.poolAmount.add(giveaway.fee) });
   } catch (err) { next(err); }
 });
 
