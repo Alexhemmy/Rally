@@ -97,7 +97,7 @@ export async function awardAutomatedBadges(opts: {
           userId: opts.senderId,
           type: 'badge_awarded',
           title: 'You earned Day One!',
-          body: 'You showed up during this Favorite's first days on Rally.',
+          body: "You showed up during this Favorite's first days on Rally.",
           data: { badgeSlug: 'day_one', favoriteId: opts.favoriteId },
         },
       });
