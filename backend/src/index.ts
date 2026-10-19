@@ -30,7 +30,16 @@ const PORT = process.env.PORT || 4000;
 app.use(helmet());
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
 app.use(morgan('dev'));
-app.use(express.json({ limit: '2mb' }));
+// Capture the raw body for webhook endpoints so provider signatures
+// (computed over the exact bytes sent) can be verified correctly.
+app.use(express.json({
+  limit: '2mb',
+  verify: (req: any, _res, buf) => {
+    if (req.originalUrl?.startsWith('/api/webhooks')) {
+      req.rawBody = buf.toString('utf8');
+    }
+  },
+}));
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'rally-api', version: '1.0.0' });

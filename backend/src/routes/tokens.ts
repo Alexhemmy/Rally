@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
 import { authenticate } from '../middleware/auth';
+import { enforceMinorLimits } from '../middleware/minors';
 import { AppError } from '../middleware/errorHandler';
 
 export const tokensRouter = Router();
@@ -20,7 +21,7 @@ tokensRouter.get('/packs', async (_req, res, next) => {
 });
 
 // Purchase tokens (mock payment for MVP)
-tokensRouter.post('/purchase', authenticate, async (req, res, next) => {
+tokensRouter.post('/purchase', authenticate, enforceMinorLimits, async (req, res, next) => {
   try {
     const schema = z.object({
       packId: z.string().uuid(),

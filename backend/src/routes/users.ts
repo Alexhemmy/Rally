@@ -33,6 +33,12 @@ usersRouter.get('/:handle', async (req, res, next) => {
       },
     });
     if (!user) throw new AppError('User not found', 404);
+
+    // Don't expose unpublished Favorite profiles publicly.
+    if (user.favoriteProfile && !user.favoriteProfile.isPublished) {
+      (user as any).favoriteProfile = null;
+    }
+
     res.json({ user });
   } catch (err) {
     next(err);

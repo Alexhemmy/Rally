@@ -70,6 +70,20 @@ momentsRouter.get('/:id', optionalAuth, async (req, res, next) => {
       },
     });
     if (!moment) throw new AppError('Moment not found', 404);
+
+    // The author can always see their own Moment; everyone else only
+    // sees approved, unexpired, public Moments.
+    const isOwner = req.user?.userId === moment.authorId;
+    const expired = moment.expiresAt ? moment.expiresAt.getTime() < Date.now() : false;
+    const visible =
+      moment.isApproved &&
+      !expired &&
+      (moment.visibility === 'PUBLIC' || isOwner);
+
+    if (!isOwner && !visible) {
+      throw new AppError('Moment not found', 404);
+    }
+
     res.json({ moment });
   } catch (err) {
     next(err);
@@ -109,7 +123,7 @@ momentsRouter.post('/:id/react', authenticate, async (req, res, next) => {
     const moment = await prisma.moment.findUnique({ where: { id: req.params.id } });
     if (!moment) throw new AppError('Moment not found', 404);
 
-    await prisma.reaction.upsert({
+    const existing = await prisma.reaction.findUnique({
       where: {
         userId_momentId_type: {
           userId: req.user!.userId,
@@ -117,14 +131,20 @@ momentsRouter.post('/:id/react', authenticate, async (req, res, next) => {
           type,
         },
       },
-      create: { userId: req.user!.userId, momentId: moment.id, type },
-      update: {},
     });
 
-    await prisma.moment.update({
-      where: { id: moment.id },
-      data: { reactionCount: { increment: 1 } },
-    });
+    // Only count newly created reactions — repeated reactions are idempotent.
+    if (!existing) {
+      await prisma.$transaction([
+        prisma.reaction.create({
+          data: { userId: req.user!.userId, momentId: moment.id, type },
+        }),
+        prisma.moment.update({
+          where: { id: moment.id },
+          data: { reactionCount: { increment: 1 } },
+        }),
+      ]);
+    }
 
     res.json({ reacted: true });
   } catch (err) {

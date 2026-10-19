@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
 import { authenticate, optionalAuth } from '../middleware/auth';
+import { enforceMinorLimits } from '../middleware/minors';
 import { AppError } from '../middleware/errorHandler';
 
 export const giftsRouter = Router();
@@ -25,7 +26,7 @@ giftsRouter.get('/catalog', async (req, res, next) => {
 });
 
 // Send a gift to a Favorite
-giftsRouter.post('/send', authenticate, async (req, res, next) => {
+giftsRouter.post('/send', authenticate, enforceMinorLimits, async (req, res, next) => {
   try {
     const schema = z.object({
       favoriteHandle: z.string(),
@@ -63,10 +64,17 @@ giftsRouter.post('/send', authenticate, async (req, res, next) => {
     const giftPoints = catalogItem.tokenCost * giftPointsRate;
 
     const gift = await prisma.$transaction(async (tx) => {
-      await tx.tokenWallet.update({
-        where: { userId: req.user!.userId },
+      // Atomic balance guard: only decrement if the balance still covers the cost.
+      const debited = await tx.tokenWallet.updateMany({
+        where: {
+          userId: req.user!.userId,
+          balance: { gte: catalogItem.tokenCost },
+        },
         data: { balance: { decrement: catalogItem.tokenCost } },
       });
+      if (debited.count === 0) {
+        throw new AppError('Insufficient tokens', 402);
+      }
 
       const g = await tx.gift.create({
         data: {

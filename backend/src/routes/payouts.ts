@@ -38,18 +38,24 @@ payoutsRouter.post('/request', authenticate, async (req, res, next) => {
     if (profile.verificationStatus !== 'VERIFIED') {
       throw new AppError('Complete KYC verification before payouts', 403);
     }
-    const available = Number(profile.giftPointsBalance);
-    if (data.amount > available) throw new AppError('Insufficient Gift Points', 402);
 
     const fee = data.onDemand ? data.amount * 0.02 : 0;
     const payout = await prisma.$transaction(async (tx) => {
-      await tx.favoriteProfile.update({
-        where: { id: profile.id },
+      // Atomic balance check: only decrements if the balance still covers
+      // the amount — prevents concurrent requests going negative.
+      const debited = await tx.favoriteProfile.updateMany({
+        where: {
+          id: profile.id,
+          giftPointsBalance: { gte: data.amount },
+        },
         data: {
           giftPointsBalance: { decrement: data.amount },
           pendingGiftPoints: { increment: data.amount - fee },
         },
       });
+      if (debited.count === 0) {
+        throw new AppError('Insufficient Gift Points', 402);
+      }
       return tx.payout.create({
         data: {
           favoriteId: profile.id,
