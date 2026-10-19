@@ -208,3 +208,43 @@ Tests clean up all rows they create (handles prefixed `p1t_`). Prefer a scratch 
 - Public API: move to API-key auth (issuable keys table) once partners onboard; rate limiting should move to Redis for multi-instance.
 - i18n: `nameI18n` fields exist on taxonomy tables; ship translated catalogs per locale as a deployment concern.
 - Giveaway draw seed: vault/KMS storage for multi-instance deployments.
+
+---
+
+## P3 — Security hardening
+
+A platform-wide pass against hacking, injection, phishing, brute force, and account takeover.
+
+| Layer | Control | Details |
+| --- | --- | --- |
+| Brute force | Login lockout | 5 failed attempts → 15-minute lock (HTTP 423), reset on success; per-IP limiter (20/15 min) on login, register, social, and reset endpoints |
+| Account takeover | TOTP 2FA (RFC 6238) | Hand-rolled HMAC-SHA1 TOTP with ±1 step window; one-time recovery codes (SHA-256 hashed, shown once); 5-minute scoped challenge tokens |
+| Sessions | Global revoke | JWTs carry a `tv` (tokenVersion) claim; password change / reset / revoke-all bumps it so every previously issued token dies instantly |
+| Phishing | Anti-phishing stance | All security notifications state Rally never asks for passwords, codes, or Gifts in messages; public `/api/security/phishing-guide`; reset links are single-use, hashed at rest, 30-minute expiry |
+| Injection | Input defense | Zod schemas on every route (as before); `sanitizeText` control-char stripper; Prisma parameterized queries (no raw SQL anywhere); embed HTML is fully output-escaped |
+| XSS/headers | Hardened headers | Helmet CSP, HSTS, noSniff, frameguard, cross-origin policy; React/RN render escaping on all user content |
+| CSRF-ish abuse | Origin guard | State-changing /api requests from browsers are rejected unless Origin/Referer matches `APP_ORIGINS`/`CORS_ORIGIN` (webhooks and non-browser clients exempt) |
+| API abuse | Rate limiting | Global 600 req/5 min/IP across /api (webhooks excluded); /api/auth stricter; public API 120/5min anonymous vs 1000/5min per API key |
+| Public API | API keys | `rly_live_…` keys, SHA-256 hashed at rest, shown once, revocable, max 10 active per user, per-key usage tracking |
+| Audit | Security events | Immutable `SecurityEvent` trail: logins (incl. method/IP/UA), failed attempts, lockouts, password changes, 2FA changes, revocations, API key lifecycle; user history + admin feed with lock/unlock controls |
+| Enumeration | Anti-enumeration | Generic credential errors with constant-ish delay; reset request always 200; password strength checks on register/change/reset |
+
+### Endpoints
+
+- `/api/auth/login` — returns `{ twoFactorRequired, challengeToken }` when 2FA is on → `POST /api/auth/login/2fa` with TOTP or recovery code
+- `/api/security/*` — overview, events, sessions, revoke-all, password change, 2FA setup/enable/disable, recovery-code regeneration, API key CRUD, admin lock/unlock, phishing guide
+- `/api/public/v1/*` — now accepts `Authorization: Bearer rly_live_…` for partner rate limits
+
+### UI
+
+- Web: `/security` page (2FA wizard, recovery codes, password change, session list, revoke-all, API keys, recent security events), login 2FA challenge, reset-token confirm flow on `/forgot-password`
+- Mobile: Security screen (2FA, password change, sessions, events) + login 2FA challenge
+
+### Production checklist
+
+- Set a strong `JWT_SECRET` (32+ random bytes) — never ship `dev-secret`.
+- Set `CORS_ORIGIN` and `APP_ORIGINS` to your real web origins so the origin guard activates.
+- Move rate-limit buckets to Redis for multi-instance deployments.
+- Add device fingerprinting + new-device email alerts on top of `SecurityEvent` logins.
+- Wire the SMS/email providers so recovery-code and lockout notifications actually deliver.
+- CI (security workflow) runs `npm audit` and a secret-pattern scan on every push.
