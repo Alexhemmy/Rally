@@ -32,6 +32,7 @@ export function Nav() {
         <a href="/junior">Junior Favorites</a>
         <a href="/sponsors">Brands</a>
         <a href="/upgrade">Become a Favorite</a>
+        <a href="/security">Security</a>
         <a href="/settings">Settings</a>
         {authed ? (
           <a
