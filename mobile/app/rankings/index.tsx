@@ -1,48 +1,150 @@
+/** Rankings
+ * Global Favorite rankings. Money does not buy rank alone.
+ */
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { api } from '@/lib/api';
-import { colors, spacing, radii } from '@/constants/theme';
-import { useSounds } from '@/hooks/useSounds';
+import { GlassCard, Avatar, EmptyState } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
+import { useTheme } from '@/components/ThemeProvider';
+import { api } from '@/lib/api';
+import { spacing, radii, type as typo } from '@/constants/theme';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
+
+type RankingEntry = {
+  handle: string;
+  name?: string;
+  score: number;
+  avatarUrl?: string | null;
+};
 
 export default function RankingsScreen() {
-  const [rankings, setRankings] = useState<any[]>([]);
+  const { colors } = useTheme();
   const { click } = useSounds();
+  const { impact } = useHaptics();
+  const router = useRouter();
+
+  const [rankings, setRankings] = useState<RankingEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
-      const r = await api<{ rankings: any[] }>('/api/rankings');
+      const r = await api<{ rankings: RankingEntry[] }>('/api/rankings');
       setRankings(r.rankings || []);
-    } catch {}
-    setRefreshing(false);
+    } catch {
+      // offline
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <SwipeBack>
       <Screen refreshing={refreshing} onRefresh={load}>
-        <Text style={styles.h1}>Rankings</Text>
-        <Text style={styles.muted}>Money does not buy rank alone.</Text>
-        {rankings.map((r, i) => (
-          <Link key={r.handle} href={(`/favorite/${r.handle}`) as any} asChild>
-            <Pressable style={styles.row} onPress={() => click()}>
-              <Text style={styles.name}>#{i + 1} @{r.handle}</Text>
-              <Text style={styles.muted}>{r.score}</Text>
-            </Pressable>
-          </Link>
-        ))}
-        {rankings.length === 0 && (
-          <View style={styles.card}>
-            <Text style={styles.muted}>No rankings yet.</Text>
-            <Link href="/favorite/mia" asChild>
-              <Pressable onPress={() => click()}><Text style={styles.link}>Open demo @mia</Text></Pressable>
-            </Link>
-          </View>
+        {/* Header */}
+        <Text style={[styles.h1, { color: colors.text }]}>Rankings</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
+          Money does not buy rank alone.
+        </Text>
+
+        {rankings.length === 0 && !refreshing ? (
+          <EmptyState
+            icon="trophy-outline"
+            title="No rankings yet"
+            body="Check back later or explore the demo Favorite."
+            action={
+              <Pressable
+                onPress={() => {
+                  click();
+                  router.push('/favorite/mia');
+                }}
+              >
+                <Text style={{ color: colors.primary, fontWeight: '700' }}>
+                  Open demo @mia
+                </Text>
+              </Pressable>
+            }
+          />
+        ) : (
+          <GlassCard padded={false}>
+            {rankings.map((entry, index) => (
+              <Pressable
+                key={entry.handle}
+                onPress={() => {
+                  click();
+                  impact('light');
+                  router.push(`/favorite/${entry.handle}`);
+                }}
+                style={({ pressed }) => [
+                  styles.row,
+                  {
+                    borderBottomWidth: index < rankings.length - 1 ? StyleSheet.hairlineWidth : 0,
+                    borderBottomColor: colors.border,
+                    backgroundColor: pressed ? colors.surfaceHover : 'transparent',
+                  },
+                ]}
+              >
+                {/* Rank number */}
+                <View
+                  style={[
+                    styles.rankBadge,
+                    {
+                      backgroundColor:
+                        index === 0
+                          ? colors.warning + '30'
+                          : index === 1
+                          ? colors.muted + '30'
+                          : index === 2
+                          ? colors.accent + '25'
+                          : colors.primaryMuted,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color:
+                        index === 0
+                          ? colors.warning
+                          : index < 3
+                          ? colors.text
+                          : colors.primary,
+                      fontWeight: '800',
+                      fontSize: 14,
+                    }}
+                  >
+                    {index + 1}
+                  </Text>
+                </View>
+
+                <Avatar
+                  uri={entry.avatarUrl}
+                  name={entry.name || entry.handle}
+                  size={40}
+                  ring={index < 3}
+                />
+
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+                    {entry.name || entry.handle}
+                  </Text>
+                  <Text style={{ color: colors.muted, fontSize: 13 }}>
+                    @{entry.handle}
+                  </Text>
+                </View>
+
+                <Text style={[styles.score, { color: colors.primary }]}>
+                  {entry.score}
+                </Text>
+              </Pressable>
+            ))}
+          </GlassCard>
         )}
       </Screen>
     </SwipeBack>
@@ -50,16 +152,37 @@ export default function RankingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: spacing.sm },
-  muted: { color: colors.muted, marginBottom: 12, fontSize: 14 },
-  name: { color: colors.text, fontWeight: '600' },
-  link: { color: colors.primary, fontWeight: '700', marginTop: 8 },
-  row: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border,
+  h1: {
+    ...typo.h1,
+    marginTop: spacing.sm,
+    marginBottom: 6,
   },
-  card: {
-    backgroundColor: colors.surface, borderRadius: radii.md, borderWidth: 1,
-    borderColor: colors.border, padding: spacing.md, marginTop: 8,
+  subtitle: {
+    ...typo.body,
+    marginBottom: spacing.lg,
+    lineHeight: 21,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 10,
+  },
+  rankBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  name: {
+    fontWeight: '700',
+    fontSize: 15,
+    marginBottom: 1,
+  },
+  score: {
+    fontWeight: '800',
+    fontSize: 15,
   },
 });
