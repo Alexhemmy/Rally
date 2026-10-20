@@ -1,12 +1,25 @@
+/** Rivalries
+ * Opt-in, moderated energy without harm. No money wagering.
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { Text, StyleSheet, View } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { PrimaryButton } from '@/components/PrimaryButton';
+import { GradientButton, GlassCard, SectionHeader, EmptyState } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
+import { useTheme } from '@/components/ThemeProvider';
 import { api } from '@/lib/api';
-import { colors, spacing, radii } from '@/constants/theme';
+import { spacing, radii, type as typo } from '@/constants/theme';
+import { useHaptics } from '@/hooks/useHaptics';
 
-type FaceOff = { id: string; question: string; favoriteAId: string; votesA: number; votesB: number; closesAt: string };
+type FaceOff = {
+  id: string;
+  question: string;
+  favoriteAId: string;
+  votesA: number;
+  votesB: number;
+  closesAt: string;
+};
+
 type Rivalry = {
   id: string;
   favoriteA: { name: string | null };
@@ -17,64 +30,209 @@ type Rivalry = {
   faceOffs: FaceOff[];
 };
 
-export default function Page() {
+export default function RivalriesScreen() {
+  const { colors } = useTheme();
+  const { impact } = useHaptics();
+
   const [rivalries, setRivalries] = useState<Rivalry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [votingId, setVotingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
       const r = await api<{ rivalries: Rivalry[] }>('/api/rivalries', { skipAuth: true });
       setRivalries(r.rivalries || []);
-    } catch { /* offline */ } finally { setRefreshing(false); }
+    } catch {
+      // offline
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function vote(faceOffId: string, side: 'A' | 'B') {
-    setMsg('');
+    setVotingId(faceOffId);
+    setMsg(null);
+    impact('medium');
+
     try {
       await api(`/api/rivalries/faceoffs/${faceOffId}/vote`, {
         method: 'POST',
         body: JSON.stringify({ side }),
       });
-      load();
+      setMsg({ type: 'success', text: 'Vote recorded!' });
+      impact('success');
+      await load();
     } catch (e: any) {
-      setMsg(e.message || 'Vote failed');
+      setMsg({ type: 'error', text: e.message || 'Vote failed' });
+    } finally {
+      setVotingId(null);
     }
   }
 
   return (
     <SwipeBack>
       <Screen refreshing={refreshing} onRefresh={load}>
-        <Text style={styles.h1}>Rivalries</Text>
-        <Text style={styles.muted}>Opt-in, moderated energy without harm. No money wagering.</Text>
-        {msg ? <Text style={styles.badge}>{msg}</Text> : null}
-        {rivalries.map((r) => (
-          <View key={r.id} style={styles.card}>
-            <Text style={styles.name}>{r.favoriteA.name || 'Favorite A'} vs {r.favoriteB.name || 'Favorite B'}</Text>
-            <Text style={styles.badge}>{r.status} · Beef Radar {r.heatLevel}/5</Text>
-            {r.summary ? <Text style={styles.muted}>{r.summary}</Text> : null}
-            {r.faceOffs.map((f) => {
-              const total = f.votesA + f.votesB;
+        {/* Header */}
+        <Text style={[styles.h1, { color: colors.text }]}>Rivalries</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
+          Opt-in, moderated energy without harm. No money wagering.
+        </Text>
+
+        {/* Feedback */}
+        {msg && (
+          <View
+            style={[
+              styles.feedback,
+              {
+                backgroundColor:
+                  msg.type === 'success'
+                    ? colors.success + '18'
+                    : colors.danger + '18',
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: msg.type === 'success' ? colors.success : colors.danger,
+                fontWeight: '700',
+                fontSize: 13,
+              }}
+            >
+              {msg.text}
+            </Text>
+          </View>
+        )}
+
+        {/* List */}
+        {rivalries.length === 0 && !refreshing ? (
+          <EmptyState
+            icon="flash-outline"
+            title="No rivalries yet"
+            body="Pull to refresh or check back later for new matchups."
+          />
+        ) : (
+          <View style={{ gap: 14 }}>
+            {rivalries.map((r) => {
+              const nameA = r.favoriteA.name || 'Favorite A';
+              const nameB = r.favoriteB.name || 'Favorite B';
+
               return (
-                <View key={f.id} style={{ marginTop: 10 }}>
-                  <Text style={{ color: colors.text, fontWeight: '600' }}>{f.question}</Text>
-                  <Text style={styles.muted}>
-                    {f.votesA} — {f.votesB} of {total} votes
+                <GlassCard key={r.id}>
+                  {/* Rivalry header */}
+                  <Text style={[styles.vsTitle, { color: colors.text }]}>
+                    {nameA}{' '}
+                    <Text style={{ color: colors.muted, fontWeight: '600' }}>vs</Text>{' '}
+                    {nameB}
                   </Text>
-                  <View style={styles.row}>
-                    <PrimaryButton label={`Vote ${r.favoriteA.name ?? 'A'}`} onPress={() => vote(f.id, 'A')} />
-                    <PrimaryButton label={`Vote ${r.favoriteB.name ?? 'B'}`} onPress={() => vote(f.id, 'B')} />
+
+                  <View style={styles.metaRow}>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        { backgroundColor: colors.primaryMuted },
+                      ]}
+                    >
+                      <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>
+                        {r.status}
+                      </Text>
+                    </View>
+                    <Text style={{ color: colors.muted, fontSize: 13 }}>
+                      Beef Radar {r.heatLevel}/5
+                    </Text>
                   </View>
-                </View>
+
+                  {r.summary && (
+                    <Text
+                      style={{
+                        color: colors.muted,
+                        fontSize: 14,
+                        lineHeight: 20,
+                        marginTop: 8,
+                      }}
+                    >
+                      {r.summary}
+                    </Text>
+                  )}
+
+                  {/* Face-offs */}
+                  {r.faceOffs.map((f) => {
+                    const total = f.votesA + f.votesB || 1;
+                    const pctA = Math.round((f.votesA / total) * 100);
+                    const pctB = 100 - pctA;
+
+                    return (
+                      <View
+                        key={f.id}
+                        style={[
+                          styles.faceOff,
+                          {
+                            backgroundColor: colors.bg,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.question, { color: colors.text }]}>
+                          {f.question}
+                        </Text>
+
+                        {/* Vote bar */}
+                        <View style={styles.barTrack}>
+                          <View
+                            style={[
+                              styles.barFillA,
+                              {
+                                width: `${pctA}%`,
+                                backgroundColor: colors.primary,
+                              },
+                            ]}
+                          />
+                          <View
+                            style={[
+                              styles.barFillB,
+                              {
+                                width: `${pctB}%`,
+                                backgroundColor: colors.accent,
+                              },
+                            ]}
+                          />
+                        </View>
+
+                        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 10 }}>
+                          {f.votesA} — {f.votesB} · {total} votes
+                        </Text>
+
+                        <View style={styles.actions}>
+                          <GradientButton
+                            label={`Vote ${nameA}`}
+                            size="sm"
+                            onPress={() => vote(f.id, 'A')}
+                            loading={votingId === f.id}
+                            disabled={!!votingId}
+                            style={{ flex: 1 }}
+                          />
+                          <GradientButton
+                            label={`Vote ${nameB}`}
+                            size="sm"
+                            variant="ghost"
+                            onPress={() => vote(f.id, 'B')}
+                            loading={votingId === f.id}
+                            disabled={!!votingId}
+                            style={{ flex: 1 }}
+                          />
+                        </View>
+                      </View>
+                    );
+                  })}
+                </GlassCard>
               );
             })}
           </View>
-        ))}
-        {!refreshing && rivalries.length === 0 && (
-          <Text style={styles.muted}>No rivalries documented yet. Pull to refresh.</Text>
         )}
       </Screen>
     </SwipeBack>
@@ -82,26 +240,64 @@ export default function Page() {
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: spacing.sm, marginBottom: 8 },
-  muted: { color: colors.muted, marginBottom: 12, fontSize: 14 },
-  name: { color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 4 },
-  badge: { color: colors.primaryHover, fontSize: 12, fontWeight: '600', marginBottom: 6 },
-  card: {
-    backgroundColor: colors.surface,
+  h1: {
+    ...typo.h1,
+    marginTop: spacing.sm,
+    marginBottom: 6,
+  },
+  subtitle: {
+    ...typo.body,
+    marginBottom: spacing.lg,
+    lineHeight: 21,
+  },
+  feedback: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: 10,
+    marginBottom: spacing.md,
   },
-  input: {
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    color: colors.text,
-    padding: 12,
-    marginBottom: 10,
+  vsTitle: {
+    fontWeight: '800',
+    fontSize: 17,
+    marginBottom: 8,
   },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: radii.full,
+  },
+  faceOff: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: 14,
+  },
+  question: {
+    fontWeight: '700',
+    fontSize: 15,
+    marginBottom: 10,
+    lineHeight: 20,
+  },
+  barTrack: {
+    height: 8,
+    borderRadius: 4,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  barFillA: {
+    height: '100%',
+  },
+  barFillB: {
+    height: '100%',
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
 });
