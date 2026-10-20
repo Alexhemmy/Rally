@@ -1,120 +1,349 @@
+/** Live Sessions
+ * Real-time Gifts, live leaderboard, and host controls (pause / resume / end).
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { Text, StyleSheet, View, Pressable } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { PrimaryButton } from '@/components/PrimaryButton';
-import { api, getToken } from '@/lib/api';
-import { colors, spacing, radii } from '@/constants/theme';
+import { GradientButton, GlassCard, SectionHeader, EmptyState, Chip } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
+import { useTheme } from '@/components/ThemeProvider';
+import { api, getToken } from '@/lib/api';
+import { spacing, radii, type as typo } from '@/constants/theme';
+import { useHaptics } from '@/hooks/useHaptics';
 
-type Session = { id: string; title: string; kind: string; status: string; isPaused: boolean; viewerCount: number; favoriteId: string };
-type CatalogItem = { id: string; name: string; tokenCost: number };
-type BoardRow = { name: string; tokens: number };
+type Session = {
+  id: string;
+  title: string;
+  kind: string;
+  status: string;
+  isPaused: boolean;
+  viewerCount: number;
+  favoriteId: string;
+};
+
+type CatalogItem = {
+  id: string;
+  name: string;
+  tokenCost: number;
+};
+
+type BoardRow = {
+  name: string;
+  tokens: number;
+};
 
 export default function LiveScreen() {
+  const { colors } = useTheme();
+  const { impact } = useHaptics();
+
   const [sessions, setSessions] = useState<Session[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [myFavId, setMyFavId] = useState<string | null>(null);
   const [active, setActive] = useState<Session | null>(null);
   const [board, setBoard] = useState<BoardRow[]>([]);
-  const [msg, setMsg] = useState('');
-  const [error, setError] = useState('');
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [actingId, setActingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
       const r = await api<{ sessions: Session[] }>('/api/live', { skipAuth: true });
       setSessions(r.sessions || []);
+
       const c = await api<{ items: CatalogItem[] }>('/api/gifts/catalog', { skipAuth: true });
       setCatalog(c.items || []);
+
       if (getToken()) {
         const me = await api<{ user: any }>('/api/auth/me');
         setMyFavId(me.user?.favoriteProfile?.id ?? null);
       }
-    } catch { /* offline */ } finally { setRefreshing(false); }
+    } catch {
+      // offline
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  async function control(id: string, action: string) {
-    setError(''); setMsg('');
+  async function control(id: string, action: 'start' | 'pause' | 'resume' | 'end') {
+    setActingId(id);
+    setMsg(null);
+    impact('medium');
+
     try {
-      await api('/api/live/' + id + '/' + action, { method: 'POST' });
-      setMsg('Session ' + action + (action === 'end' ? 'ed' : 'd'));
-      load();
-    } catch (e: any) { setError(e.message); }
+      await api(`/api/live/${id}/${action}`, { method: 'POST' });
+      setMsg({
+        type: 'success',
+        text: `Session ${action}${action === 'end' ? 'ed' : 'd'}`,
+      });
+      impact('success');
+      await load();
+    } catch (e: any) {
+      setMsg({ type: 'error', text: e.message || 'Action failed' });
+    } finally {
+      setActingId(null);
+    }
   }
 
   async function openSession(s: Session) {
-    setActive(s); setBoard([]);
+    setActive(s);
+    setBoard([]);
+    setMsg(null);
+
     try {
       if (getToken() && s.status !== 'ended') {
-        await api('/api/live/' + s.id + '/join', { method: 'POST' });
+        await api(`/api/live/${s.id}/join`, { method: 'POST' });
       }
-      const r = await api<{ leaderboard: BoardRow[] }>('/api/live/' + s.id + '/leaderboard', { skipAuth: true });
+      const r = await api<{ leaderboard: BoardRow[] }>(
+        `/api/live/${s.id}/leaderboard`,
+        { skipAuth: true },
+      );
       setBoard(r.leaderboard || []);
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) {
+      setMsg({ type: 'error', text: e.message || 'Could not join session' });
+    }
   }
 
   async function sendGift(itemId: string) {
     if (!active) return;
-    setError(''); setMsg('');
+
+    setMsg(null);
+    impact('medium');
+
     try {
-      await api('/api/live/' + active.id + '/gift', { method: 'POST', body: JSON.stringify({ catalogItemId: itemId }) });
-      setMsg('Gift sent!');
-      const r = await api<{ leaderboard: BoardRow[] }>('/api/live/' + active.id + '/leaderboard', { skipAuth: true });
+      await api(`/api/live/${active.id}/gift`, {
+        method: 'POST',
+        body: JSON.stringify({ catalogItemId: itemId }),
+      });
+      setMsg({ type: 'success', text: 'Gift sent!' });
+      impact('success');
+
+      const r = await api<{ leaderboard: BoardRow[] }>(
+        `/api/live/${active.id}/leaderboard`,
+        { skipAuth: true },
+      );
       setBoard(r.leaderboard || []);
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) {
+      setMsg({ type: 'error', text: e.message || 'Gift failed' });
+    }
   }
 
   return (
     <SwipeBack>
       <Screen refreshing={refreshing} onRefresh={load}>
-        <Text style={styles.h1}>Live sessions</Text>
-        <Text style={styles.muted}>Real-time Gifts, live leaderboard, host pause switch (GFT-10).</Text>
-        {!!msg && <Text style={styles.ok}>{msg}</Text>}
-        {!!error && <Text style={styles.err}>{error}</Text>}
-        {sessions.map((s) => {
-          const mine = myFavId === s.favoriteId;
-          return (
-            <View key={s.id} style={styles.card}>
-              <Text style={styles.name}>{s.title}</Text>
-              <Text style={styles.badge}>{s.kind} · {s.status}{s.isPaused ? ' · gifting paused' : ''} · {s.viewerCount} viewers</Text>
-              {mine && (
-                <View style={styles.row}>
-                  {s.status === 'scheduled' && <PrimaryButton label="Start" onPress={() => control(s.id, 'start')} />}
-                  {s.status === 'live' && <PrimaryButton label="Pause gifting" variant="ghost" onPress={() => control(s.id, 'pause')} />}
-                  {s.status === 'paused' && <PrimaryButton label="Resume" onPress={() => control(s.id, 'resume')} />}
-                  {s.status !== 'ended' && <PrimaryButton label="End" variant="ghost" onPress={() => control(s.id, 'end')} />}
-                </View>
-              )}
-              <PrimaryButton label={active?.id === s.id ? 'Refresh' : 'Join & leaderboard'} variant="ghost" onPress={() => openSession(s)} />
-              {active?.id === s.id && (
-                <View style={{ marginTop: 10 }}>
-                  {board.length > 0 && (
-                    <View>
-                      <Text style={styles.name}>Live leaderboard</Text>
-                      {board.map((b, i) => (
-                        <Text key={i} style={styles.muted}>{i + 1}. {b.name} — {b.tokens} tokens</Text>
-                      ))}
+        {/* Header */}
+        <Text style={[styles.h1, { color: colors.text }]}>Live sessions</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
+          Real-time Gifts, live leaderboard, and host pause controls.
+        </Text>
+
+        {/* Feedback */}
+        {msg && (
+          <View
+            style={[
+              styles.feedback,
+              {
+                backgroundColor:
+                  msg.type === 'success'
+                    ? colors.success + '18'
+                    : colors.danger + '18',
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: msg.type === 'success' ? colors.success : colors.danger,
+                fontWeight: '700',
+                fontSize: 13,
+              }}
+            >
+              {msg.text}
+            </Text>
+          </View>
+        )}
+
+        {/* Sessions list */}
+        {sessions.length === 0 && !refreshing ? (
+          <EmptyState
+            icon="radio-outline"
+            title="No live sessions"
+            body="There are no live or scheduled sessions right now. Pull to refresh."
+          />
+        ) : (
+          <View style={{ gap: 14 }}>
+            {sessions.map((s) => {
+              const isMine = myFavId === s.favoriteId;
+              const isActive = active?.id === s.id;
+
+              return (
+                <GlassCard key={s.id}>
+                  <Text style={[styles.sessionTitle, { color: colors.text }]}>
+                    {s.title}
+                  </Text>
+
+                  <View style={styles.metaRow}>
+                    <Chip label={s.kind} />
+                    <View
+                      style={[
+                        styles.statusPill,
+                        {
+                          backgroundColor:
+                            s.status === 'live'
+                              ? colors.success + '20'
+                              : s.status === 'ended'
+                              ? colors.danger + '20'
+                              : colors.primaryMuted,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          color:
+                            s.status === 'live'
+                              ? colors.success
+                              : s.status === 'ended'
+                              ? colors.danger
+                              : colors.primary,
+                          fontSize: 12,
+                          fontWeight: '700',
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {s.status}
+                        {s.isPaused ? ' · paused' : ''}
+                      </Text>
+                    </View>
+                    <Text style={{ color: colors.muted, fontSize: 13 }}>
+                      {s.viewerCount} viewers
+                    </Text>
+                  </View>
+
+                  {/* Host controls */}
+                  {isMine && s.status !== 'ended' && (
+                    <View style={[styles.actions, { marginTop: 12 }]}>
+                      {s.status === 'scheduled' && (
+                        <GradientButton
+                          label="Start"
+                          size="sm"
+                          onPress={() => control(s.id, 'start')}
+                          loading={actingId === s.id}
+                          disabled={!!actingId}
+                        />
+                      )}
+                      {s.status === 'live' && (
+                        <GradientButton
+                          label="Pause gifting"
+                          size="sm"
+                          variant="ghost"
+                          onPress={() => control(s.id, 'pause')}
+                          loading={actingId === s.id}
+                          disabled={!!actingId}
+                        />
+                      )}
+                      {s.status === 'paused' && (
+                        <GradientButton
+                          label="Resume"
+                          size="sm"
+                          onPress={() => control(s.id, 'resume')}
+                          loading={actingId === s.id}
+                          disabled={!!actingId}
+                        />
+                      )}
+                      <GradientButton
+                        label="End"
+                        size="sm"
+                        variant="outline"
+                        onPress={() => control(s.id, 'end')}
+                        loading={actingId === s.id}
+                        disabled={!!actingId}
+                      />
                     </View>
                   )}
-                  {s.status === 'live' && !s.isPaused && getToken() && (
-                    <View style={[styles.row, { marginTop: 10 }]}>
-                      {catalog.slice(0, 4).map((c) => (
-                        <Pressable key={c.id} style={styles.giftBtn} onPress={() => sendGift(c.id)}>
-                          <Text style={styles.giftText}>{c.name} ({c.tokenCost})</Text>
-                        </Pressable>
-                      ))}
+
+                  {/* Join / refresh */}
+                  <View style={{ marginTop: 12 }}>
+                    <GradientButton
+                      label={isActive ? 'Refresh leaderboard' : 'Join & view leaderboard'}
+                      size="sm"
+                      variant={isActive ? 'ghost' : 'primary'}
+                      onPress={() => openSession(s)}
+                      fullWidth
+                    />
+                  </View>
+
+                  {/* Expanded: leaderboard + gifts */}
+                  {isActive && (
+                    <View style={{ marginTop: 16 }}>
+                      {board.length > 0 && (
+                        <>
+                          <SectionHeader title="Live leaderboard" />
+                          <View style={{ gap: 8, marginBottom: 12 }}>
+                            {board.map((b, i) => (
+                              <View
+                                key={`${b.name}-${i}`}
+                                style={[
+                                  styles.boardRow,
+                                  {
+                                    backgroundColor: colors.bg,
+                                    borderColor: colors.border,
+                                  },
+                                ]}
+                              >
+                                <Text style={{ color: colors.primary, fontWeight: '800', width: 24 }}>
+                                  {i + 1}
+                                </Text>
+                                <Text style={{ color: colors.text, flex: 1, fontWeight: '600' }}>
+                                  {b.name}
+                                </Text>
+                                <Text style={{ color: colors.primary, fontWeight: '700' }}>
+                                  {b.tokens}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        </>
+                      )}
+
+                      {s.status === 'live' && !s.isPaused && getToken() && (
+                        <>
+                          <Text style={[styles.giftLabel, { color: colors.muted }]}>
+                            Send a Gift
+                          </Text>
+                          <View style={styles.giftRow}>
+                            {catalog.slice(0, 4).map((item) => (
+                              <Pressable
+                                key={item.id}
+                                onPress={() => sendGift(item.id)}
+                                style={({ pressed }) => [
+                                  styles.giftBtn,
+                                  {
+                                    backgroundColor: colors.primaryMuted,
+                                    borderColor: colors.border,
+                                    opacity: pressed ? 0.75 : 1,
+                                  },
+                                ]}
+                              >
+                                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 13 }}>
+                                  {item.name}
+                                </Text>
+                                <Text style={{ color: colors.primary, fontSize: 12, marginTop: 2 }}>
+                                  {item.tokenCost} tok
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        </>
+                      )}
                     </View>
                   )}
-                </View>
-              )}
-            </View>
-          );
-        })}
-        {sessions.length === 0 && !refreshing && (
-          <Text style={styles.muted}>No live or scheduled sessions right now.</Text>
+                </GlassCard>
+              );
+            })}
+          </View>
         )}
       </Screen>
     </SwipeBack>
@@ -122,20 +351,68 @@ export default function LiveScreen() {
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: spacing.sm, marginBottom: 8 },
-  muted: { color: colors.muted, marginBottom: 8, fontSize: 14 },
-  name: { color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 4 },
-  badge: { color: colors.primaryHover, fontSize: 12, fontWeight: '600', marginBottom: 6 },
-  ok: { color: '#16a34a', marginBottom: 8 },
-  err: { color: colors.danger, marginBottom: 8 },
-  card: {
-    backgroundColor: colors.surface, borderRadius: radii.md, borderWidth: 1,
-    borderColor: colors.border, padding: spacing.md, marginBottom: 10,
+  h1: {
+    ...typo.h1,
+    marginTop: spacing.sm,
+    marginBottom: 6,
   },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  subtitle: {
+    ...typo.body,
+    marginBottom: spacing.lg,
+    lineHeight: 21,
+  },
+  feedback: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: radii.md,
+    marginBottom: spacing.md,
+  },
+  sessionTitle: {
+    fontWeight: '800',
+    fontSize: 17,
+    marginBottom: 8,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: radii.full,
+  },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  boardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  giftLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  giftRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   giftBtn: {
-    backgroundColor: colors.primaryMuted, borderRadius: radii.sm, borderWidth: 1,
-    borderColor: colors.border, paddingHorizontal: 10, paddingVertical: 8,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minWidth: 90,
+    alignItems: 'center',
   },
-  giftText: { color: colors.text, fontSize: 13 },
 });
