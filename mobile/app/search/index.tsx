@@ -1,62 +1,141 @@
+/** Search
+ * Find Favorites by name, handle, or category.
+ */
 import { useState } from 'react';
 import { Text, StyleSheet, View, Pressable } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { GlassCard, Avatar, EmptyState } from '@/components/ui';
 import { SoundTextInput } from '@/components/SoundTextInput';
-import { colors, spacing, radii } from '@/constants/theme';
-import { useSounds } from '@/hooks/useSounds';
 import { SwipeBack } from '@/components/SwipeBack';
+import { useTheme } from '@/components/ThemeProvider';
+import { spacing, radii, type as typo } from '@/constants/theme';
+import { useSounds } from '@/hooks/useSounds';
+import { useHaptics } from '@/hooks/useHaptics';
+
+const SUGGESTIONS = [
+  { handle: 'mia', label: 'Mia', category: 'Afrobeats' },
+  // Add more demo suggestions as needed
+];
 
 export default function SearchScreen() {
-  const [q, setQ] = useState('');
+  const { colors } = useTheme();
   const { click } = useSounds();
-  const suggestions = [
-    { handle: 'mia', label: 'Mia · Afrobeats' },
-  ].filter((s) => !q || s.handle.includes(q.toLowerCase()) || s.label.toLowerCase().includes(q.toLowerCase()));
+  const { impact } = useHaptics();
+  const router = useRouter();
+
+  const [query, setQuery] = useState('');
+
+  const results = SUGGESTIONS.filter(
+    (s) =>
+      !query ||
+      s.handle.includes(query.toLowerCase()) ||
+      s.label.toLowerCase().includes(query.toLowerCase()) ||
+      s.category.toLowerCase().includes(query.toLowerCase()),
+  );
 
   return (
     <SwipeBack>
       <Screen>
-        <Text style={styles.h1}>Search</Text>
-        <Text style={styles.muted}>Name, handle, category</Text>
+        {/* Header */}
+        <Text style={[styles.h1, { color: colors.text }]}>Search</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
+          Name, handle, or category
+        </Text>
+
+        {/* Search input */}
         <SoundTextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.bg,
+              borderColor: colors.border,
+              color: colors.text,
+            },
+          ]}
           placeholder="Search Favorites..."
           placeholderTextColor={colors.muted}
-          value={q}
-          onChangeText={setQ}
+          value={query}
+          onChangeText={setQuery}
           autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
         />
-        <View style={styles.card}>
-          {suggestions.map((s) => (
-            <Link key={s.handle} href={('/favorite/' + s.handle) as any} asChild>
-              <Pressable style={styles.row} onPress={() => click()}>
-                <Text style={styles.name}>{s.label}</Text>
-                <Text style={styles.muted}>></Text>
+
+        {/* Results */}
+        {results.length === 0 ? (
+          <EmptyState
+            icon="search-outline"
+            title="No matches"
+            body={query ? `No results for “${query}”. Try “mia”.` : 'Start typing to find Favorites.'}
+          />
+        ) : (
+          <GlassCard padded={false} style={{ marginTop: 4 }}>
+            {results.map((item, index) => (
+              <Pressable
+                key={item.handle}
+                onPress={() => {
+                  click();
+                  impact('light');
+                  router.push(`/favorite/${item.handle}`);
+                }}
+                style={({ pressed }) => [
+                  styles.row,
+                  {
+                    borderBottomWidth: index < results.length - 1 ? StyleSheet.hairlineWidth : 0,
+                    borderBottomColor: colors.border,
+                    backgroundColor: pressed ? colors.surfaceHover : 'transparent',
+                  },
+                ]}
+              >
+                <Avatar name={item.label} size={42} ring />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.name, { color: colors.text }]}>
+                    {item.label}
+                  </Text>
+                  <Text style={{ color: colors.muted, fontSize: 13 }}>
+                    @{item.handle} · {item.category}
+                  </Text>
+                </View>
+                <Text style={{ color: colors.primary, fontSize: 18 }}>›</Text>
               </Pressable>
-            </Link>
-          ))}
-          {suggestions.length === 0 && <Text style={styles.muted}>No matches. Try mia</Text>}
-        </View>
+            ))}
+          </GlassCard>
+        )}
       </Screen>
     </SwipeBack>
   );
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: spacing.sm },
-  muted: { color: colors.muted, marginBottom: 8, fontSize: 14 },
-  name: { color: colors.text, fontWeight: '600', fontSize: 16 },
-  input: {
-    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md,
-    padding: 14, color: colors.text, marginBottom: 12, minHeight: 48, fontSize: 16,
+  h1: {
+    ...typo.h1,
+    marginTop: spacing.sm,
+    marginBottom: 6,
   },
-  card: {
-    backgroundColor: colors.surface, borderRadius: radii.md, borderWidth: 1,
-    borderColor: colors.border, padding: spacing.md,
+  subtitle: {
+    ...typo.body,
+    marginBottom: spacing.md,
+    lineHeight: 21,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    marginBottom: spacing.md,
+    minHeight: 52,
   },
   row: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  name: {
+    fontWeight: '700',
+    fontSize: 16,
+    marginBottom: 2,
   },
 });
