@@ -1,97 +1,241 @@
+/** Collections
+ * Curate saved Moments into private or shareable sets.
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { Text, StyleSheet, View, TextInput } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { PrimaryButton } from '@/components/PrimaryButton';
+import { GradientButton, GlassCard, SectionHeader, EmptyState } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
+import { useTheme } from '@/components/ThemeProvider';
 import { api } from '@/lib/api';
-import { colors, spacing, radii } from '@/constants/theme';
+import { spacing, radii, type as typo } from '@/constants/theme';
+import { useHaptics } from '@/hooks/useHaptics';
 
-type Collection = { id: string; title: string; isPublic: boolean; momentIds: string[] };
+type Collection = {
+  id: string;
+  title: string;
+  isPublic: boolean;
+  momentIds: string[];
+};
 
-export default function Page() {
+export default function CollectionsScreen() {
+  const { colors } = useTheme();
+  const { impact } = useHaptics();
+
   const [collections, setCollections] = useState<Collection[]>([]);
   const [title, setTitle] = useState('');
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [actingId, setActingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
       const r = await api<{ collections: Collection[] }>('/api/collections/me');
       setCollections(r.collections || []);
-    } catch { /* offline */ } finally { setRefreshing(false); }
+    } catch {
+      // offline
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function create() {
-    setMsg('');
+    if (!title.trim()) {
+      setMsg({ type: 'error', text: 'Please enter a title' });
+      return;
+    }
+
+    setMsg(null);
+    setCreating(true);
+    impact('medium');
+
     try {
       await api('/api/collections', {
         method: 'POST',
-        body: JSON.stringify({ title, isPublic: false }),
+        body: JSON.stringify({ title: title.trim(), isPublic: false }),
       });
       setTitle('');
-      load();
+      setMsg({ type: 'success', text: 'Collection created' });
+      impact('success');
+      await load();
     } catch (e: any) {
-      setMsg(e.message || 'Create failed');
+      setMsg({ type: 'error', text: e.message || 'Create failed' });
+    } finally {
+      setCreating(false);
     }
   }
 
   async function togglePublic(c: Collection) {
+    setActingId(c.id);
+    setMsg(null);
+    impact('medium');
+
     try {
       await api(`/api/collections/${c.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ isPublic: !c.isPublic }),
       });
-      load();
+      setMsg({
+        type: 'success',
+        text: c.isPublic ? 'Made private' : 'Now public',
+      });
+      impact('success');
+      await load();
     } catch (e: any) {
-      setMsg(e.message || 'Update failed');
+      setMsg({ type: 'error', text: e.message || 'Update failed' });
+    } finally {
+      setActingId(null);
     }
   }
 
   async function remove(id: string) {
+    setActingId(id);
+    setMsg(null);
+    impact('medium');
+
     try {
       await api(`/api/collections/${id}`, { method: 'DELETE' });
-      load();
+      setMsg({ type: 'success', text: 'Collection deleted' });
+      impact('success');
+      await load();
     } catch (e: any) {
-      setMsg(e.message || 'Delete failed');
+      setMsg({ type: 'error', text: e.message || 'Delete failed' });
+    } finally {
+      setActingId(null);
     }
   }
 
   return (
     <SwipeBack>
       <Screen refreshing={refreshing} onRefresh={load}>
-        <Text style={styles.h1}>Collections</Text>
-        <Text style={styles.muted}>Curate saved Moments into private or shareable sets.</Text>
-        {msg ? <Text style={styles.badge}>{msg}</Text> : null}
-        <View style={styles.card}>
+        {/* Header */}
+        <Text style={[styles.h1, { color: colors.text }]}>Collections</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
+          Curate saved Moments into private or shareable sets.
+        </Text>
+
+        {/* Feedback */}
+        {msg && (
+          <View
+            style={[
+              styles.feedback,
+              {
+                backgroundColor:
+                  msg.type === 'success'
+                    ? colors.success + '18'
+                    : colors.danger + '18',
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: msg.type === 'success' ? colors.success : colors.danger,
+                fontWeight: '700',
+                fontSize: 13,
+              }}
+            >
+              {msg.text}
+            </Text>
+          </View>
+        )}
+
+        {/* Create new */}
+        <GlassCard style={{ marginBottom: spacing.md }}>
+          <SectionHeader title="New collection" />
+
           <TextInput
-            style={styles.input}
-            placeholder="New collection title"
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.bg,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
+            placeholder="Collection title"
             placeholderTextColor={colors.muted}
             value={title}
             onChangeText={setTitle}
+            maxLength={80}
           />
-          <PrimaryButton label="Create collection" onPress={create} />
-        </View>
-        {collections.map((c) => (
-          <View key={c.id} style={styles.card}>
-            <Text style={styles.name}>{c.title}</Text>
-            <Text style={styles.badge}>
-              {c.momentIds?.length ?? 0} moments · {c.isPublic ? 'public' : 'private'}
-            </Text>
-            <View style={styles.row}>
-              <PrimaryButton
-                label={c.isPublic ? 'Make private' : 'Share'}
-                onPress={() => togglePublic(c)}
-              />
-              <PrimaryButton label="Delete" onPress={() => remove(c.id)} />
-            </View>
+
+          <GradientButton
+            label="Create collection"
+            onPress={create}
+            loading={creating}
+            disabled={creating || !title.trim()}
+            fullWidth
+          />
+        </GlassCard>
+
+        {/* List */}
+        {collections.length === 0 && !refreshing ? (
+          <EmptyState
+            icon="albums-outline"
+            title="No collections yet"
+            body="Create one to start organizing your favorite Moments."
+          />
+        ) : (
+          <View style={{ gap: 12 }}>
+            {collections.map((c) => (
+              <GlassCard key={c.id}>
+                <Text style={[styles.collectionTitle, { color: colors.text }]}>
+                  {c.title}
+                </Text>
+
+                <View style={styles.meta}>
+                  <Text style={{ color: colors.muted, fontSize: 13 }}>
+                    {c.momentIds?.length ?? 0} moments
+                  </Text>
+                  <View
+                    style={[
+                      styles.visibilityPill,
+                      {
+                        backgroundColor: c.isPublic
+                          ? colors.primaryMuted
+                          : colors.surfaceElevated,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: c.isPublic ? colors.primary : colors.muted,
+                        fontSize: 12,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {c.isPublic ? 'Public' : 'Private'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.actions}>
+                  <GradientButton
+                    label={c.isPublic ? 'Make private' : 'Make public'}
+                    size="sm"
+                    variant="ghost"
+                    onPress={() => togglePublic(c)}
+                    loading={actingId === c.id}
+                    disabled={!!actingId}
+                  />
+                  <GradientButton
+                    label="Delete"
+                    size="sm"
+                    variant="outline"
+                    onPress={() => remove(c.id)}
+                    loading={actingId === c.id}
+                    disabled={!!actingId}
+                  />
+                </View>
+              </GlassCard>
+            ))}
           </View>
-        ))}
-        {!refreshing && collections.length === 0 && (
-          <Text style={styles.muted}>No collections yet.</Text>
         )}
       </Screen>
     </SwipeBack>
@@ -99,26 +243,48 @@ export default function Page() {
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: spacing.sm, marginBottom: 8 },
-  muted: { color: colors.muted, marginBottom: 12, fontSize: 14 },
-  name: { color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 4 },
-  badge: { color: colors.primaryHover, fontSize: 12, fontWeight: '600', marginBottom: 6 },
-  card: {
-    backgroundColor: colors.surface,
+  h1: {
+    ...typo.h1,
+    marginTop: spacing.sm,
+    marginBottom: 6,
+  },
+  subtitle: {
+    ...typo.body,
+    marginBottom: spacing.lg,
+    lineHeight: 21,
+  },
+  feedback: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: 10,
+    marginBottom: spacing.md,
   },
   input: {
-    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    color: colors.text,
-    padding: 12,
-    marginBottom: 10,
+    borderRadius: radii.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    marginBottom: 12,
   },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  collectionTitle: {
+    fontWeight: '700',
+    fontSize: 16,
+    marginBottom: 6,
+  },
+  meta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  visibilityPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: radii.full,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
 });
