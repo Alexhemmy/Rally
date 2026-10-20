@@ -1,92 +1,156 @@
+/** Fan Clubs
+ * Manage your monthly memberships with Favorites.
+ * Cancel or pause anytime — no dark patterns.
+ */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View, TextInput } from 'react-native';
+import { Text, StyleSheet, View } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { PrimaryButton } from '@/components/PrimaryButton';
+import { GradientButton, GlassCard, SectionHeader, EmptyState } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
+import { useTheme } from '@/components/ThemeProvider';
 import { api } from '@/lib/api';
-import { colors, spacing, radii } from '@/constants/theme';
+import { spacing, radii, type as typo } from '@/constants/theme';
+import { useHaptics } from '@/hooks/useHaptics';
 
-type Tier = { id: string; name: string; priceCents: number; currency: string; perks: string[] };
-type Sub = { id: string; status: string; currentPeriodEnd: string; tier: Tier | null };
+type Tier = {
+  id: string;
+  name: string;
+  priceCents: number;
+  currency: string;
+  perks: string[];
+};
 
-export default function Page() {
-  const [subs, setSubs] = useState<Sub[]>([]);
-  const [handle, setHandle] = useState('');
-  const [msg, setMsg] = useState('');
+type Subscription = {
+  id: string;
+  status: string;
+  currentPeriodEnd: string;
+  tier: Tier | null;
+};
+
+export default function FanClubsScreen() {
+  const { colors } = useTheme();
+  const { impact } = useHaptics();
+
+  const [subs, setSubs] = useState<Subscription[]>([]);
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [actingId, setActingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
-      const r = await api<{ subscriptions: Sub[] }>('/api/subscriptions/me');
+      const r = await api<{ subscriptions: Subscription[] }>('/api/subscriptions/me');
       setSubs(r.subscriptions || []);
-    } catch { /* offline */ } finally { setRefreshing(false); }
+    } catch {
+      // offline
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function act(id: string, action: 'cancel' | 'pause') {
+    setActingId(id);
+    setMsg(null);
+    impact('medium');
+
     try {
       await api(`/api/subscriptions/${id}/${action}`, { method: 'POST' });
-      load();
+      await load();
+      setMsg({
+        type: 'success',
+        text: action === 'cancel' ? 'Membership cancelled' : 'Membership updated',
+      });
+      impact('success');
     } catch (e: any) {
-      setMsg(e.message || 'Action failed');
+      setMsg({ type: 'error', text: e.message || 'Action failed' });
+    } finally {
+      setActingId(null);
     }
   }
 
   return (
     <SwipeBack>
       <Screen refreshing={refreshing} onRefresh={load}>
-        <Text style={styles.h1}>Fan Clubs</Text>
-        <Text style={styles.muted}>Join a Favorite's monthly fan club. Cancel anytime — no dark patterns.</Text>
-        {msg ? <Text style={styles.badge}>{msg}</Text> : null}
-        <View style={styles.card}>
-          <Text style={styles.name}>Tip</Text>
-          <Text style={styles.muted}>
-            Browse tiers from any Favorite's profile page, then join here or on the web.
-          </Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.name}>My subscriptions</Text>
-          {subs.map((s) => (
-            <View key={s.id} style={{ marginBottom: 12 }}>
-              <Text style={styles.badge}>
-                {s.tier?.name ?? 'Tier'} · {s.status} · renews {new Date(s.currentPeriodEnd).toLocaleDateString()}
-              </Text>
-              <View style={styles.row}>
-                <PrimaryButton label={s.status === 'paused' ? 'Resume' : 'Pause'} onPress={() => act(s.id, 'pause')} />
-                <PrimaryButton label="Cancel" onPress={() => act(s.id, 'cancel')} />
-              </View>
-            </View>
-          ))}
-          {subs.length === 0 && <Text style={styles.muted}>No memberships yet.</Text>}
-        </View>
-      </Screen>
-    </SwipeBack>
-  );
-}
+        {/* Header */}
+        <Text style={[styles.h1, { color: colors.text }]}>Fan Clubs</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
+          Join a Favorite’s monthly fan club. Cancel anytime — no dark patterns.
+        </Text>
 
-const styles = StyleSheet.create({
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: spacing.sm, marginBottom: 8 },
-  muted: { color: colors.muted, marginBottom: 12, fontSize: 14 },
-  name: { color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 4 },
-  badge: { color: colors.primaryHover, fontSize: 12, fontWeight: '600', marginBottom: 6 },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: 10,
-  },
-  input: {
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    color: colors.text,
-    padding: 12,
-    marginBottom: 10,
-  },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-});
+        {/* Feedback */}
+        {msg && (
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor:
+                  msg.type === 'success'
+                    ? colors.success + '18'
+                    : colors.danger + '18',
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: msg.type === 'success' ? colors.success : colors.danger,
+                fontWeight: '700',
+                fontSize: 13,
+              }}
+            >
+              {msg.text}
+            </Text>
+          </View>
+        )}
+
+        {/* Tip */}
+        <GlassCard style={{ marginBottom: spacing.md }}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Tip</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 20 }}>
+            Browse tiers from any Favorite’s profile page, then join here or on the web.
+          </Text>
+        </GlassCard>
+
+        {/* My Subscriptions */}
+        <GlassCard>
+          <SectionHeader title="My memberships" />
+
+          {subs.length === 0 ? (
+            <EmptyState
+              icon="people-outline"
+              title="No memberships yet"
+              body="Support a Favorite by joining their fan club."
+            />
+          ) : (
+            <View style={{ gap: 16, marginTop: 4 }}>
+              {subs.map((sub) => (
+                <View
+                  key={sub.id}
+                  style={[
+                    styles.subCard,
+                    {
+                      backgroundColor: colors.bg,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.tierName, { color: colors.text }]}>
+                      {sub.tier?.name ?? 'Membership'}
+                    </Text>
+                    <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>
+                      {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
+                      {' · '}
+                      Renews {new Date(sub.currentPeriodEnd).toLocaleDateString()}
+                    </Text>
+                  </View>
+
+                  <View style={styles.actions}>
+                    <GradientButton
+                      label={sub.status === 'paused' ? 'Resume' : 'Pause'}
+                      size="sm"
+                      variant="ghost"
+                      onPress={() => act(sub.id, 'pause')}
