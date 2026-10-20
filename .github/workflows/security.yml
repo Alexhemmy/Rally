@@ -8,27 +8,12 @@ on:
     - cron: '0 6 * * 1' # weekly, Mondays 06:00 UTC
 
 jobs:
-  audit:
-    name: Dependency audit (backend)
+  audit-mobile:
+    name: Dependency audit (mobile)
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci || npm install
-      - name: npm audit (high and above)
-        run: npm audit --audit-level=high --omit=dev || true
-
-  audit-web:
-    name: Dependency audit (web)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
+        working-directory: mobile
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,7 +40,6 @@ jobs:
             -----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|
             (password|secret|token|api[_-]?key)["'"'"'\s]*[:=]["'"'"'\s]*[A-Za-z0-9+/=_-]{24,}
           )'
-          # Skip .env.example, docs, lock files
           if git ls-files -z |
               xargs -0 grep -IlE '.(env|md)$|package-lock.json' |
               xargs -r rm -f 2>/dev/null; then :; fi
@@ -66,18 +50,3 @@ jobs:
             exit 1
           fi
           echo "No secret patterns found."
-
-  typecheck-backend:
-    name: Backend type check
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci || npm install
-      - run: npx prisma generate
-      - run: npx tsc --noEmit

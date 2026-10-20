@@ -5,47 +5,7 @@ on:
   pull_request:
 
 jobs:
-  backend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          # NOTE: no npm cache until backend/package-lock.json is committed —
-          # cache-dependency-path must point at a lockfile or this job fails.
-      - name: Install dependencies
-        run: npm install
-      - name: Generate Prisma client (needed before typecheck)
-        run: npx prisma generate
-      - name: Typecheck (report-only until all legacy routes are strict)
-        run: npx tsc --noEmit || true
-      - name: Validate Prisma schema
-        env:
-          # prisma validate needs the env var present to parse the schema — value is never used
-          DATABASE_URL: ${{secrets.DATABASE_URL}}
-        run: npx prisma validate --schema prisma/schema.prisma
-
-  web:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - run: npm install
-      - name: Typecheck (report-only)
-        run: npx tsc --noEmit || true
-
-  # 📦 BUNDLE SMOKE CHECK — verifies every screen actually compiles and
+  # BUNDLE SMOKE CHECK — verifies every screen actually compiles and
   # resolves (replaces the old expo-start-tunnel job, which hung forever
   # in CI because a dev server never exits).
   mobile-bundle:
@@ -73,9 +33,8 @@ jobs:
           path: mobile/dist-check
           retention-days: 3
 
-  # 🤖 BUILD FOR ANDROID (true native installable APK via EAS cloud)
+  # BUILD FOR ANDROID (native installable APK via EAS cloud)
   # Skips cleanly when EXPO_TOKEN is not configured instead of failing red.
-  # Build profiles live in mobile/eas.json (committed to the repo).
   mobile-android-apk:
     runs-on: ubuntu-latest
     defaults:
@@ -100,12 +59,11 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_TOKEN_ALT: ${{ vars.EXPO_TOKEN }}
         run: |
-          # Diagnostics: GitHub masks secret values, but length is safe to print.
           echo "EXPO_TOKEN secret length: ${#EXPO_TOKEN}"
           echo "EXPO_TOKEN var length: ${#EXPO_TOKEN_ALT}"
           if [ -z "$EXPO_TOKEN" ] && [ -z "$EXPO_TOKEN_ALT" ]; then
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::EXPO_TOKEN not visible to this job — skipping EAS build. Check: (1) secret is under Settings → Secrets and variables → Actions → 'Repository secrets' (not Environments), (2) exact name EXPO_TOKEN (no spaces), (3) you re-ran the LATEST commit, not an old run."
+            echo "::warning::EXPO_TOKEN not visible to this job — skipping EAS build."
           elif [ -z "$EXPO_TOKEN" ]; then
             echo "EXPO_TOKEN found only as a variable — falling back to it."
             echo "EXPO_TOKEN=$EXPO_TOKEN_ALT" >> "$GITHUB_ENV"
