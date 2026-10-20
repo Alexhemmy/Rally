@@ -1,10 +1,23 @@
+/** Become a Favorite
+ * Community-based upgrade path — money never counts.
+ * Clean progress tracking + application form when eligible.
+ */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View, TextInput } from 'react-native';
+import {
+  Text,
+  StyleSheet,
+  View,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
 import { Screen } from '@/components/Screen';
-import { PrimaryButton } from '@/components/PrimaryButton';
+import { GradientButton } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
+import { GlassCard, SectionHeader } from '@/components/ui';
+import { useTheme } from '@/components/ThemeProvider';
 import { api } from '@/lib/api';
-import { colors, spacing, radii } from '@/constants/theme';
+import { spacing, radii, type as typo } from '@/constants/theme';
+import { useHaptics } from '@/hooks/useHaptics';
 
 type Progress = {
   signals: Record<string, boolean>;
@@ -22,107 +35,253 @@ const LABELS: Record<string, string> = {
   noStrikes: 'No moderation strikes',
 };
 
-export default function Page() {
+export default function BecomeFavoriteScreen() {
+  const { colors } = useTheme();
+  const { impact } = useHaptics();
+
   const [progress, setProgress] = useState<Progress | null>(null);
   const [pitch, setPitch] = useState('');
   const [samples, setSamples] = useState('');
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
       const p = await api<Progress>('/api/upgrades/progress');
       setProgress(p);
-    } catch { /* offline */ } finally { setRefreshing(false); }
+    } catch {
+      // offline or not logged in
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function apply() {
-    setMsg('');
+    if (pitch.trim().length < 50) {
+      setMsg({ type: 'error', text: 'Pitch must be at least 50 characters' });
+      return;
+    }
+
+    setMsg(null);
+    setSubmitting(true);
+    impact('medium');
+
     try {
       await api('/api/upgrades/request', {
         method: 'POST',
         body: JSON.stringify({
-          pitch,
-          samples: samples.split(/[\n,]/).map((s) => s.trim()).filter(Boolean),
+          pitch: pitch.trim(),
+          samples: samples
+            .split(/[\n,]/)
+            .map((s) => s.trim())
+            .filter(Boolean),
         }),
       });
-      setMsg('Application submitted!');
-      setPitch(''); setSamples('');
+
+      setMsg({ type: 'success', text: 'Application submitted successfully!' });
+      setPitch('');
+      setSamples('');
+      impact('success');
     } catch (e: any) {
-      setMsg(e.message || 'Submit failed');
+      setMsg({ type: 'error', text: e.message || 'Submission failed' });
+    } finally {
+      setSubmitting(false);
     }
   }
 
   return (
     <SwipeBack>
       <Screen refreshing={refreshing} onRefresh={load}>
-        <Text style={styles.h1}>Become a Favorite</Text>
-        <Text style={styles.muted}>
+        {/* Header */}
+        <Text style={[styles.h1, { color: colors.text }]}>
+          Become a Favorite
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
           Upgrade by community standing — money never counts.
         </Text>
-        {msg ? <Text style={styles.badge}>{msg}</Text> : null}
-        {progress ? (
-          <View style={styles.card}>
-            <Text style={styles.name}>Progress · {progress.passed}/{progress.total}</Text>
-            {Object.entries(progress.signals).map(([k, ok]) => (
-              <Text key={k} style={styles.muted}>
-                {ok ? '✅' : '⬜'} {LABELS[k] ?? k}
-              </Text>
-            ))}
+
+        {/* Feedback message */}
+        {msg && (
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor:
+                  msg.type === 'success'
+                    ? colors.success + '18'
+                    : colors.danger + '18',
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: msg.type === 'success' ? colors.success : colors.danger,
+                fontWeight: '700',
+                fontSize: 13,
+              }}
+            >
+              {msg.text}
+            </Text>
           </View>
-        ) : (
-          <Text style={styles.muted}>Log in to check your progress.</Text>
         )}
-        {progress?.eligible ? (
-          <View style={styles.card}>
+
+        {/* Progress Card */}
+        {progress ? (
+          <GlassCard style={{ marginBottom: spacing.md }}>
+            <SectionHeader
+              title={`Progress  ·  ${progress.passed}/${progress.total}`}
+            />
+
+            <View style={{ gap: 10, marginTop: 4 }}>
+              {Object.entries(progress.signals).map(([key, ok]) => (
+                <View key={key} style={styles.signalRow}>
+                  <Text style={{ fontSize: 16 }}>{ok ? '✅' : '⬜'}</Text>
+                  <Text
+                    style={[
+                      styles.signalLabel,
+                      { color: ok ? colors.text : colors.muted },
+                    ]}
+                  >
+                    {LABELS[key] ?? key}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {progress.eligible && (
+              <View
+                style={[
+                  styles.eligibleBadge,
+                  { backgroundColor: colors.primaryMuted },
+                ]}
+              >
+                <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>
+                  You’re eligible to apply!
+                </Text>
+              </View>
+            )}
+          </GlassCard>
+        ) : (
+          <GlassCard style={{ marginBottom: spacing.md }}>
+            <Text style={{ color: colors.muted, textAlign: 'center' }}>
+              Log in to check your progress.
+            </Text>
+          </GlassCard>
+        )}
+
+        {/* Application Form (only when eligible) */}
+        {progress?.eligible && (
+          <GlassCard>
+            <SectionHeader title="Submit Application" />
+
+            <Text style={[styles.label, { color: colors.muted }]}>
+              Your pitch (min. 50 characters)
+            </Text>
             <TextInput
-              style={styles.input}
-              placeholder="Your pitch (50+ chars)"
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.bg,
+                  borderColor: colors.border,
+                  color: colors.text,
+                  minHeight: 100,
+                  textAlignVertical: 'top',
+                },
+              ]}
+              placeholder="Tell us why you should be a Favorite..."
               placeholderTextColor={colors.muted}
               multiline
               value={pitch}
               onChangeText={setPitch}
+              maxLength={600}
             />
+
+            <Text style={[styles.label, { color: colors.muted, marginTop: 12 }]}>
+              Sample links (optional)
+            </Text>
             <TextInput
-              style={styles.input}
-              placeholder="Sample URLs (comma separated)"
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.bg,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              placeholder="https://..., https://..."
               placeholderTextColor={colors.muted}
               autoCapitalize="none"
+              autoCorrect={false}
               value={samples}
               onChangeText={setSamples}
             />
-            <PrimaryButton label="Submit application" onPress={apply} />
-          </View>
-        ) : null}
+
+            <View style={{ marginTop: spacing.md }}>
+              <GradientButton
+                label={submitting ? 'Submitting…' : 'Submit application'}
+                onPress={apply}
+                loading={submitting}
+                disabled={submitting || pitch.trim().length < 50}
+                fullWidth
+              />
+            </View>
+          </GlassCard>
+        )}
       </Screen>
     </SwipeBack>
   );
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: spacing.sm, marginBottom: 8 },
-  muted: { color: colors.muted, marginBottom: 12, fontSize: 14 },
-  name: { color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 4 },
-  badge: { color: colors.primaryHover, fontSize: 12, fontWeight: '600', marginBottom: 6 },
-  card: {
-    backgroundColor: colors.surface,
+  h1: {
+    ...typo.h1,
+    marginTop: spacing.sm,
+    marginBottom: 6,
+  },
+  subtitle: {
+    ...typo.body,
+    marginBottom: spacing.lg,
+    lineHeight: 21,
+  },
+  badge: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: 10,
+    marginBottom: spacing.md,
+  },
+  signalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  signalLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  eligibleBadge: {
+    marginTop: spacing.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: radii.sm,
+    alignSelf: 'flex-start',
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 6,
   },
   input: {
-    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    color: colors.text,
-    padding: 12,
-    marginBottom: 10,
+    borderRadius: radii.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
   },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
 });
