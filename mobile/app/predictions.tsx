@@ -1,74 +1,212 @@
+/** Predictions
+ * Free head-to-head predictions with Token prizes (where legal).
+ * Prize Tokens go to gifted balance — spend on Gifts, never withdrawable.
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { Text, StyleSheet, View } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { PrimaryButton } from '@/components/PrimaryButton';
+import { GradientButton, GlassCard, SectionHeader, EmptyState } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
+import { useTheme } from '@/components/ThemeProvider';
 import { api } from '@/lib/api';
-import { colors, spacing, radii } from '@/constants/theme';
+import { spacing, radii, type as typo } from '@/constants/theme';
+import { useHaptics } from '@/hooks/useHaptics';
 
 type Prediction = {
-  id: string; question: string; closesAt: string; prizeKind: string;
-  tokenPrize: number; favoriteAName: string; favoriteBName: string;
+  id: string;
+  question: string;
+  closesAt: string;
+  prizeKind: string;
+  tokenPrize: number;
+  favoriteAName: string;
+  favoriteBName: string;
 };
 
 export default function PredictionsScreen() {
+  const { colors } = useTheme();
+  const { impact } = useHaptics();
+
   const [list, setList] = useState<Prediction[]>([]);
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [enteringId, setEnteringId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
-      const r = await api<{ predictions: Prediction[] }>('/api/predictions?status=open', { skipAuth: true });
+      const r = await api<{ predictions: Prediction[] }>(
+        '/api/predictions?status=open',
+        { skipAuth: true },
+      );
       setList(r.predictions || []);
-    } catch { /* offline */ } finally { setRefreshing(false); }
+    } catch {
+      // offline
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  async function enter(id: string, choice: string) {
+  async function enter(id: string, choice: 'a' | 'b') {
+    setEnteringId(id);
+    setMsg(null);
+    impact('medium');
+
     try {
-      await api('/api/predictions/' + id + '/enter', { method: 'POST', body: JSON.stringify({ choice }) });
-      setMsg('Prediction locked in! Prize Tokens go to your gifted balance.');
-    } catch (e: any) { setMsg(e.message); }
+      await api(`/api/predictions/${id}/enter`, {
+        method: 'POST',
+        body: JSON.stringify({ choice }),
+      });
+      setMsg({
+        type: 'success',
+        text: 'Prediction locked in! Prize Tokens will go to your gifted balance.',
+      });
+      impact('success');
+    } catch (e: any) {
+      setMsg({ type: 'error', text: e.message || 'Could not lock in prediction' });
+    } finally {
+      setEnteringId(null);
+    }
   }
 
   return (
     <SwipeBack>
       <Screen refreshing={refreshing} onRefresh={load}>
-        <Text style={styles.h1}>Predictions</Text>
-        <Text style={styles.muted}>
+        {/* Header */}
+        <Text style={[styles.h1, { color: colors.text }]}>Predictions</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
           Free head-to-head predictions with Token prizes where legal. Prize Tokens sit in your gifted balance — spend on Gifts, never withdrawable.
         </Text>
-        {!!msg && <Text style={styles.ok}>{msg}</Text>}
-        {list.map((p) => (
-          <View key={p.id} style={styles.card}>
-            <Text style={styles.name}>{p.question}</Text>
-            <Text style={styles.badge}>
-              {p.favoriteAName} vs {p.favoriteBName} · closes {new Date(p.closesAt).toLocaleDateString()}
-              {p.prizeKind === 'tokens' ? ' · ' + p.tokenPrize + ' token prize' : ''}
+
+        {/* Feedback */}
+        {msg && (
+          <View
+            style={[
+              styles.feedback,
+              {
+                backgroundColor:
+                  msg.type === 'success'
+                    ? colors.success + '18'
+                    : colors.danger + '18',
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: msg.type === 'success' ? colors.success : colors.danger,
+                fontWeight: '700',
+                fontSize: 13,
+              }}
+            >
+              {msg.text}
             </Text>
-            <View style={styles.row}>
-              <PrimaryButton label={'Pick ' + p.favoriteAName} onPress={() => enter(p.id, 'a')} />
-              <PrimaryButton label={'Pick ' + p.favoriteBName} variant="ghost" onPress={() => enter(p.id, 'b')} />
-            </View>
           </View>
-        ))}
-        {list.length === 0 && !refreshing && <Text style={styles.muted}>No open predictions right now.</Text>}
+        )}
+
+        {/* Predictions List */}
+        {list.length === 0 && !refreshing ? (
+          <EmptyState
+            icon="trophy-outline"
+            title="No open predictions"
+            body="Check back later for new head-to-head matchups."
+          />
+        ) : (
+          <View style={{ gap: 12 }}>
+            {list.map((p) => (
+              <GlassCard key={p.id}>
+                <Text style={[styles.question, { color: colors.text }]}>
+                  {p.question}
+                </Text>
+
+                <View style={styles.meta}>
+                  <Text style={{ color: colors.muted, fontSize: 13 }}>
+                    {p.favoriteAName} vs {p.favoriteBName}
+                  </Text>
+                  <Text style={{ color: colors.muted, fontSize: 13 }}>
+                    Closes {new Date(p.closesAt).toLocaleDateString()}
+                  </Text>
+                </View>
+
+                {p.prizeKind === 'tokens' && p.tokenPrize > 0 && (
+                  <View
+                    style={[
+                      styles.prizePill,
+                      { backgroundColor: colors.primaryMuted },
+                    ]}
+                  >
+                    <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>
+                      {p.tokenPrize} Token prize
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.actions}>
+                  <GradientButton
+                    label={`Pick ${p.favoriteAName}`}
+                    size="sm"
+                    onPress={() => enter(p.id, 'a')}
+                    loading={enteringId === p.id}
+                    disabled={!!enteringId}
+                    style={{ flex: 1 }}
+                  />
+                  <GradientButton
+                    label={`Pick ${p.favoriteBName}`}
+                    size="sm"
+                    variant="ghost"
+                    onPress={() => enter(p.id, 'b')}
+                    loading={enteringId === p.id}
+                    disabled={!!enteringId}
+                    style={{ flex: 1 }}
+                  />
+                </View>
+              </GlassCard>
+            ))}
+          </View>
+        )}
       </Screen>
     </SwipeBack>
   );
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: spacing.sm, marginBottom: 8 },
-  muted: { color: colors.muted, marginBottom: 12, fontSize: 14 },
-  name: { color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 4 },
-  badge: { color: colors.primaryHover, fontSize: 12, fontWeight: '600', marginBottom: 10 },
-  ok: { color: '#16a34a', marginBottom: 8 },
-  card: {
-    backgroundColor: colors.surface, borderRadius: radii.md, borderWidth: 1,
-    borderColor: colors.border, padding: spacing.md, marginBottom: 10,
+  h1: {
+    ...typo.h1,
+    marginTop: spacing.sm,
+    marginBottom: 6,
   },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  subtitle: {
+    ...typo.body,
+    marginBottom: spacing.lg,
+    lineHeight: 21,
+  },
+  feedback: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: radii.md,
+    marginBottom: spacing.md,
+  },
+  question: {
+    fontWeight: '700',
+    fontSize: 16,
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  meta: {
+    gap: 2,
+    marginBottom: 10,
+  },
+  prizePill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radii.full,
+    marginBottom: 14,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
 });
