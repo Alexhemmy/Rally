@@ -1,68 +1,164 @@
+/** SwipeBack
+ * Smooth pull-down or left-edge swipe to go back.
+ * Feels native, has proper thresholds, and plays a subtle whoosh.
+ */
 import { ReactNode, useRef } from 'react';
-import { Animated, PanResponder, StyleSheet, View, useWindowDimensions } from 'react-native';
+import {
+  Animated,
+  PanResponder,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSounds } from '@/hooks/useSounds';
 
-type Props = { children: ReactNode; pullDown?: boolean; edgeSwipe?: boolean };
+type Props = {
+  children: ReactNode;
+  /** Enable vertical pull-down to go back (default: true) */
+  pullDown?: boolean;
+  /** Enable left-edge swipe to go back (default: true) */
+  edgeSwipe?: boolean;
+};
 
-/** Pull-down or left-edge swipe to go back */
-export function SwipeBack({ children, pullDown = true, edgeSwipe = true }: Props) {
+export function SwipeBack({
+  children,
+  pullDown = true,
+  edgeSwipe = true,
+}: Props) {
   const router = useRouter();
   const { whoosh } = useSounds();
   const { height, width } = useWindowDimensions();
-  const ty = useRef(new Animated.Value(0)).current;
-  const tx = useRef(new Animated.Value(0)).current;
+
+  const translateY = useRef(new Animated.Value(0)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
 
   const goBack = () => {
     whoosh();
-    if (router.canGoBack()) router.back();
+    if (router.canGoBack()) {
+      router.back();
+    }
   };
 
-  const pan = useRef(
+  const reset = () => {
+    Animated.parallel([
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 12,
+      }),
+      Animated.spring(translateX, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 12,
+      }),
+    ]).start();
+  };
+
+  const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => {
-        if (edgeSwipe && g.x0 < 28 && g.dx > 12 && Math.abs(g.dy) < 40) return true;
-        if (pullDown && g.dy > 14 && Math.abs(g.dx) < 30 && g.y0 < height * 0.35) return true;
+      onMoveShouldSetPanResponder: (_, gesture) => {
+        // Left-edge horizontal swipe
+        if (
+          edgeSwipe &&
+          gesture.x0 < 28 &&
+          gesture.dx > 10 &&
+          Math.abs(gesture.dy) < 35
+        ) {
+          return true;
+        }
+
+        // Pull-down from the upper portion of the screen
+        if (
+          pullDown &&
+          gesture.dy > 12 &&
+          Math.abs(gesture.dx) < 28 &&
+          gesture.y0 < height * 0.38
+        ) {
+          return true;
+        }
+
         return false;
       },
-      onPanResponderMove: (_, g) => {
-        if (g.dx > 0 && g.x0 < 40) tx.setValue(Math.min(g.dx, width * 0.5));
-        if (g.dy > 0) ty.setValue(Math.min(g.dy, height * 0.4));
-      },
-      onPanResponderRelease: (_, g) => {
-        const shouldBack = (g.dx > 80 && g.x0 < 40) || g.dy > 100 || g.vy > 0.9;
-        if (shouldBack) {
-          Animated.timing(ty, { toValue: height, duration: 180, useNativeDriver: true }).start(goBack);
-        } else {
-          Animated.spring(ty, { toValue: 0, useNativeDriver: true }).start();
-          Animated.spring(tx, { toValue: 0, useNativeDriver: true }).start();
+
+      onPanResponderMove: (_, gesture) => {
+        // Horizontal edge swipe
+        if (edgeSwipe && gesture.x0 < 40 && gesture.dx > 0) {
+          translateX.setValue(Math.min(gesture.dx, width * 0.45));
+        }
+
+        // Vertical pull-down
+        if (pullDown && gesture.dy > 0) {
+          translateY.setValue(Math.min(gesture.dy, height * 0.42));
         }
       },
-    })
+
+      onPanResponderRelease: (_, gesture) => {
+        const shouldGoBack =
+          (edgeSwipe && gesture.dx > 90 && gesture.x0 < 40) ||
+          (pullDown && (gesture.dy > 110 || gesture.vy > 1.1));
+
+        if (shouldGoBack) {
+          // Animate out then navigate
+          Animated.parallel([
+            Animated.timing(translateY, {
+              toValue: height,
+              duration: 220,
+              useNativeDriver: true,
+            }),
+            Animated.timing(translateX, {
+              toValue: width * 0.6,
+              duration: 220,
+              useNativeDriver: true,
+            }),
+          ]).start(goBack);
+        } else {
+          reset();
+        }
+      },
+
+      onPanResponderTerminate: reset,
+    }),
   ).current;
 
   return (
     <Animated.View
       style={[
-        styles.flex,
+        styles.container,
         {
-          transform: [{ translateY: ty }, { translateX: tx }],
-          opacity: ty.interpolate({
-            inputRange: [0, height * 0.35],
-            outputRange: [1, 0.55],
+          transform: [
+            { translateY },
+            { translateX },
+          ],
+          opacity: translateY.interpolate({
+            inputRange: [0, height * 0.32],
+            outputRange: [1, 0.6],
             extrapolate: 'clamp',
           }),
         },
       ]}
-      {...pan.panHandlers}
+      {...panResponder.panHandlers}
     >
-      {edgeSwipe && <View style={styles.edge} />}
+      {/* Invisible left edge zone for easier swipe detection */}
+      {edgeSwipe && <View style={styles.edgeZone} pointerEvents="none" />}
+
       {children}
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  edge: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 24, zIndex: 20 },
+  container: {
+    flex: 1,
+  },
+  edgeZone: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 28,
+    zIndex: 30,
+  },
 });
