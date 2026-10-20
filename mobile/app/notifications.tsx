@@ -1,30 +1,50 @@
+/** Notifications
+ * In-app notification list.
+ * Currently a clean empty state — ready to be wired to /api/notifications.
+ */
 import { Text, StyleSheet, View } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { colors, spacing, radii } from '@/constants/theme';
+import { GlassCard, EmptyState } from '@/components/ui';
+import { useTheme } from '@/components/ThemeProvider';
+import { spacing, type as typo } from '@/constants/theme';
 
-export default function Notifications() {
+export default function NotificationsScreen() {
+  const { colors } = useTheme();
+
+  // Placeholder — replace with real data later
+  const notifications: any[] = [];
+
   return (
     <Screen>
-      <Text style={styles.h1}>Notifications</Text>
-      <Text style={styles.muted}>
-        Mobile push via FCM / APNs when keys are configured. In-app list mirrors /api/notifications.
+      <Text style={[styles.h1, { color: colors.text }]}>Notifications</Text>
+      <Text style={[styles.subtitle, { color: colors.muted }]}>
+        Stay updated on Moments, gifts, campaigns, and security events.
       </Text>
-      <View style={styles.card}>
-        <Text style={styles.item}>No notifications yet</Text>
-      </View>
+
+      {notifications.length === 0 ? (
+        <EmptyState
+          icon="notifications-outline"
+          title="No notifications yet"
+          body="When something important happens, it will show up here."
+        />
+      ) : (
+        <View style={{ gap: 10 }}>
+          {/* Future notification items go here */}
+        </View>
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 22, fontWeight: '700', color: colors.text, marginTop: spacing.sm },
-  muted: { color: colors.muted, marginBottom: 12 },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
+  h1: {
+    ...typo.h1,
+    marginTop: spacing.sm,
+    marginBottom: 6,
   },
-  item: { color: colors.muted },
+  subtitle: {
+    ...typo.body,
+    marginBottom: spacing.lg,
+    lineHeight: 21,
+  },
 });
