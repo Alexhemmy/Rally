@@ -1,10 +1,15 @@
+/** Store
+ * Purchase library for real services from Favorites.
+ * Auto-refund if delivery misses the deadline.
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { Text, StyleSheet, View } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { PrimaryButton } from '@/components/PrimaryButton';
+import { GlassCard, SectionHeader, EmptyState } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
+import { useTheme } from '@/components/ThemeProvider';
 import { api } from '@/lib/api';
-import { colors, spacing, radii } from '@/constants/theme';
+import { spacing, radii, type as typo } from '@/constants/theme';
 
 type Order = {
   id: string;
@@ -12,12 +17,16 @@ type Order = {
   amountCents: number;
   currency: string;
   dueAt: string | null;
-  item: { title: string; deliveryWindowDays: number } | null;
+  item: {
+    title: string;
+    deliveryWindowDays: number;
+  } | null;
 };
 
-export default function Page() {
+export default function StoreScreen() {
+  const { colors } = useTheme();
+
   const [library, setLibrary] = useState<Order[]>([]);
-  const [msg, setMsg] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
@@ -25,61 +34,149 @@ export default function Page() {
     try {
       const r = await api<{ orders: Order[] }>('/api/store/library');
       setLibrary(r.orders || []);
-    } catch { /* offline */ } finally { setRefreshing(false); }
+    } catch {
+      // offline
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <SwipeBack>
       <Screen refreshing={refreshing} onRefresh={load}>
-        <Text style={styles.h1}>Store</Text>
-        <Text style={styles.muted}>
+        {/* Header */}
+        <Text style={[styles.h1, { color: colors.text }]}>Store</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
           Real services from Favorites. Auto-refund if delivery misses the deadline. Never exchangeable for Gifts.
         </Text>
-        {msg ? <Text style={styles.badge}>{msg}</Text> : null}
-        <View style={styles.card}>
-          <Text style={styles.name}>Purchase library</Text>
-          {library.map((o) => (
-            <View key={o.id} style={{ marginBottom: 10 }}>
-              <Text style={styles.badge}>
-                {o.item?.title ?? 'Item'} · {o.status} · {(o.amountCents / 100).toFixed(2)} {o.currency}
-              </Text>
-              {o.dueAt ? (
-                <Text style={styles.muted}>Due {new Date(o.dueAt).toLocaleDateString()}</Text>
-              ) : null}
+
+        {/* Purchase Library */}
+        <GlassCard>
+          <SectionHeader title="Purchase library" />
+
+          {library.length === 0 ? (
+            <EmptyState
+              icon="bag-handle-outline"
+              title="No purchases yet"
+              body="Browse a Favorite’s store from their profile to get started."
+            />
+          ) : (
+            <View style={{ gap: 12, marginTop: 4 }}>
+              {library.map((order) => (
+                <View
+                  key={order.id}
+                  style={[
+                    styles.orderCard,
+                    {
+                      backgroundColor: colors.bg,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.orderHeader}>
+                    <Text
+                      style={[styles.orderTitle, { color: colors.text }]}
+                      numberOfLines={2}
+                    >
+                      {order.item?.title ?? 'Service'}
+                    </Text>
+                    <Text style={[styles.price, { color: colors.primary }]}>
+                      {(order.amountCents / 100).toFixed(2)} {order.currency}
+                    </Text>
+                  </View>
+
+                  <View style={styles.metaRow}>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        {
+                          backgroundColor:
+                            order.status === 'delivered'
+                              ? colors.success + '20'
+                              : order.status === 'cancelled' || order.status === 'refunded'
+                              ? colors.danger + '20'
+                              : colors.primaryMuted,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          color:
+                            order.status === 'delivered'
+                              ? colors.success
+                              : order.status === 'cancelled' || order.status === 'refunded'
+                              ? colors.danger
+                              : colors.primary,
+                          fontSize: 12,
+                          fontWeight: '700',
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {order.status}
+                      </Text>
+                    </View>
+
+                    {order.dueAt && (
+                      <Text style={{ color: colors.muted, fontSize: 13 }}>
+                        Due {new Date(order.dueAt).toLocaleDateString()}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))}
             </View>
-          ))}
-          {library.length === 0 && (
-            <Text style={styles.muted}>No purchases yet. Browse a Favorite's store from their profile.</Text>
           )}
-        </View>
+        </GlassCard>
       </Screen>
     </SwipeBack>
   );
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: spacing.sm, marginBottom: 8 },
-  muted: { color: colors.muted, marginBottom: 12, fontSize: 14 },
-  name: { color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 4 },
-  badge: { color: colors.primaryHover, fontSize: 12, fontWeight: '600', marginBottom: 6 },
-  card: {
-    backgroundColor: colors.surface,
+  h1: {
+    ...typo.h1,
+    marginTop: spacing.sm,
+    marginBottom: 6,
+  },
+  subtitle: {
+    ...typo.body,
+    marginBottom: spacing.lg,
+    lineHeight: 21,
+  },
+  orderCard: {
+    borderWidth: 1,
     borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: 10,
+    padding: 14,
+    gap: 10,
   },
-  input: {
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    color: colors.text,
-    padding: 12,
-    marginBottom: 10,
+  orderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    alignItems: 'flex-start',
   },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  orderTitle: {
+    flex: 1,
+    fontWeight: '700',
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  price: {
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radii.full,
+  },
 });
