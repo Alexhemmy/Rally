@@ -6,25 +6,16 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:4000"
-      }
+      "distribution": "internal"
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://rally-backend-twkb.onrender.com"
       }
     },
     "production": {
-      "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://rally-backend-twkb.onrender.com"
-      }
+      "autoIncrement": true
     }
   }
 }
