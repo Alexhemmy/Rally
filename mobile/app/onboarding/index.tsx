@@ -19,6 +19,7 @@ import {
   isBiometricLockEnabled,
   setBiometricLockEnabled,
   biometricAvailable,
+  runWithAppTask,
 } from '@/components/BiometricGate';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
@@ -105,6 +106,11 @@ export default function OnboardingScreen() {
   }
 
   async function pickAvatar() {
+    // Lock-safe: the biometric gate will not trigger during the upload.
+    await runWithAppTask(pickAvatarInner);
+  }
+
+  async function pickAvatarInner() {
     click();
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
@@ -127,7 +133,7 @@ export default function OnboardingScreen() {
         body: JSON.stringify({ mimeType: asset.mimeType || 'image/jpeg', base64: asset.base64 }),
       });
       const base = await getApiUrl();
-      setAvatarUrl(up.media.absoluteUrl || base + up.media.url);
+      setAvatarUrl(base + up.media.url);
       success();
     } catch (e: any) {
       errSound();

@@ -1,9 +1,11 @@
 /** Compose Moment
  * Create a new Moment with title, body, optional category tag and real
- * media upload (camera or photo library) via /api/media/upload.
+ * multi-media upload (up to 10 photos and/or videos) via /api/media/upload.
+ * Uploads and publishing are wrapped in runWithAppTask() so the biometric
+ * lock never interrupts them.
  */
 import { useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, ScrollView, Pressable } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Screen } from '@/components/Screen';
 import { GradientButton, GlassCard } from '@/components/ui';
@@ -14,10 +16,14 @@ import { useSounds } from '@/hooks/useSounds';
 import { useRouter } from 'expo-router';
 import { SwipeBack } from '@/components/SwipeBack';
 import { SoundTextInput } from '@/components/SoundTextInput';
+import { runWithAppTask } from '@/components/BiometricGate';
 import { api } from '@/lib/api';
 import { getApiUrl } from '@/lib/config';
 
-const MAX_BASE64 = 12 * 1024 * 1024;
+const MAX_BASE64 = 25 * 1024 * 1024; // 25MB per file (matches backend limit)
+const MAX_ITEMS = 10;
+
+type MediaItem = { url: string; type: 'image' | 'video' };
 
 export default function ComposeMomentScreen() {
   const { colors } = useTheme();
@@ -28,8 +34,9 @@ export default function ComposeMomentScreen() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [categoryTag, setCategoryTag] = useState('');
-  const [media, setMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
   const [publishing, setPublishing] = useState(false);
 
   async function ensurePermission(camera: boolean): Promise<boolean> {
@@ -48,49 +55,71 @@ export default function ComposeMomentScreen() {
     return true;
   }
 
+  async function uploadOne(asset: ImagePicker.Asset): Promise<MediaItem> {
+    if (!asset.base64) throw new Error('Could not read the selected media.');
+    if (asset.base64.length > MAX_BASE64) {
+      throw new Error('One of the files is too large (max 25MB). Please pick smaller media.');
+    }
+    const mimeType = asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg');
+    const up = await api<{ media: { url: string } }>('/api/media/upload', {
+      method: 'POST',
+      body: JSON.stringify({ mimeType, base64: asset.base64 }),
+    });
+    const base = await getApiUrl();
+    const url = base + up.media.url;
+    return { url, type: asset.type === 'video' ? 'video' : 'image' };
+  }
+
   async function pickMedia(source: 'camera' | 'library') {
+    if (mediaItems.length >= MAX_ITEMS) {
+      Alert.alert('Media', 'You can attach up to ' + MAX_ITEMS + ' files.');
+      return;
+    }
     impact('medium');
     click();
     if (!(await ensurePermission(source === 'camera'))) return;
     try {
+      const remaining = MAX_ITEMS - mediaItems.length;
       const opts: ImagePicker.ImagePickerOptions = {
         mediaTypes: ImagePicker.MediaTypeOptions.All,
         quality: 0.7,
         base64: true,
+        // Multi-select from the gallery (single shot from the camera).
+        allowsMultipleSelection: source === 'library',
+        selectionLimit: source === 'library' ? remaining : 1,
       };
       const res =
         source === 'camera'
           ? await ImagePicker.launchCameraAsync(opts)
           : await ImagePicker.launchImageLibraryAsync(opts);
       if (res.canceled || !res.assets || res.assets.length === 0) return;
-      const asset = res.assets[0];
-      if (!asset.base64) {
-        Alert.alert('Media', 'Could not read the selected media.');
-        return;
-      }
-      if (asset.base64.length > MAX_BASE64) {
-        Alert.alert('Too large', 'Please choose media smaller than 12 MB.');
-        return;
-      }
-      const mimeType = asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg');
+      const assets = res.assets.slice(0, remaining);
+
       setUploading(true);
-      const up = await api<{ media: { url: string; absoluteUrl?: string } }>('/api/media/upload', {
-        method: 'POST',
-        body: JSON.stringify({ mimeType, base64: asset.base64 }),
+      // runWithAppTask: the biometric lock will not trigger during uploads.
+      await runWithAppTask(async () => {
+        const uploaded: MediaItem[] = [];
+        for (let i = 0; i < assets.length; i++) {
+          setUploadProgress('Uploading ' + (i + 1) + ' of ' + assets.length + '…');
+          uploaded.push(await uploadOne(assets[i]));
+        }
+        setMediaItems((prev) => [...prev, ...uploaded].slice(0, MAX_ITEMS));
+        success();
+        impact('success');
       });
-      const base = await getApiUrl();
-      const url = up.media && (up.media.absoluteUrl || base + up.media.url);
-      if (!url) throw new Error('Upload failed');
-      setMedia({ url, type: asset.type === 'video' ? 'video' : 'image' });
-      success();
-      impact('success');
     } catch (e: any) {
       errSound();
       impact('error');
       Alert.alert('Media upload', e.message || 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
+      setUploadProgress('');
     }
+  }
+
+  function removeItem(index: number) {
+    click();
+    setMediaItems((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function publish() {
@@ -101,15 +130,20 @@ export default function ComposeMomentScreen() {
     setPublishing(true);
     impact('medium');
     try {
-      await api('/api/moments', {
-        method: 'POST',
-        body: JSON.stringify({
-          title: title.trim(),
-          description: body.trim() || undefined,
-          categoryTag: categoryTag.trim() || undefined,
-          mediaUrl: media ? media.url : undefined,
-          mediaType: media ? media.type : undefined,
-        }),
+      await runWithAppTask(async () => {
+        await api('/api/moments', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: title.trim(),
+            description: body.trim() || undefined,
+            categoryTag: categoryTag.trim() || undefined,
+            // Multi-media array (the API shape), plus single-media fields
+            // for backward compatibility with older readers.
+            media: mediaItems.length > 0 ? mediaItems : undefined,
+            mediaUrl: mediaItems.length > 0 ? mediaItems[0].url : undefined,
+            mediaType: mediaItems.length > 0 ? mediaItems[0].type : undefined,
+          }),
+        });
       });
       success();
       impact('success');
@@ -140,14 +174,7 @@ export default function ComposeMomentScreen() {
         <GlassCard style={{ marginTop: spacing.sm }}>
           <Text style={[styles.label, { color: colors.muted }]}>Title</Text>
           <SoundTextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.bg,
-                borderColor: colors.border,
-                color: colors.text,
-              },
-            ]}
+            style={[styles.input, { backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }]}
             placeholder="Give your Moment a title"
             placeholderTextColor={colors.muted}
             value={title}
@@ -155,19 +182,9 @@ export default function ComposeMomentScreen() {
             maxLength={120}
           />
 
-          <Text style={[styles.label, { color: colors.muted }]}>
-            What is happening?
-          </Text>
+          <Text style={[styles.label, { color: colors.muted }]}>What is happening?</Text>
           <SoundTextInput
-            style={[
-              styles.input,
-              styles.area,
-              {
-                backgroundColor: colors.bg,
-                borderColor: colors.border,
-                color: colors.text,
-              },
-            ]}
+            style={[styles.input, styles.area, { backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }]}
             placeholder="Write something interesting..."
             placeholderTextColor={colors.muted}
             value={body}
@@ -179,14 +196,7 @@ export default function ComposeMomentScreen() {
 
           <Text style={[styles.label, { color: colors.muted }]}>Category tag (optional)</Text>
           <SoundTextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.bg,
-                borderColor: colors.border,
-                color: colors.text,
-              },
-            ]}
+            style={[styles.input, { backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }]}
             placeholder="e.g. music, art, football"
             placeholderTextColor={colors.muted}
             value={categoryTag}
@@ -197,38 +207,51 @@ export default function ComposeMomentScreen() {
 
           <View style={{ gap: 10 }}>
             <GradientButton
-              label={uploading ? 'Uploading…' : 'Take photo or video'}
+              label={uploading ? (uploadProgress || 'Uploading…') : 'Take photo or video'}
               variant="ghost"
               icon="camera-outline"
               onPress={() => pickMedia('camera')}
               loading={uploading}
-              disabled={uploading || publishing}
+              disabled={uploading || publishing || mediaItems.length >= MAX_ITEMS}
               fullWidth
             />
             <GradientButton
-              label={uploading ? 'Uploading…' : 'Choose from library'}
+              label={
+                uploading
+                  ? (uploadProgress || 'Uploading…')
+                  : 'Choose from library (' + mediaItems.length + '/' + MAX_ITEMS + ')'
+              }
               variant="ghost"
               icon="images-outline"
               onPress={() => pickMedia('library')}
               loading={uploading}
-              disabled={uploading || publishing}
+              disabled={uploading || publishing || mediaItems.length >= MAX_ITEMS}
               fullWidth
             />
           </View>
 
-          {media && (
-            <View style={styles.mediaRow}>
-              <Text
-                style={{ color: colors.primary, fontSize: 13, fontWeight: '600', flex: 1 }}
-                numberOfLines={1}
-              >
-                {media.type === 'video' ? 'Video' : 'Photo'} attached
+          {mediaItems.length > 0 && (
+            <View style={{ marginTop: 14 }}>
+              <Text style={[styles.label, { color: colors.muted }]}>
+                Attached media ({mediaItems.length})
               </Text>
-              <GradientButton
-                label="Remove"
-                variant="ghost"
-                onPress={() => setMedia(null)}
-              />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {mediaItems.map((item, i) => (
+                  <Pressable
+                    key={i}
+                    onPress={() => removeItem(i)}
+                    style={[styles.chip, { backgroundColor: colors.bg, borderColor: colors.border }]}
+                  >
+                    <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>
+                      {item.type === 'video' ? '🎬' : '🖼'} {item.type === 'video' ? 'Video' : 'Photo'} {i + 1}
+                    </Text>
+                    <Text style={{ color: colors.primary, fontSize: 12, marginLeft: 6 }}>✕</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <Text style={[styles.label, { color: colors.muted, marginTop: 6, fontWeight: '400' }]}>
+                Tap a chip to remove it. Mix photos and videos freely.
+              </Text>
             </View>
           )}
 
@@ -279,10 +302,12 @@ const styles = StyleSheet.create({
   area: {
     minHeight: 130,
   },
-  mediaRow: {
+  chip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    gap: 10,
   },
 });
