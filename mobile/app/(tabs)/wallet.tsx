@@ -1,12 +1,13 @@
 /** Wallet tab
- * Browse and buy Token packs.
+ * Browse and buy Token packs — real provider checkout
+ * (Paystack / Flutterwave / Stripe, routed by country on the server).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View } from 'react-native';
+import { Text, StyleSheet, View, Linking, Alert } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { GradientButton, GlassCard, SectionHeader, EmptyState, StatTile } from '@/components/ui';
+import { GradientButton, GlassCard, EmptyState } from '@/components/ui';
 import { useTheme } from '@/components/ThemeProvider';
-import { api } from '@/lib/api';
+import { api, getToken } from '@/lib/api';
 import { spacing, radii, type as typo } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -14,8 +15,10 @@ type Pack = {
   id: string;
   name: string;
   tokens: number;
-  bonusTokens: number;
-  priceCents: number;
+  bonus_tokens?: number;
+  bonusTokens?: number;
+  price_cents?: number;
+  priceCents?: number;
 };
 
 export default function WalletTab() {
@@ -25,13 +28,21 @@ export default function WalletTab() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [wallet, setWallet] = useState<{ balance: number; giftedBalance: number } | null>(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
     impact('selection');
     try {
-      const r = await api<{ packs: Pack[] }>('/api/tokens/packs');
+      const r = await api<{ packs: any[] }>('/api/tokens/packs', { skipAuth: true });
       setPacks(r.packs || []);
+      if (getToken()) {
+        const w = await api<{ wallet: any }>('/api/tokens/wallet');
+        setWallet({
+          balance: Number(w.wallet?.balance ?? 0),
+          giftedBalance: Number(w.wallet?.giftedBalance ?? 0),
+        });
+      }
     } catch {
       // offline
     } finally {
@@ -44,34 +55,74 @@ export default function WalletTab() {
   }, [load]);
 
   async function buy(pack: Pack) {
+    if (!getToken()) {
+      Alert.alert('Log in required', 'Create an account or log in before buying Tokens.');
+      return;
+    }
     setBuyingId(pack.id);
     impact('medium');
+    try {
+      const res = await api<{
+        checkout?: { authorizationUrl?: string };
+        purchase?: { status: string; tokens?: number };
+      }>('/api/tokens/purchase', {
+        method: 'POST',
+        body: JSON.stringify({ packId: pack.id, paymentMethod: 'card' }),
+      });
 
-    // Placeholder — wire real checkout (Paystack / Flutterwave / Stripe) later
-    await new Promise((r) => setTimeout(r, 600));
-
-    impact('success');
-    setBuyingId(null);
+      if (res.checkout?.authorizationUrl) {
+        // Real provider checkout — opens the hosted Paystack/FLW/Stripe page.
+        await Linking.openURL(res.checkout.authorizationUrl);
+        Alert.alert(
+          'Complete your payment',
+          'Finish the payment in the page that just opened, then pull to refresh to see your new balance.',
+        );
+      } else if (res.purchase?.status === 'completed') {
+        impact('success');
+        Alert.alert('Purchase complete', res.purchase.tokens + ' tokens were added to your wallet.');
+        await load();
+      }
+    } catch (e: any) {
+      Alert.alert('Purchase failed', e.message || 'Could not start checkout. Try again.');
+    } finally {
+      setBuyingId(null);
+    }
   }
+
+  const bonus = (p: Pack) => Number(p.bonusTokens ?? p.bonus_tokens ?? 0);
+  const priceCents = (p: Pack) => Number(p.priceCents ?? p.price_cents ?? 0);
 
   return (
     <Screen refreshing={refreshing} onRefresh={load}>
       <Text style={[styles.h1, { color: colors.text }]}>Wallet</Text>
       <Text style={[styles.subtitle, { color: colors.muted }]}>
-        Mobile checkout uses the provider layer (Paystack / Flutterwave / Stripe).
+        Checkout runs through Paystack, Flutterwave or Stripe depending on your country.
       </Text>
+
+      {wallet && (
+        <View style={styles.walletRow}>
+          <View style={[styles.tile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={{ color: colors.muted, fontSize: 12, fontWeight: '700' }}>BALANCE</Text>
+            <Text style={{ color: colors.text, fontSize: 20, fontWeight: '800' }}>{wallet.balance}</Text>
+          </View>
+          <View style={[styles.tile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={{ color: colors.muted, fontSize: 12, fontWeight: '700' }}>GIFTED</Text>
+            <Text style={{ color: colors.text, fontSize: 20, fontWeight: '800' }}>{wallet.giftedBalance}</Text>
+          </View>
+        </View>
+      )}
 
       {packs.length === 0 && !refreshing ? (
         <EmptyState
           icon="wallet-outline"
           title="No packs available"
-          body="Start the API and seed data, then pull to refresh."
+          body="Token packs are managed on the server. Pull to refresh once the backend is live."
         />
       ) : (
         <View style={{ gap: 12 }}>
           {packs.map((pack) => {
-            const totalTokens = pack.tokens + (pack.bonusTokens || 0);
-            const price = (pack.priceCents / 100).toFixed(2);
+            const totalTokens = pack.tokens + bonus(pack);
+            const price = (priceCents(pack) / 100).toFixed(2);
 
             return (
               <GlassCard key={pack.id}>
@@ -82,15 +133,15 @@ export default function WalletTab() {
                     </Text>
                     <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>
                       {pack.tokens}
-                      {pack.bonusTokens > 0 ? ` + ${pack.bonusTokens} bonus` : ''} tokens
+                      {bonus(pack) > 0 ? ' + ' + bonus(pack) + ' bonus' : ''} tokens
                     </Text>
                   </View>
                   <Text style={[styles.price, { color: colors.primary }]}>
-                    ${price}
+                    {'$' + price}
                   </Text>
                 </View>
 
-                {pack.bonusTokens > 0 && (
+                {bonus(pack) > 0 && (
                   <View
                     style={[
                       styles.bonusPill,
@@ -98,14 +149,14 @@ export default function WalletTab() {
                     ]}
                   >
                     <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>
-                      +{pack.bonusTokens} bonus · {totalTokens} total
+                      +{bonus(pack)} bonus · {totalTokens} total
                     </Text>
                   </View>
                 )}
 
                 <View style={{ marginTop: spacing.md }}>
                   <GradientButton
-                    label={buyingId === pack.id ? 'Processing…' : 'Buy'}
+                    label={buyingId === pack.id ? 'Opening checkout…' : 'Buy'}
                     onPress={() => buy(pack)}
                     loading={buyingId === pack.id}
                     disabled={!!buyingId}
@@ -131,6 +182,17 @@ const styles = StyleSheet.create({
     ...typo.body,
     marginBottom: spacing.lg,
     lineHeight: 21,
+  },
+  walletRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: spacing.md,
+  },
+  tile: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: 12,
   },
   packHeader: {
     flexDirection: 'row',

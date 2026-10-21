@@ -87,12 +87,12 @@ export default function HomeTab() {
       {/* Primary actions */}
       <View style={{ gap: 10, marginBottom: spacing.lg }}>
         <GradientButton
-          label="Open demo @mia"
-          icon="person-outline"
+          label="Explore Favorites"
+          icon="compass-outline"
           onPress={() => {
             click();
             impact('light');
-            router.push('/favorite/mia');
+            router.push('/search');
           }}
           fullWidth
         />
