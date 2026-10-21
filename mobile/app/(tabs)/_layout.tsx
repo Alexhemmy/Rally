@@ -1,6 +1,6 @@
 /** Tabs layout
- * Home · Explore · [＋ create] · Wallet · You
- * Floating pill tab bar with gradient create button.
+ * Home · Explore · [＋ create] · Feed · You
+ * Floating pill tab bar with a centered gradient create button.
  */
 import { Redirect, Tabs, useRouter } from 'expo-router';
 import { Pressable, View, StyleSheet, Platform } from 'react-native';
@@ -21,7 +21,7 @@ function TabIcon({
   color: string;
   focused: boolean;
 }) {
-  const iconName = focused ? name : ((name + "-outline") as IconName);
+  const iconName = focused ? name : ((name + '-outline') as IconName);
   return <Ionicons name={iconName} size={24} color={color} />;
 }
 
@@ -59,7 +59,6 @@ export default function TabsLayout() {
           borderTopWidth: 1,
           borderColor: colors.border,
           borderRadius: radii.full,
-          // Soft elevated shadow
           shadowColor: '#000',
           shadowOpacity: isDark ? 0.4 : 0.12,
           shadowRadius: 16,
@@ -76,7 +75,7 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >
-      {/* Home */}
+      {/* Home (For You) */}
       <Tabs.Screen
         name="index"
         options={{
@@ -92,24 +91,28 @@ export default function TabsLayout() {
                 hitSlop={10}
                 accessibilityLabel="Notifications"
               >
-                <Ionicons
-                  name="notifications-outline"
-                  size={22}
-                  color={colors.text}
-                />
+                <Ionicons name="notifications-outline" size={22} color={colors.text} />
               </Pressable>
               <Pressable
                 onPress={cycleTheme}
                 hitSlop={10}
                 accessibilityLabel="Toggle theme"
               >
-                <Ionicons
-                  name={isDark ? 'sunny' : 'moon'}
-                  size={20}
-                  color={colors.primary}
-                />
+                <Ionicons name={isDark ? 'sunny' : 'moon'} size={20} color={colors.primary} />
               </Pressable>
             </View>
+          ),
+        }}
+      />
+
+      {/* Explore */}
+      <Tabs.Screen
+        name="explore"
+        options={{
+          title: 'Explore',
+          tabBarLabel: 'Explore',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="compass" color={color} focused={focused} />
           ),
         }}
       />
@@ -137,21 +140,21 @@ export default function TabsLayout() {
                 end={{ x: 1, y: 1 }}
                 style={styles.createBtn}
               >
-                <Ionicons name="add" size={22} color="#fff" />
+                <Ionicons name="add" size={24} color="#fff" />
               </LinearGradient>
             </Pressable>
           ),
         }}
       />
 
-      {/* Wallet */}
+      {/* Feed (random) */}
       <Tabs.Screen
-        name="wallet"
+        name="feed"
         options={{
-          title: 'Wallet',
-          tabBarLabel: 'Wallet',
+          title: 'Feed',
+          tabBarLabel: 'Feed',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="wallet" color={color} focused={focused} />
+            <TabIcon name="play-circle" color={color} focused={focused} />
           ),
         }}
       />
@@ -172,25 +175,26 @@ export default function TabsLayout() {
                 hitSlop={10}
                 accessibilityLabel="Connection settings"
               >
-                <Ionicons
-                  name="server-outline"
-                  size={21}
-                  color={colors.text}
-                />
+                <Ionicons name="server-outline" size={21} color={colors.text} />
               </Pressable>
               <Pressable
                 onPress={() => router.push('/permissions')}
                 hitSlop={10}
                 accessibilityLabel="App permissions"
               >
-                <Ionicons
-                  name="shield-checkmark-outline"
-                  size={22}
-                  color={colors.text}
-                />
+                <Ionicons name="shield-checkmark-outline" size={22} color={colors.text} />
               </Pressable>
             </View>
           ),
+        }}
+      />
+
+      {/* Wallet — reachable by deep links, hidden from the tab bar */}
+      <Tabs.Screen
+        name="wallet"
+        options={{
+          title: 'Wallet',
+          href: null,
         }}
       />
     </Tabs>
@@ -205,7 +209,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   createWrap: {
-    marginTop: -18,
+    marginTop: -14,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#7C5CFC',
@@ -215,9 +219,9 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   createBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },

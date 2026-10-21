@@ -1,6 +1,8 @@
 /** BiometricGate
  * App lock with FaceID / fingerprint (biometrics) and automatic fallback
- * to the device passcode. Enabled from Onboarding or Security settings.
+ * to the device passcode. While the app is performing a task (e.g. a
+ * media upload or publish), the lock is deferred via beginAppTask()/
+ * endAppTask() so it never interrupts an in-flight operation.
  */
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, AppState } from 'react-native';
@@ -10,6 +12,38 @@ import { storage } from '@/lib/storage';
 
 const KEY = 'rally_biometric_lock';
 
+// ── Global busy-task registry ────────────────────────────────────────────────
+// Any long-running operation (uploads, publishing, payments) should wrap
+// itself in runWithAppTask() so the biometric lock does not trigger
+// mid-operation. If the app is backgrounded during a task, the lock check
+// is deferred until the last task finishes.
+let busyCount = 0;
+let pendingCheck = false;
+let gateCheck: (() => void) | null = null;
+
+export function beginAppTask(): void {
+  busyCount += 1;
+}
+
+export function endAppTask(): void {
+  busyCount = Math.max(0, busyCount - 1);
+  if (busyCount === 0 && pendingCheck) {
+    pendingCheck = false;
+    if (gateCheck) gateCheck();
+  }
+}
+
+/** Wrap any async operation so the biometric lock never interrupts it. */
+export async function runWithAppTask<T>(fn: () => Promise<T>): Promise<T> {
+  beginAppTask();
+  try {
+    return await fn();
+  } finally {
+    endAppTask();
+  }
+}
+
+// ── Settings helpers ─────────────────────────────────────────────────────────
 export async function isBiometricLockEnabled(): Promise<boolean> {
   return (await storage.getString(KEY)) === '1';
 }
@@ -35,13 +69,19 @@ export async function biometricAvailable(): Promise<{ available: boolean; biomet
   }
 }
 
+// ── Gate component ──────────────────────────────────────────────────────────
 export function BiometricGate({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
   const [locked, setLocked] = useState(false);
   const [checking, setChecking] = useState(true);
   const mounted = useRef(true);
 
-  const authenticate = async () => {
+  const maybeLock = async () => {
+    // Never lock while the app is busy with an upload, publish, payment, etc.
+    if (busyCount > 0) {
+      pendingCheck = true;
+      return;
+    }
     if (!(await isBiometricLockEnabled())) {
       if (mounted.current) {
         setLocked(false);
@@ -71,12 +111,14 @@ export function BiometricGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     mounted.current = true;
-    authenticate();
+    gateCheck = maybeLock;
+    maybeLock();
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') authenticate();
+      if (state === 'active') maybeLock();
     });
     return () => {
       mounted.current = false;
+      gateCheck = null;
       sub.remove();
     };
   }, []);
@@ -95,7 +137,7 @@ export function BiometricGate({ children }: { children: ReactNode }) {
           ) : (
             <Text
               style={{ color: colors.primary, fontWeight: '800', marginTop: 24 }}
-              onPress={authenticate}
+              onPress={maybeLock}
             >
               Try again
             </Text>

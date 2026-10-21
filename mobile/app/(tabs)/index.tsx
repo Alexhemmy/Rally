@@ -1,188 +1,121 @@
-/** Home tab
- * Welcome hub — discover Favorites, features, and start supporting.
+/** Home tab — For You
+ * Algorithmic Moments from people you follow, ranked by popularity
+ * and recency. Real API data only.
  */
-import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Text, StyleSheet, View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { GradientButton, GlassCard, SectionHeader } from '@/components/ui';
+import { GlassCard, Avatar, EmptyState } from '@/components/ui';
 import { useTheme } from '@/components/ThemeProvider';
-import { spacing, radii, type as typo, useLayout, scaleFont } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
+import { shareMoment } from '@/hooks/useShare';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
-import { LinearGradient } from 'expo-linear-gradient';
-
-const DISCOVER = [
-  { href: '/search', label: 'Search', emoji: '🔍' },
-  { href: '/rankings', label: 'Rankings', emoji: '🏆' },
-  { href: '/cityrankings', label: 'City lanes', emoji: '📍' },
-  { href: '/campaigns', label: 'Campaigns', emoji: '❤️' },
-  { href: '/rivalries', label: 'Rivalries', emoji: '⚡' },
-  { href: '/giveaways', label: 'Giveaways', emoji: '🎁' },
-  { href: '/store', label: 'Store', emoji: '🛍️' },
-  { href: '/merch', label: 'Merch', emoji: '👕' },
-  { href: '/predictions', label: 'Predictions', emoji: '🎯' },
-  { href: '/subscriptions', label: 'Fan Clubs', emoji: '⭐' },
-  { href: '/fangifts', label: 'Fan Gifts', emoji: '💝' },
-  { href: '/collections', label: 'Collections', emoji: '📚' },
-  { href: '/live', label: 'Live', emoji: '📡' },
-  { href: '/junior', label: 'Junior Favorites', emoji: '🌱' },
-  { href: '/security', label: 'Security', emoji: '🔒' },
-];
+import { api, getToken } from '@/lib/api';
 
 export default function HomeTab() {
-  const router = useRouter();
   const { colors } = useTheme();
-  const { isTablet, fontScale } = useLayout();
+  const router = useRouter();
   const { impact } = useHaptics();
   const { click } = useSounds();
-  const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = useCallback(async () => {
+  const [moments, setMoments] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const load = useCallback(async () => {
     setRefreshing(true);
     impact('selection');
-    await new Promise((r) => setTimeout(r, 500));
-    setRefreshing(false);
+    try {
+      if (!getToken()) {
+        setMoments([]);
+      } else {
+        const res = await api<{ moments: any[] }>('/api/feed/for-you');
+        setMoments(res.moments || []);
+      }
+    } catch {
+      setMoments([]);
+    } finally {
+      setRefreshing(false);
+      setLoaded(true);
+    }
   }, [impact]);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   return (
-    <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      {/* Brand header */}
-      <View style={styles.brandRow}>
-        <Image
-          source={require('@/assets/icon.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <View
-          style={[
-            styles.badge,
-            {
-              backgroundColor: colors.primaryMuted,
-              borderColor: colors.primary + '55',
-            },
-          ]}
-        >
-          <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>
-            Fan support
-          </Text>
+    <Screen refreshing={refreshing} onRefresh={load}>
+      {moments.length > 0 ? (
+        <View style={{ gap: 12, marginBottom: spacing.md }}>
+          {moments.map((m) => {
+            const handle = m.favorite?.user?.handle || m.user?.handle || 'rally';
+            return (
+              <GlassCard key={m.id}>
+                <View style={styles.row}>
+                  <Avatar name={handle} size={40} ring uri={m.favorite?.user?.avatarUrl || undefined} />
+                  <Pressable
+                    style={{ marginLeft: 12, flex: 1 }}
+                    onPress={() => {
+                      click();
+                      router.push('/moments/' + m.id);
+                    }}
+                  >
+                    <Text style={[styles.title, { color: colors.text }]}>{m.title}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 13 }}>
+                      @{handle}
+                      {m.categoryTag ? ' · ' + m.categoryTag : ''}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      impact('light');
+                      shareMoment(m.title, m.id);
+                    }}
+                    style={styles.shareBtn}
+                  >
+                    <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>
+                      Share
+                    </Text>
+                  </Pressable>
+                </View>
+              </GlassCard>
+            );
+          })}
         </View>
-      </View>
-
-      <Text
-        style={[
-          styles.title,
-          {
-            color: colors.primary,
-            fontSize: scaleFont(isTablet ? 40 : 34, fontScale),
-          },
-        ]}
-      >
-        Rally
-      </Text>
-      <Text style={[styles.subtitle, { color: colors.muted }]}>
-        Support Favorites with Gifts, Moments, and live sessions.
-      </Text>
-
-      {/* Primary actions */}
-      <View style={{ gap: 10, marginBottom: spacing.lg }}>
-        <GradientButton
-          label="Explore Favorites"
-          icon="compass-outline"
-          onPress={() => {
-            click();
-            impact('light');
-            router.push('/search');
-          }}
-          fullWidth
-        />
-        <GradientButton
-          label="Compose Moment"
-          variant="ghost"
-          icon="create-outline"
-          onPress={() => {
-            click();
-            impact('light');
-            router.push('/compose-moment');
-          }}
-          fullWidth
-        />
-      </View>
-
-      {/* Discover */}
-      <GlassCard padded={false}>
-        <SectionHeader
-          title="Discover"
-          style={{ paddingHorizontal: 16, paddingTop: 14 }}
-        />
-
-        {DISCOVER.map((item, index) => (
-          <Pressable
-            key={item.href}
-            onPress={() => {
-              click();
-              impact('selection');
-              router.push(item.href as any);
-            }}
-            style={({ pressed }) => [
-              styles.linkRow,
-              {
-                borderBottomWidth: index < DISCOVER.length - 1 ? StyleSheet.hairlineWidth : 0,
-                borderBottomColor: colors.border,
-                backgroundColor: pressed ? colors.surfaceHover : 'transparent',
-              },
-            ]}
-          >
-            <Text style={{ fontSize: 18, marginRight: 12 }}>{item.emoji}</Text>
-            <Text style={[styles.linkText, { color: colors.text }]}>
-              {item.label}
-            </Text>
-            <Text style={{ color: colors.primary, fontSize: 18 }}>›</Text>
-          </Pressable>
-        ))}
-      </GlassCard>
+      ) : (
+        loaded && (
+          <View style={{ marginTop: spacing.lg }}>
+            <EmptyState
+              icon="sparkles-outline"
+              title="Nothing here yet"
+              body={
+                getToken()
+                  ? 'Follow fans and Favorites to personalize your For You feed.'
+                  : 'Log in to see Moments picked for you.'
+              }
+            />
+          </View>
+        )
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  brandRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginTop: spacing.sm,
-    marginBottom: 8,
-  },
-  logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radii.full,
-    borderWidth: 1,
   },
   title: {
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    marginBottom: 6,
-  },
-  subtitle: {
+    fontWeight: '700',
     fontSize: 15,
-    lineHeight: 22,
-    marginBottom: spacing.lg,
+    marginBottom: 2,
   },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-  },
-  linkText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
+  shareBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
 });
