@@ -65,8 +65,10 @@ export default function ComposeMomentScreen() {
       method: 'POST',
       body: JSON.stringify({ mimeType, base64: asset.base64 }),
     });
-    const base = await getApiUrl();
-    const url = base + up.media.url;
+    // Uploads return absolute bucket URLs; only legacy relative
+    // /api/media/<id> URLs need the server base prepended.
+    const rawUrl = up.media.url || '';
+    const url = rawUrl.startsWith('http') ? rawUrl : (await getApiUrl()) + rawUrl;
     return { url, type: asset.type === 'video' ? 'video' : 'image' };
   }
 

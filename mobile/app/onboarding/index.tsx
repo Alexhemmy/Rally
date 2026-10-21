@@ -132,8 +132,10 @@ export default function OnboardingScreen() {
         method: 'POST',
         body: JSON.stringify({ mimeType: asset.mimeType || 'image/jpeg', base64: asset.base64 }),
       });
+      // Uploads now return absolute Supabase bucket URLs.
+      const rawUrl = (up.media && up.media.url) || '';
       const base = await getApiUrl();
-      setAvatarUrl(base + up.media.url);
+      setAvatarUrl(rawUrl.startsWith('http') ? rawUrl : base + rawUrl);
       success();
     } catch (e: any) {
       errSound();
