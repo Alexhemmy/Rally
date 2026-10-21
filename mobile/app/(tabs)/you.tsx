@@ -1,106 +1,163 @@
-import { Text, StyleSheet, View, Switch, Pressable } from 'react-native';
-import { Link, useRouter } from 'expo-router';
-import { Screen } from '@/components/Screen';
-import { PrimaryButton } from '@/components/PrimaryButton';
-import { colors, spacing, radii } from '@/constants/theme';
+/** You tab
+ * Account, preferences, help, and legal — the personal hub.
+ */
 import { useState, useCallback } from 'react';
+import { Text, StyleSheet, View, Switch, Pressable, Image } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Screen } from '@/components/Screen';
+import { GradientButton, GlassCard, SectionHeader, Avatar } from '@/components/ui';
+import { useTheme } from '@/components/ThemeProvider';
+import { spacing, radii, type as typo } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds, setSoundsEnabled, getSoundsEnabled } from '@/hooks/useSounds';
 import { clearToken, getToken } from '@/lib/api';
 
+const ACCOUNT_LINKS = [
+  { href: '/notifications', label: 'Notifications' },
+  { href: '/dashboard', label: 'Dashboard (Favorite)' },
+  { href: '/onboarding', label: 'Onboarding checklist' },
+  { href: '/upgrade', label: 'Become a Favorite' },
+  { href: '/subscriptions', label: 'Fan Clubs' },
+  { href: '/store', label: 'Store orders' },
+  { href: '/collections', label: 'Collections' },
+  { href: '/search', label: 'Search' },
+  { href: '/security', label: 'Security' },
+  { href: '/permissions', label: 'App permissions' },
+];
+
+const HELP_LINKS = [
+  { href: '/how-to-use', label: 'How to use' },
+  { href: '/faq', label: 'FAQ' },
+  { href: '/support', label: 'Support' },
+  { href: '/about', label: 'About' },
+];
+
+const LEGAL_LINKS = [
+  { href: '/privacy', label: 'Privacy policy' },
+  { href: '/terms', label: 'Terms of use' },
+];
+
 export default function YouTab() {
   const router = useRouter();
+  const { colors, isDark, mode, setMode } = useTheme();
   const { impact, enabled, setEnabled } = useHaptics();
   const { click } = useSounds();
+
   const [soundOn, setSoundOn] = useState(getSoundsEnabled());
   const [biometrics, setBiometrics] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
   const authed = !!getToken();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     impact('selection');
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 450));
     setRefreshing(false);
   }, [impact]);
 
-  const accountLinks = [
-    { href: '/notifications', label: 'Notifications' },
-    { href: '/dashboard', label: 'Dashboard (Favorite)' },
-    { href: '/onboarding', label: 'Onboarding checklist' },
-    { href: '/upgrade', label: 'Become a Favorite' },
-    { href: '/subscriptions', label: 'Fan Clubs' },
-    { href: '/store', label: 'Store orders' },
-    { href: '/collections', label: 'Collections' },
-    { href: '/search', label: 'Search' },
-  ];
-  const helpLinks = [
-    { href: '/how-to-use', label: 'How to use' },
-    { href: '/faq', label: 'FAQ' },
-    { href: '/support', label: 'Support' },
-    { href: '/about', label: 'About' },
-  ];
-  const legalLinks = [
-    { href: '/privacy', label: 'Privacy policy' },
-    { href: '/terms', label: 'Terms of use' },
-  ];
-
-  function LinkRow({ href, label }: { href: string; label: string }) {
+  function LinkRow({
+    href,
+    label,
+    isLast,
+  }: {
+    href: string;
+    label: string;
+    isLast?: boolean;
+  }) {
     return (
-      <Link href={href as any} asChild>
-        <Pressable
-          style={styles.linkRow}
-          onPress={() => {
-            click();
-            impact('selection');
-          }}
-        >
-          <Text style={styles.linkText}>{label}</Text>
-          <Text style={styles.chevron}>›</Text>
-        </Pressable>
-      </Link>
+      <Pressable
+        onPress={() => {
+          click();
+          impact('selection');
+          router.push(href as any);
+        }}
+        style={({ pressed }) => [
+          styles.linkRow,
+          {
+            borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+            borderBottomColor: colors.border,
+            backgroundColor: pressed ? colors.surfaceHover : 'transparent',
+          },
+        ]}
+      >
+        <Text style={[styles.linkText, { color: colors.text }]}>{label}</Text>
+        <Text style={{ color: colors.primary, fontSize: 18 }}>›</Text>
+      </Pressable>
     );
   }
 
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <Text style={styles.h1}>You</Text>
-      <Text style={styles.muted}>
-        Session stays active with use. After 7 days inactive you must log in again.
-      </Text>
-
-      <View style={styles.card}>
-        <Text style={styles.h2}>Account</Text>
-        {!authed ? (
-          <>
-            <PrimaryButton label="Log in" onPress={() => router.push('/login')} />
-            <PrimaryButton
-              label="Create account"
-              variant="ghost"
-              onPress={() => router.push('/register')}
-              style={{ marginTop: 10 }}
-            />
-          </>
-        ) : (
-          <PrimaryButton
-            label="Log out"
-            variant="ghost"
-            onPress={() => {
-              clearToken();
-              impact('medium');
-              router.push('/login');
-            }}
-          />
-        )}
-        {accountLinks.map((l) => (
-          <LinkRow key={l.href} href={l.href} label={l.label} />
-        ))}
+      {/* Header with logo */}
+      <View style={styles.header}>
+        <Image
+          source={require('@/assets/icon.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={[styles.h1, { color: colors.text }]}>You</Text>
+          <Text style={[styles.subtitle, { color: colors.muted }]}>
+            Session stays active with use. After 7 days inactive you’ll need to log in again.
+          </Text>
+        </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.h2}>Sounds and haptics</Text>
-        <View style={styles.row}>
-          <Text style={styles.label}>Click / type feedback</Text>
+      {/* Account */}
+      <GlassCard style={{ marginBottom: spacing.md }} padded={false}>
+        <SectionHeader
+          title="Account"
+          style={{ paddingHorizontal: 16, paddingTop: 14 }}
+        />
+
+        <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+          {!authed ? (
+            <View style={{ gap: 10 }}>
+              <GradientButton
+                label="Log in"
+                onPress={() => router.push('/login')}
+                fullWidth
+              />
+              <GradientButton
+                label="Create account"
+                variant="ghost"
+                onPress={() => router.push('/register')}
+                fullWidth
+              />
+            </View>
+          ) : (
+            <GradientButton
+              label="Log out"
+              variant="outline"
+              onPress={() => {
+                clearToken();
+                impact('medium');
+                router.push('/login');
+              }}
+              fullWidth
+            />
+          )}
+        </View>
+
+        {ACCOUNT_LINKS.map((l, i) => (
+          <LinkRow
+            key={l.href}
+            href={l.href}
+            label={l.label}
+            isLast={i === ACCOUNT_LINKS.length - 1}
+          />
+        ))}
+      </GlassCard>
+
+      {/* Preferences */}
+      <GlassCard style={{ marginBottom: spacing.md }}>
+        <SectionHeader title="Sounds & haptics" />
+
+        <View style={styles.switchRow}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Click / type feedback
+          </Text>
           <Switch
             value={soundOn}
             onValueChange={(v) => {
@@ -109,11 +166,12 @@ export default function YouTab() {
               if (v) click();
             }}
             trackColor={{ true: colors.primary, false: colors.border }}
-            thumbColor={colors.text}
+            thumbColor="#fff"
           />
         </View>
-        <View style={[styles.row, { marginTop: 12 }]}>
-          <Text style={styles.label}>Vibration</Text>
+
+        <View style={[styles.switchRow, { marginTop: 14 }]}>
+          <Text style={[styles.label, { color: colors.text }]}>Vibration</Text>
           <Switch
             value={enabled}
             onValueChange={(v) => {
@@ -121,11 +179,14 @@ export default function YouTab() {
               if (v) impact('success');
             }}
             trackColor={{ true: colors.primary, false: colors.border }}
-            thumbColor={colors.text}
+            thumbColor="#fff"
           />
         </View>
-        <View style={[styles.row, { marginTop: 12 }]}>
-          <Text style={styles.label}>Biometrics lock</Text>
+
+        <View style={[styles.switchRow, { marginTop: 14 }]}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Biometrics lock
+          </Text>
           <Switch
             value={biometrics}
             onValueChange={(v) => {
@@ -133,50 +194,101 @@ export default function YouTab() {
               impact('selection');
             }}
             trackColor={{ true: colors.primary, false: colors.border }}
-            thumbColor={colors.text}
+            thumbColor="#fff"
           />
         </View>
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.h2}>Help</Text>
-        {helpLinks.map((l) => (
-          <LinkRow key={l.href} href={l.href} label={l.label} />
-        ))}
-      </View>
+        {/* Theme toggle */}
+        <View style={[styles.switchRow, { marginTop: 14 }]}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Dark mode
+          </Text>
+          <Switch
+            value={isDark}
+            onValueChange={(v) => {
+              setMode(v ? 'dark' : 'light');
+              impact('selection');
+            }}
+            trackColor={{ true: colors.primary, false: colors.border }}
+            thumbColor="#fff"
+          />
+        </View>
+      </GlassCard>
 
-      <View style={styles.card}>
-        <Text style={styles.h2}>Legal</Text>
-        {legalLinks.map((l) => (
-          <LinkRow key={l.href} href={l.href} label={l.label} />
+      {/* Help */}
+      <GlassCard style={{ marginBottom: spacing.md }} padded={false}>
+        <SectionHeader
+          title="Help"
+          style={{ paddingHorizontal: 16, paddingTop: 14 }}
+        />
+        {HELP_LINKS.map((l, i) => (
+          <LinkRow
+            key={l.href}
+            href={l.href}
+            label={l.label}
+            isLast={i === HELP_LINKS.length - 1}
+          />
         ))}
-      </View>
+      </GlassCard>
+
+      {/* Legal */}
+      <GlassCard padded={false}>
+        <SectionHeader
+          title="Legal"
+          style={{ paddingHorizontal: 16, paddingTop: 14 }}
+        />
+        {LEGAL_LINKS.map((l, i) => (
+          <LinkRow
+            key={l.href}
+            href={l.href}
+            label={l.label}
+            isLast={i === LEGAL_LINKS.length - 1}
+          />
+        ))}
+      </GlassCard>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: spacing.sm, marginBottom: 8 },
-  h2: { color: colors.primaryHover, fontWeight: '600', marginBottom: 10 },
-  muted: { color: colors.muted, fontSize: 13, marginBottom: 12 },
-  label: { color: colors.text, flex: 1, paddingRight: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: 10,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  logo: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+  },
+  h1: {
+    ...typo.h1,
+    marginBottom: 2,
+  },
+  subtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  label: {
+    flex: 1,
+    paddingRight: 12,
+    fontSize: 15,
   },
   linkRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
-  linkText: { color: colors.text, fontSize: 16 },
-  chevron: { color: colors.muted, fontSize: 20 },
+  linkText: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
 });
