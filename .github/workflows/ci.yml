@@ -56,8 +56,8 @@ jobs:
       - name: Check EXPO_TOKEN is available
         id: token
         env:
-          EXPO_TOKEN: ${{ secrets.EXP_TOKEN }}
-          EXPO_TOKEN_ALT: ${{ vars.EXP_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN_ALT: ${{ vars.EXPO_TOKEN }}
         run: |
           echo "EXPO_TOKEN secret length: ${#EXPO_TOKEN}"
           echo "EXPO_TOKEN var length: ${#EXPO_TOKEN_ALT}"
