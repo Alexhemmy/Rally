@@ -1,8 +1,10 @@
 /** Compose Moment
- * Create a new Moment with title, body, and optional media.
+ * Create a new Moment with title, body, optional category tag and real
+ * media upload (camera or photo library) via /api/media/upload.
  */
 import { useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Screen } from '@/components/Screen';
 import { GradientButton, GlassCard } from '@/components/ui';
 import { useTheme } from '@/components/ThemeProvider';
@@ -12,67 +14,127 @@ import { useSounds } from '@/hooks/useSounds';
 import { useRouter } from 'expo-router';
 import { SwipeBack } from '@/components/SwipeBack';
 import { SoundTextInput } from '@/components/SoundTextInput';
-import { LongPressMenu } from '@/components/LongPressMenu';
+import { api } from '@/lib/api';
+import { getApiUrl } from '@/lib/config';
+
+const MAX_BASE64 = 12 * 1024 * 1024;
 
 export default function ComposeMomentScreen() {
   const { colors } = useTheme();
   const { impact } = useHaptics();
-  const { success, click } = useSounds();
+  const { success, click, error: errSound } = useSounds();
   const router = useRouter();
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [mediaLabel, setMediaLabel] = useState<string | null>(null);
-  const [menu, setMenu] = useState(false);
+  const [categoryTag, setCategoryTag] = useState('');
+  const [media, setMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
-  function pickMedia(source: 'camera' | 'library') {
-    impact('medium');
-    click();
-    setMediaLabel(
-      source === 'camera'
-        ? 'Camera selected (wire expo-camera)'
-        : 'Library selected (wire expo-image-picker)',
-    );
+  async function ensurePermission(camera: boolean): Promise<boolean> {
+    const res = camera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!res.granted) {
+      Alert.alert(
+        'Permission needed',
+        camera
+          ? 'Rally needs camera access to take photos and videos. Enable it in Settings.'
+          : 'Rally needs photo library access to pick media. Enable it in Settings.'
+      );
+      return false;
+    }
+    return true;
   }
 
-  function publish() {
+  async function pickMedia(source: 'camera' | 'library') {
+    impact('medium');
+    click();
+    if (!(await ensurePermission(source === 'camera'))) return;
+    try {
+      const opts: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        quality: 0.7,
+        base64: true,
+      };
+      const res =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync(opts)
+          : await ImagePicker.launchImageLibraryAsync(opts);
+      if (res.canceled || !res.assets || res.assets.length === 0) return;
+      const asset = res.assets[0];
+      if (!asset.base64) {
+        Alert.alert('Media', 'Could not read the selected media.');
+        return;
+      }
+      if (asset.base64.length > MAX_BASE64) {
+        Alert.alert('Too large', 'Please choose media smaller than 12 MB.');
+        return;
+      }
+      const mimeType = asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg');
+      setUploading(true);
+      const up = await api<{ media: { url: string; absoluteUrl?: string } }>('/api/media/upload', {
+        method: 'POST',
+        body: JSON.stringify({ mimeType, base64: asset.base64 }),
+      });
+      const base = await getApiUrl();
+      const url = up.media && (up.media.absoluteUrl || base + up.media.url);
+      if (!url) throw new Error('Upload failed');
+      setMedia({ url, type: asset.type === 'video' ? 'video' : 'image' });
+      success();
+      impact('success');
+    } catch (e: any) {
+      errSound();
+      impact('error');
+      Alert.alert('Media upload', e.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function publish() {
     if (!title.trim()) {
       Alert.alert('Moment', 'Please add a title first');
       return;
     }
-
     setPublishing(true);
-    impact('success');
-    success();
-
-    // Simulate publish delay
-    setTimeout(() => {
+    impact('medium');
+    try {
+      await api('/api/moments', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: title.trim(),
+          description: body.trim() || undefined,
+          categoryTag: categoryTag.trim() || undefined,
+          mediaUrl: media ? media.url : undefined,
+          mediaType: media ? media.type : undefined,
+        }),
+      });
+      success();
+      impact('success');
+      Alert.alert('Published', 'Your Moment is live.', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    } catch (e: any) {
+      errSound();
+      impact('error');
+      Alert.alert('Publish failed', e.message || 'Could not publish your Moment.');
+    } finally {
       setPublishing(false);
-      router.back();
-    }, 400);
+    }
   }
 
   return (
     <SwipeBack pullDown>
       <Screen>
-        <LongPressMenu
-          visible={menu}
-          title="Add media"
-          actions={[
-            { label: 'Camera', onPress: () => pickMedia('camera') },
-            { label: 'Photo library', onPress: () => pickMedia('library') },
-          ]}
-          onClose={() => setMenu(false)}
-        />
-
         <Text style={[styles.hint, { color: colors.muted }]}>
           Pull down to go back
         </Text>
 
         <Text style={[styles.h1, { color: colors.text }]}>New Moment</Text>
         <Text style={[styles.subtitle, { color: colors.muted }]}>
-          Share what’s happening with your audience.
+          Share what is happening with your audience.
         </Text>
 
         <GlassCard style={{ marginTop: spacing.sm }}>
@@ -94,7 +156,7 @@ export default function ComposeMomentScreen() {
           />
 
           <Text style={[styles.label, { color: colors.muted }]}>
-            What’s happening?
+            What is happening?
           </Text>
           <SoundTextInput
             style={[
@@ -115,25 +177,59 @@ export default function ComposeMomentScreen() {
             textAlignVertical="top"
           />
 
-          <GradientButton
-            label="Add media"
-            variant="ghost"
-            icon="image-outline"
-            onPress={() => setMenu(true)}
-            fullWidth
+          <Text style={[styles.label, { color: colors.muted }]}>Category tag (optional)</Text>
+          <SoundTextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.bg,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
+            placeholder="e.g. music, art, football"
+            placeholderTextColor={colors.muted}
+            value={categoryTag}
+            onChangeText={setCategoryTag}
+            maxLength={40}
+            autoCapitalize="none"
           />
 
-          {mediaLabel && (
-            <Text
-              style={{
-                color: colors.primary,
-                marginTop: 10,
-                fontSize: 13,
-                fontWeight: '600',
-              }}
-            >
-              {mediaLabel}
-            </Text>
+          <View style={{ gap: 10 }}>
+            <GradientButton
+              label={uploading ? 'Uploading…' : 'Take photo or video'}
+              variant="ghost"
+              icon="camera-outline"
+              onPress={() => pickMedia('camera')}
+              loading={uploading}
+              disabled={uploading || publishing}
+              fullWidth
+            />
+            <GradientButton
+              label={uploading ? 'Uploading…' : 'Choose from library'}
+              variant="ghost"
+              icon="images-outline"
+              onPress={() => pickMedia('library')}
+              loading={uploading}
+              disabled={uploading || publishing}
+              fullWidth
+            />
+          </View>
+
+          {media && (
+            <View style={styles.mediaRow}>
+              <Text
+                style={{ color: colors.primary, fontSize: 13, fontWeight: '600', flex: 1 }}
+                numberOfLines={1}
+              >
+                {media.type === 'video' ? 'Video' : 'Photo'} attached
+              </Text>
+              <GradientButton
+                label="Remove"
+                variant="ghost"
+                onPress={() => setMedia(null)}
+              />
+            </View>
           )}
 
           <View style={{ marginTop: spacing.lg }}>
@@ -141,7 +237,7 @@ export default function ComposeMomentScreen() {
               label={publishing ? 'Publishing…' : 'Publish Moment'}
               onPress={publish}
               loading={publishing}
-              disabled={publishing || !title.trim()}
+              disabled={publishing || uploading || !title.trim()}
               fullWidth
             />
           </View>
@@ -182,5 +278,11 @@ const styles = StyleSheet.create({
   },
   area: {
     minHeight: 130,
+  },
+  mediaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 10,
   },
 });

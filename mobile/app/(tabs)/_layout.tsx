@@ -21,7 +21,7 @@ function TabIcon({
   color: string;
   focused: boolean;
 }) {
-  const iconName = focused ? name : (`${name}-outline` as IconName);
+  const iconName = focused ? name : ((name + "-outline") as IconName);
   return <Ionicons name={iconName} size={24} color={color} />;
 }
 
@@ -114,18 +114,6 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* Explore */}
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarLabel: 'Explore',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="search" color={color} focused={focused} />
-          ),
-        }}
-      />
-
       {/* Center create (+) */}
       <Tabs.Screen
         name="create"
@@ -149,7 +137,7 @@ export default function TabsLayout() {
                 end={{ x: 1, y: 1 }}
                 style={styles.createBtn}
               >
-                <Ionicons name="add" size={30} color="#fff" />
+                <Ionicons name="add" size={22} color="#fff" />
               </LinearGradient>
             </Pressable>
           ),
@@ -217,7 +205,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   createWrap: {
-    marginTop: -28,
+    marginTop: -18,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#7C5CFC',
@@ -227,9 +215,9 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   createBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },

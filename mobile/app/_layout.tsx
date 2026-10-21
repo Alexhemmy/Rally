@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '@/components/ThemeProvider';
 import { SessionProvider } from '@/components/SessionProvider';
+import { BiometricGate } from '@/components/BiometricGate';
 
 function RootStack() {
   const { colors, isDark } = useTheme();
@@ -108,7 +109,9 @@ export default function RootLayout() {
     <ThemeProvider>
       <SessionProvider>
         <SafeAreaProvider>
-          <RootStack />
+          <BiometricGate>
+            <RootStack />
+          </BiometricGate>
         </SafeAreaProvider>
       </SessionProvider>
     </ThemeProvider>

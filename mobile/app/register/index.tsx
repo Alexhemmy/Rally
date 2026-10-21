@@ -58,7 +58,7 @@ export default function RegisterScreen() {
       setToken(res.token);
       success();
       impact('success');
-      router.replace('/');
+      router.replace({ pathname: '/onboarding', params: { role: form.role } });
     } catch (e: any) {
       errSound();
       impact('error');
