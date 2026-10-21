@@ -58,16 +58,16 @@ export default function RankingsScreen() {
           <EmptyState
             icon="trophy-outline"
             title="No rankings yet"
-            body="Check back later or explore the demo Favorite."
+            body="Check back later — rankings update as Favorites earn support."
             action={
               <Pressable
                 onPress={() => {
                   click();
-                  router.push('/favorite/mia');
+                  router.push('/search');
                 }}
               >
                 <Text style={{ color: colors.primary, fontWeight: '700' }}>
-                  Open demo @mia
+                  Explore Favorites
                 </Text>
               </Pressable>
             }
@@ -80,7 +80,7 @@ export default function RankingsScreen() {
                 onPress={() => {
                   click();
                   impact('light');
-                  router.push(`/favorite/${entry.handle}`);
+                  router.push('/favorite/' + entry.handle);
                 }}
                 style={({ pressed }) => [
                   styles.row,
