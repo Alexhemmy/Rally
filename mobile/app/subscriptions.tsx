@@ -52,13 +52,13 @@ export default function FanClubsScreen() {
     load();
   }, [load]);
 
-  async function act(id: string, action: 'cancel' | 'pause') {
+  async function act(id: string, action: 'cancel' | 'pause' | 'resume') {
     setActingId(id);
     setMsg(null);
     impact('medium');
 
     try {
-      await api(`/api/subscriptions/${id}/${action}`, { method: 'POST' });
+      await api('/api/subscriptions/' + id + '/' + action, { method: 'POST' });
       await load();
       setMsg({
         type: 'success',
@@ -78,7 +78,7 @@ export default function FanClubsScreen() {
         {/* Header */}
         <Text style={[styles.h1, { color: colors.text }]}>Fan Clubs</Text>
         <Text style={[styles.subtitle, { color: colors.muted }]}>
-          Join a Favorite’s monthly fan club. Cancel anytime — no dark patterns.
+          Join a Favorite's monthly fan club. Cancel anytime — no dark patterns.
         </Text>
 
         {/* Feedback */}
@@ -110,7 +110,7 @@ export default function FanClubsScreen() {
         <GlassCard style={{ marginBottom: spacing.md }}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Tip</Text>
           <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 20 }}>
-            Browse tiers from any Favorite’s profile page, then join here or on the web.
+            Browse tiers from any Favorite's profile page, then join here or on the web.
           </Text>
         </GlassCard>
 
@@ -153,4 +153,65 @@ export default function FanClubsScreen() {
                       label={sub.status === 'paused' ? 'Resume' : 'Pause'}
                       size="sm"
                       variant="ghost"
-                      onPress={() => act(sub.id, 'pause')}
+                      disabled={actingId === sub.id}
+                      onPress={() => act(sub.id, sub.status === 'paused' ? 'resume' : 'pause')}
+                    />
+                    {sub.status !== 'cancelled' && (
+                      <GradientButton
+                        label="Cancel"
+                        size="sm"
+                        variant="ghost"
+                        disabled={actingId === sub.id}
+                        onPress={() => act(sub.id, 'cancel')}
+                      />
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </GlassCard>
+      </Screen>
+    </SwipeBack>
+  );
+}
+
+const styles = StyleSheet.create({
+  h1: {
+    ...typo.h1,
+    marginTop: spacing.sm,
+    marginBottom: 6,
+  },
+  subtitle: {
+    ...typo.body,
+    marginBottom: spacing.lg,
+    lineHeight: 21,
+  },
+  badge: {
+    borderRadius: radii.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: spacing.md,
+  },
+  cardTitle: {
+    fontWeight: '800',
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  subCard: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  tierName: {
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+});
