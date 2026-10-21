@@ -76,7 +76,7 @@ jobs:
         if: steps.token.outputs.available == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas init --account Hemmylex-Technology --non-interactive
+        run: eas init --account hemmylex-technology --non-interactive
 
       - name: Build Native Android APK
         if: steps.token.outputs.available == 'true'
