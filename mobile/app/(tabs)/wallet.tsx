@@ -1,15 +1,22 @@
-/** Wallet tab
- * Browse and buy Token packs — real provider checkout
- * (Paystack / Flutterwave / Stripe, routed by country on the server).
+/** Wallet - Rally design
+ * Side-by-side Tokens (gold) and Earnings (teal) cards, token
+ * packages, and real provider checkout (Paystack/FLW/Stripe).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View, Linking, Alert } from 'react-native';
+import { Text, StyleSheet, View, Linking, Alert, Pressable, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '@/components/Screen';
-import { GradientButton, GlassCard, EmptyState } from '@/components/ui';
+import { EmptyState } from '@/components/ui';
 import { useTheme } from '@/components/ThemeProvider';
 import { api, getToken } from '@/lib/api';
 import { spacing, radii, type as typo } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
+
+const GOLD = '#FFA726';
+const GOLD_DEEP = '#F57C00';
+const TEAL = '#00897B';
+const TEAL_DEEP = '#00695C';
 
 type Pack = {
   id: string;
@@ -21,6 +28,10 @@ type Pack = {
   priceCents?: number;
 };
 
+function fmt(n: number): string {
+  return Math.round(n).toLocaleString('en-US');
+}
+
 export default function WalletTab() {
   const { colors } = useTheme();
   const { impact } = useHaptics();
@@ -29,6 +40,7 @@ export default function WalletTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [wallet, setWallet] = useState<{ balance: number; giftedBalance: number } | null>(null);
+  const [earnings, setEarnings] = useState<{ available: number; pending: number } | null>(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -42,6 +54,14 @@ export default function WalletTab() {
           balance: Number(w.wallet?.balance ?? 0),
           giftedBalance: Number(w.wallet?.giftedBalance ?? 0),
         });
+        const e = await api<{ balance: any }>('/api/favorites/me/earnings');
+        setEarnings({
+          available: Number(e.balance?.available ?? 0),
+          pending: Number(e.balance?.pending ?? 0),
+        });
+      } else {
+        setWallet(null);
+        setEarnings(null);
       }
     } catch {
       // offline
@@ -71,7 +91,6 @@ export default function WalletTab() {
       });
 
       if (res.checkout?.authorizationUrl) {
-        // Real provider checkout — opens the hosted Paystack/FLW/Stripe page.
         await Linking.openURL(res.checkout.authorizationUrl);
         Alert.alert(
           'Complete your payment',
@@ -91,26 +110,67 @@ export default function WalletTab() {
 
   const bonus = (p: Pack) => Number(p.bonusTokens ?? p.bonus_tokens ?? 0);
   const priceCents = (p: Pack) => Number(p.priceCents ?? p.price_cents ?? 0);
+  const totalTokens = wallet ? wallet.balance + wallet.giftedBalance : 0;
 
   return (
     <Screen refreshing={refreshing} onRefresh={load}>
-      <Text style={[styles.h1, { color: colors.text }]}>Wallet</Text>
-      <Text style={[styles.subtitle, { color: colors.muted }]}>
-        Checkout runs through Paystack, Flutterwave or Stripe depending on your country.
-      </Text>
+      {/* Dual cards: Tokens + Earnings */}
+      <View style={styles.cardRow}>
+        <LinearGradient
+          colors={[GOLD, GOLD_DEEP] as [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.bigCard}
+        >
+          <View style={styles.cardTop}>
+            <Text style={styles.cardLabel}>TOKENS</Text>
+            <View style={styles.tokenBadge}>
+              <Text style={styles.tokenBadgeText}>T</Text>
+            </View>
+          </View>
+          <Text style={styles.bigValue}>{wallet ? fmt(totalTokens) : '\u2014'}</Text>
+          {wallet ? (
+            <Text style={styles.cardSub}>
+              {fmt(wallet.balance)} bought · {fmt(wallet.giftedBalance)} gifted
+            </Text>
+          ) : (
+            <Text style={styles.cardSub}>Log in to see your balance</Text>
+          )}
+          <Pressable
+            style={({ pressed }) => [styles.cardBtn, pressed && { opacity: 0.7 }]}
+            accessibilityLabel="Buy Tokens"
+          >
+            <Text style={styles.cardBtnText}>Buy Tokens</Text>
+          </Pressable>
+        </LinearGradient>
 
-      {wallet && (
-        <View style={styles.walletRow}>
-          <View style={[styles.tile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={{ color: colors.muted, fontSize: 12, fontWeight: '700' }}>BALANCE</Text>
-            <Text style={{ color: colors.text, fontSize: 20, fontWeight: '800' }}>{wallet.balance}</Text>
+        <LinearGradient
+          colors={[TEAL, TEAL_DEEP] as [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.bigCard}
+        >
+          <View style={styles.cardTop}>
+            <Text style={styles.cardLabel}>EARNINGS</Text>
+            <Ionicons name="cash" size={16} color="#fff" />
           </View>
-          <View style={[styles.tile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={{ color: colors.muted, fontSize: 12, fontWeight: '700' }}>GIFTED</Text>
-            <Text style={{ color: colors.text, fontSize: 20, fontWeight: '800' }}>{wallet.giftedBalance}</Text>
-          </View>
-        </View>
-      )}
+          <Text style={styles.bigValue}>{earnings ? fmt(earnings.available) : '\u2014'}</Text>
+          {earnings ? (
+            <Text style={styles.cardSub}>{fmt(earnings.pending)} pending</Text>
+          ) : (
+            <Text style={styles.cardSub}>For Favorites</Text>
+          )}
+          <Pressable
+            style={({ pressed }) => [styles.cardBtn, pressed && { opacity: 0.7 }]}
+            accessibilityLabel="Cash out"
+          >
+            <Text style={styles.cardBtnText}>Cash out</Text>
+          </Pressable>
+        </LinearGradient>
+      </View>
+
+      {/* Token packages */}
+      <Text style={[styles.sectionLabel, { color: colors.muted }]}>TOKEN PACKAGES</Text>
 
       {packs.length === 0 && !refreshing ? (
         <EmptyState
@@ -119,13 +179,15 @@ export default function WalletTab() {
           body="Token packs are managed on the server. Pull to refresh once the backend is live."
         />
       ) : (
-        <View style={{ gap: 12 }}>
+        <View style={{ gap: 12, marginBottom: spacing.lg }}>
           {packs.map((pack) => {
-            const totalTokens = pack.tokens + bonus(pack);
+            const total = pack.tokens + bonus(pack);
             const price = (priceCents(pack) / 100).toFixed(2);
-
             return (
-              <GlassCard key={pack.id}>
+              <View
+                key={pack.id}
+                style={[styles.packCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
                 <View style={styles.packHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.packName, { color: colors.text }]}>
@@ -136,34 +198,41 @@ export default function WalletTab() {
                       {bonus(pack) > 0 ? ' + ' + bonus(pack) + ' bonus' : ''} tokens
                     </Text>
                   </View>
-                  <Text style={[styles.price, { color: colors.primary }]}>
+                  <Text style={[styles.price, { color: GOLD }]}>
                     {'$' + price}
                   </Text>
                 </View>
 
                 {bonus(pack) > 0 && (
-                  <View
-                    style={[
-                      styles.bonusPill,
-                      { backgroundColor: colors.primaryMuted },
-                    ]}
-                  >
-                    <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>
-                      +{bonus(pack)} bonus · {totalTokens} total
+                  <View style={[styles.bonusPill, { backgroundColor: GOLD + '22' }]}>
+                    <Text style={{ color: GOLD, fontWeight: '700', fontSize: 12 }}>
+                      +{bonus(pack)} bonus · {total} total
                     </Text>
                   </View>
                 )}
 
-                <View style={{ marginTop: spacing.md }}>
-                  <GradientButton
-                    label={buyingId === pack.id ? 'Opening checkout…' : 'Buy'}
-                    onPress={() => buy(pack)}
-                    loading={buyingId === pack.id}
-                    disabled={!!buyingId}
-                    fullWidth
-                  />
-                </View>
-              </GlassCard>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.buyBtn,
+                    !!buyingId && { opacity: 0.6 },
+                    pressed && { transform: [{ scale: 0.97 }] },
+                  ]}
+                  onPress={() => buy(pack)}
+                  disabled={!!buyingId}
+                  accessibilityLabel={'Buy ' + pack.name}
+                >
+                  <LinearGradient
+                    colors={[GOLD, GOLD_DEEP] as [string, string]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.buyGradient}
+                  >
+                    <Text style={styles.buyText}>
+                      {buyingId === pack.id ? 'Opening checkout\u2026' : 'Buy Tokens'}
+                    </Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
             );
           })}
         </View>
@@ -173,26 +242,74 @@ export default function WalletTab() {
 }
 
 const styles = StyleSheet.create({
-  h1: {
-    ...typo.h1,
-    marginTop: spacing.sm,
-    marginBottom: 6,
-  },
-  subtitle: {
-    ...typo.body,
-    marginBottom: spacing.lg,
-    lineHeight: 21,
-  },
-  walletRow: {
+  cardRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
-  tile: {
+  bigCard: {
     flex: 1,
+    borderRadius: radii.lg,
+    padding: 14,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  cardLabel: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  tokenBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tokenBadgeText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  bigValue: {
+    color: '#fff',
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  cardSub: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  cardBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: radii.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  cardBtnText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  packCard: {
     borderWidth: 1,
-    borderRadius: radii.md,
-    padding: 12,
+    borderRadius: radii.lg,
+    padding: 14,
   },
   packHeader: {
     flexDirection: 'row',
@@ -213,5 +330,20 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: radii.full,
     marginTop: 10,
+  },
+  buyBtn: {
+    marginTop: spacing.md,
+    borderRadius: radii.md,
+    overflow: 'hidden',
+  },
+  buyGradient: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 13,
+  },
+  buyText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 15,
   },
 });
