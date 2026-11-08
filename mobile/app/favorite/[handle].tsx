@@ -1,5 +1,6 @@
-/** Favorite Profile
- * View a Favorite, send Gifts, and see the Supporter Wall.
+/** Favorite Profile - Rally design
+ * Gradient banner header, stats row, gold Send a Gift + Follow
+ * + bell actions, gift tray, and Supporter Wall.
  */
 import { useEffect, useState, useCallback } from 'react';
 import {
@@ -12,20 +13,26 @@ import {
   RefreshControl,
   Animated,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api } from '@/lib/api';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { api, getToken } from '@/lib/api';
 import { useTheme } from '@/components/ThemeProvider';
 import { spacing, radii, type as typo, useLayout } from '@/constants/theme';
 import { shareFavorite } from '@/hooks/useShare';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import { OfflineBanner } from '@/components/OfflineBanner';
-import { GradientButton, Avatar, GlassCard, SectionHeader, EmptyState } from '@/components/ui';
+import { GradientButton, Avatar } from '@/components/ui';
 import { GiftBurst } from '@/components/GiftBurst';
 import { LongPressMenu, MenuAction } from '@/components/LongPressMenu';
 import { SwipeBack } from '@/components/SwipeBack';
 import { SoundTextInput } from '@/components/SoundTextInput';
+
+const GOLD = '#FFA726';
+const GOLD_DEEP = '#F57C00';
+const PURPLE = '#7B1FA2';
 
 type CatalogItem = {
   id: string;
@@ -37,6 +44,7 @@ type CatalogItem = {
 export default function FavoriteScreen() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
   const { colors } = useTheme();
+  const router = useRouter();
   const { width, isTablet, horizontalPad } = useLayout();
   const cols = isTablet ? 4 : width < 360 ? 2 : 3;
   const gap = 10;
@@ -55,21 +63,24 @@ export default function FavoriteScreen() {
   const [status, setStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [burst, setBurst] = useState(false);
-  const [burstEmoji, setBurstEmoji] = useState('🎁');
+  const [burstEmoji, setBurstEmoji] = useState('\uD83C\uDF81');
   const [menu, setMenu] = useState<{ title: string; actions: MenuAction[] } | null>(null);
+  const [following, setFollowing] = useState<boolean | null>(null);
+  const [followBusy, setFollowBusy] = useState(false);
   const pulse = useState(() => new Animated.Value(1))[0];
 
   const load = useCallback(() => {
     return Promise.all([
-      api<any>(`/api/favorites/${handle}`),
+      api<any>('/api/favorites/' + handle),
       api<{ items: CatalogItem[] }>('/api/gifts/catalog'),
     ])
       .then(([fav, cat]) => {
         setProfile(fav);
         setCatalog(cat.items || []);
+        if (following === null) setFollowing(!!fav?.favorite?.isFollowing);
       })
       .catch((e) => setStatus({ type: 'error', text: e.message }));
-  }, [handle]);
+  }, [handle, following]);
 
   useEffect(() => {
     setLoading(true);
@@ -77,10 +88,33 @@ export default function FavoriteScreen() {
   }, [load]);
 
   function emojiFor(slug: string) {
-    if (slug === 'heart') return '❤️';
-    if (slug === 'clap') return '👏';
-    if (slug === 'flame') return '🔥';
-    return '🎁';
+    if (slug === 'heart') return '\u2764\uFE0F';
+    if (slug === 'clap') return '\uD83D\uDC4F';
+    if (slug === 'flame') return '\uD83D\uDD25';
+    return '\uD83C\uDf81';
+  }
+
+  async function toggleFollow() {
+    if (!getToken()) {
+      router.push('/login');
+      return;
+    }
+    setFollowBusy(true);
+    impact('light');
+    try {
+      if (following) {
+        await api('/api/users/' + handle + '/follow', { method: 'DELETE', body: '{}' });
+        setFollowing(false);
+      } else {
+        await api('/api/users/' + handle + '/follow', { method: 'POST', body: '{}' });
+        setFollowing(true);
+        success();
+      }
+    } catch (e: any) {
+      setStatus({ type: 'error', text: e.message || 'Follow failed' });
+    } finally {
+      setFollowBusy(false);
+    }
   }
 
   async function sendGift(options?: { anonymous?: boolean }) {
@@ -122,7 +156,7 @@ export default function FavoriteScreen() {
       title: g.name,
       actions: [
         {
-          label: `Select · ${g.tokenCost} tokens`,
+          label: 'Select \u00b7 ' + g.tokenCost + ' tokens',
           onPress: () => {
             setSelected(g.id);
             click();
@@ -160,7 +194,7 @@ export default function FavoriteScreen() {
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.bg }]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={GOLD} size="large" />
       </View>
     );
   }
@@ -176,6 +210,7 @@ export default function FavoriteScreen() {
   }
 
   const fav = profile.favorite;
+  const tags: string[] = Array.isArray(fav.specialties) ? fav.specialties : [];
 
   return (
     <SwipeBack pullDown edgeSwipe>
@@ -194,7 +229,6 @@ export default function FavoriteScreen() {
 
         <FlatList
           contentContainerStyle={{
-            padding: horizontalPad,
             paddingBottom: 48,
             maxWidth: isTablet ? 560 : undefined,
             alignSelf: isTablet ? 'center' : undefined,
@@ -210,151 +244,240 @@ export default function FavoriteScreen() {
                 setRefreshing(false);
                 impact('light');
               }}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
+              tintColor={GOLD}
+              colors={[GOLD]}
             />
           }
           ListHeaderComponent={
             <>
-              <Text style={[styles.hint, { color: colors.muted }]}>
-                Pull down or swipe from left edge to go back
-              </Text>
+              {/* Gradient banner + identity */}
+              <View>
+                <LinearGradient
+                  colors={[GOLD, PURPLE] as [string, string]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.banner}
+                />
+                <View style={[styles.identity, { paddingHorizontal: horizontalPad }]}>
+                  <View style={styles.avatarWrap}>
+                    <LinearGradient
+                      colors={[GOLD, GOLD_DEEP] as [string, string]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.avatarRing}
+                    >
+                      <View style={[styles.avatarInner, { backgroundColor: colors.surface }]}>
+                        <Text style={[styles.avatarInitials, { color: GOLD }]}>
+                          {(fav.displayName || fav.handle || '?').slice(0, 2).toUpperCase()}
+                        </Text>
+                      </View>
+                    </LinearGradient>
+                  </View>
 
-              {/* Profile header */}
-              <View style={styles.headerRow}>
-                <Avatar name={fav.displayName} size={64} ring />
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={[styles.name, { color: colors.text }]}>
-                    {fav.displayName}
-                  </Text>
-                  <Text style={[styles.handle, { color: colors.muted }]}>
-                    @{fav.handle}
-                  </Text>
-                  <Text style={{ color: colors.muted, fontSize: 13 }}>
-                    {fav.supporterCount} supporters
-                  </Text>
+                  <View style={styles.nameRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.name, { color: colors.text }]}>
+                        {fav.displayName}
+                      </Text>
+                      <Text style={[styles.handle, { color: colors.muted }]}>
+                        @{fav.handle}
+                      </Text>
+                      {fav.location ? (
+                        <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>
+                          {fav.location}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Pressable
+                      onPress={() => {
+                        click();
+                        shareFavorite(fav.handle, fav.displayName);
+                      }}
+                      onLongPress={() => {
+                        setMenu({
+                          title: 'Share options',
+                          actions: [
+                            {
+                              label: 'Share profile',
+                              onPress: () => shareFavorite(fav.handle, fav.displayName),
+                            },
+                            {
+                              label: 'Copy link',
+                              onPress: () => shareFavorite(fav.handle, fav.displayName),
+                            },
+                          ],
+                        });
+                      }}
+                      delayLongPress={350}
+                      style={[styles.iconBtn, { borderColor: colors.border }]}
+                      accessibilityLabel="Share profile"
+                    >
+                      <Ionicons name="share-social-outline" size={18} color={colors.text} />
+                    </Pressable>
+                  </View>
+
+                  {tags.length > 0 && (
+                    <View style={styles.tagRow}>
+                      {tags.slice(0, 4).map((tg) => (
+                        <View key={tg} style={[styles.tag, { borderColor: colors.border }]}>
+                          <Text style={{ color: colors.muted, fontSize: 12, fontWeight: '700' }}>
+                            {tg}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {fav.bio ? (
+                    <Text style={[styles.bio, { color: colors.text }]}>{fav.bio}</Text>
+                  ) : null}
                 </View>
+              </View>
 
+              {/* Stats row */}
+              <View style={[styles.statsRow, { paddingHorizontal: horizontalPad }]}>
+                <View style={[styles.stat, { borderColor: colors.border }]}>
+                  <Text style={[styles.statNum, { color: colors.text }]}>{fav.supporterCount ?? 0}</Text>
+                  <Text style={[styles.statLabel, { color: colors.muted }]}>Supporters</Text>
+                </View>
+                <View style={[styles.stat, { borderColor: colors.border }]}>
+                  <Text style={[styles.statNum, { color: colors.text }]}>{fav.momentCount ?? '\u2014'}</Text>
+                  <Text style={[styles.statLabel, { color: colors.muted }]}>Moments</Text>
+                </View>
+                <View style={[styles.stat, { borderColor: colors.border }]}>
+                  <Text style={[styles.statNum, { color: GOLD }]}>{fav.rankLabel ?? '\u2014'}</Text>
+                  <Text style={[styles.statLabel, { color: colors.muted }]}>Rank</Text>
+                </View>
+              </View>
+
+              {/* Actions: Send a Gift / Follow / bell */}
+              <View style={[styles.actionRow, { paddingHorizontal: horizontalPad }]}>
+                <Pressable
+                  style={({ pressed }) => [styles.giftBtn, pressed && { opacity: 0.8 }]}
+                  onPress={() => {
+                    impact('light');
+                    click();
+                  }}
+                  accessibilityLabel="Send a Gift"
+                >
+                  <LinearGradient
+                    colors={[GOLD, GOLD_DEEP] as [string, string]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.giftGradient}
+                  >
+                    <Ionicons name="gift" size={17} color="#fff" />
+                    <Text style={styles.giftBtnText}>Send a Gift</Text>
+                  </LinearGradient>
+                </Pressable>
+                <Pressable
+                  onPress={toggleFollow}
+                  disabled={followBusy}
+                  style={[styles.followBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                  accessibilityLabel={following ? 'Following' : 'Follow'}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>
+                    {followBusy ? '\u2026' : following ? 'Following' : 'Follow'}
+                  </Text>
+                </Pressable>
                 <Pressable
                   onPress={() => {
-                    click();
-                    shareFavorite(fav.handle, fav.displayName);
+                    impact('light');
+                    setStatus({ type: 'success', text: 'Post notifications are coming soon.' });
                   }}
-                  onLongPress={() => {
-                    setMenu({
-                      title: 'Share options',
-                      actions: [
-                        {
-                          label: 'Share profile',
-                          onPress: () => shareFavorite(fav.handle, fav.displayName),
-                        },
-                        {
-                          label: 'Copy link',
-                          onPress: () => shareFavorite(fav.handle, fav.displayName),
-                        },
-                      ],
-                    });
-                  }}
-                  delayLongPress={350}
-                  style={[
-                    styles.shareBtn,
-                    { borderColor: colors.primary },
-                  ]}
+                  style={[styles.iconBtn, { borderColor: colors.border }]}
+                  accessibilityLabel="Notifications"
                 >
-                  <Text style={[styles.shareText, { color: colors.primary }]}>
-                    Share
-                  </Text>
+                  <Ionicons name="notifications-outline" size={18} color={colors.text} />
                 </Pressable>
               </View>
 
-              {fav.bio ? (
-                <Text style={[styles.bio, { color: colors.text }]}>{fav.bio}</Text>
-              ) : null}
-
-              {/* Gift section */}
-              <SectionHeader title="Send a Gift" style={{ marginTop: spacing.lg }} />
-              <Text style={[styles.hint, { color: colors.muted, marginBottom: 10 }]}>
-                Tap to select · hold for more options
-              </Text>
-
-              <Animated.View
-                style={[
-                  styles.giftRow,
-                  { gap, transform: [{ scale: pulse }] },
-                ]}
-              >
-                {catalog.map((g) => (
-                  <Pressable
-                    key={g.id}
-                    onPress={() => {
-                      click();
-                      setSelected(g.id);
-                    }}
-                    onLongPress={() => openGiftOptions(g)}
-                    delayLongPress={350}
-                    style={[
-                      styles.gift,
-                      {
-                        width: giftW,
-                        backgroundColor:
-                          selected === g.id ? colors.primaryMuted : colors.surface,
-                        borderColor:
-                          selected === g.id ? colors.primary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text style={styles.giftEmoji}>{emojiFor(g.slug)}</Text>
-                    <Text
-                      style={[styles.giftName, { color: colors.text }]}
-                      numberOfLines={1}
-                    >
-                      {g.name}
-                    </Text>
-                    <Text style={{ color: colors.muted, fontSize: 11 }}>
-                      {g.tokenCost} tok
-                    </Text>
-                  </Pressable>
-                ))}
-              </Animated.View>
-
-              <SoundTextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.bg,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                placeholder="Optional message"
-                placeholderTextColor={colors.muted}
-                value={message}
-                onChangeText={setMessage}
-                maxLength={280}
-              />
-
-              <GradientButton
-                label={sending ? 'Sending…' : 'Send Gift'}
-                onPress={() => sendGift()}
-                disabled={!selected || sending}
-                loading={sending}
-                fullWidth
-              />
-
-              {status && (
-                <Text
-                  style={{
-                    marginTop: 10,
-                    color: status.type === 'success' ? colors.success : colors.danger,
-                    fontWeight: '600',
-                    fontSize: 13,
-                  }}
-                >
-                  {status.text}
+              {/* Gift tray */}
+              <View style={{ paddingHorizontal: horizontalPad }}>
+                <Text style={[styles.sectionLabel, { color: colors.muted }]}>SEND A GIFT</Text>
+                <Text style={[styles.hint, { color: colors.muted, marginBottom: 10 }]}>
+                  Tap to select · hold for more options
                 </Text>
-              )}
 
-              <SectionHeader title="Supporter Wall" style={{ marginTop: 28 }} />
+                <Animated.View
+                  style={[
+                    styles.giftRow,
+                    { gap, transform: [{ scale: pulse }] },
+                  ]}
+                >
+                  {catalog.map((g) => (
+                    <Pressable
+                      key={g.id}
+                      onPress={() => {
+                        click();
+                        setSelected(g.id);
+                      }}
+                      onLongPress={() => openGiftOptions(g)}
+                      delayLongPress={350}
+                      style={[
+                        styles.gift,
+                        {
+                          width: giftW,
+                          backgroundColor: selected === g.id ? GOLD + '22' : colors.surface,
+                          borderColor: selected === g.id ? GOLD : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.giftEmoji}>{emojiFor(g.slug)}</Text>
+                      <Text
+                        style={[styles.giftName, { color: colors.text }]}
+                        numberOfLines={1}
+                      >
+                        {g.name}
+                      </Text>
+                      <Text style={{ color: colors.muted, fontSize: 11 }}>
+                        {g.tokenCost} tok
+                      </Text>
+                    </Pressable>
+                  ))}
+                </Animated.View>
+
+                <SoundTextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.bg,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
+                  placeholder="Optional message"
+                  placeholderTextColor={colors.muted}
+                  value={message}
+                  onChangeText={setMessage}
+                  maxLength={280}
+                />
+
+                <GradientButton
+                  label={sending ? 'Sending\u2026' : 'Send Gift'}
+                  onPress={() => sendGift()}
+                  disabled={!selected || sending}
+                  loading={sending}
+                  fullWidth
+                />
+
+                {status && (
+                  <Text
+                    style={{
+                      marginTop: 10,
+                      color: status.type === 'success' ? colors.success : colors.danger,
+                      fontWeight: '600',
+                      fontSize: 13,
+                    }}
+                  >
+                    {status.text}
+                  </Text>
+                )}
+              </View>
+
+              <Text style={[styles.sectionLabel, { color: colors.muted, marginTop: 24, paddingHorizontal: horizontalPad }]}>
+                SUPPORTER WALL
+              </Text>
             </>
           }
           data={profile.supporterWall?.recent || []}
@@ -363,7 +486,7 @@ export default function FavoriteScreen() {
             <Pressable
               onLongPress={() => {
                 setMenu({
-                  title: `@${item.sender?.handle}`,
+                  title: '@' + item.sender?.handle,
                   actions: [
                     {
                       label: 'Report',
@@ -377,24 +500,28 @@ export default function FavoriteScreen() {
               delayLongPress={400}
               style={[
                 styles.wallItem,
-                { borderBottomColor: colors.border },
+                { borderBottomColor: colors.border, paddingHorizontal: horizontalPad },
               ]}
             >
-              <Text style={[styles.wallName, { color: colors.text }]}>
-                @{item.sender?.handle}
-              </Text>
+              <View style={styles.wallTop}>
+                <Avatar name={item.sender?.handle || 'fan'} size={32} ring uri={item.sender?.avatarUrl || undefined} />
+                <Text style={[styles.wallName, { color: colors.text }]}>
+                  @{item.sender?.handle}
+                </Text>
+                <View style={{ flex: 1 }} />
+                <Text style={{ color: GOLD, fontWeight: '800', fontSize: 12 }}>
+                  {item.tokenCost} tok
+                </Text>
+              </View>
               {item.message ? (
                 <Text style={[styles.wallMsg, { color: colors.muted }]}>
                   {item.message}
                 </Text>
               ) : null}
-              <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
-                {item.tokenCost} tok
-              </Text>
             </Pressable>
           )}
           ListEmptyComponent={
-            <Text style={{ color: colors.muted, marginTop: 8 }}>
+            <Text style={{ color: colors.muted, marginTop: 8, paddingHorizontal: horizontalPad }}>
               Be the first supporter
             </Text>
           }
@@ -411,14 +538,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  hint: {
-    fontSize: 12,
-    marginBottom: 8,
+  banner: {
+    height: 120,
   },
-  headerRow: {
+  identity: {
+    marginTop: -44,
+  },
+  avatarWrap: {
+    marginBottom: 12,
+  },
+  avatarRing: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInner: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    fontWeight: '900',
+    fontSize: 22,
+  },
+  nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 10,
   },
   name: {
     ...typo.h1,
@@ -428,22 +578,92 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 2,
   },
-  shareBtn: {
-    borderWidth: 1.5,
-    borderRadius: radii.full,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    minHeight: 40,
-    justifyContent: 'center',
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
   },
-  shareText: {
-    fontWeight: '700',
-    fontSize: 13,
+  tag: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   bio: {
     fontSize: 15,
     lineHeight: 22,
+    marginTop: 10,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  stat: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  statNum: {
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  giftBtn: {
+    flex: 1,
+    borderRadius: radii.full,
+    overflow: 'hidden',
+  },
+  giftGradient: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 13,
+  },
+  giftBtnText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  followBtn: {
+    borderWidth: 1,
+    borderRadius: radii.full,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    minHeight: 46,
+    justifyContent: 'center',
+  },
+  iconBtn: {
+    width: 46,
+    height: 46,
+    borderWidth: 1,
+    borderRadius: radii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
     marginBottom: 8,
+  },
+  hint: {
+    fontSize: 12,
   },
   giftRow: {
     flexDirection: 'row',
@@ -478,12 +698,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  wallTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   wallName: {
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 14,
   },
   wallMsg: {
-    marginTop: 2,
+    marginTop: 4,
     fontSize: 14,
+    marginLeft: 42,
   },
 });
