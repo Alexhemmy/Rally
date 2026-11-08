@@ -413,9 +413,20 @@ export default function FavoriteScreen() {
                   sendGiftFromSheet(giftId, msg, anon);
                 }}
               />
-            </>
-              </View>
 
+              {status ? (
+                <Text
+                  style={{
+                    marginTop: 10,
+                    color: status.type === 'success' ? colors.success : colors.danger,
+                    fontWeight: '600',
+                    fontSize: 13,
+                    paddingHorizontal: horizontalPad,
+                  }}
+                >
+                  {status.text}
+                </Text>
+              ) : null}
 
               <Text style={[styles.sectionLabel, { color: colors.muted, marginTop: 24, paddingHorizontal: horizontalPad }]}>
                 SUPPORTER WALL
