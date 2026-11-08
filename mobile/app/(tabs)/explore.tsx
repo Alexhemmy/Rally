@@ -1,6 +1,6 @@
-/** Explore tab
- * Search for any user — Fan or Favorite — by name or handle, follow
- * them inline, or browse Moments by category.
+/** Discover (Explore) - Rally design
+ * Search bar, RISING THIS WEEK gradient cards (trending Favorites),
+ * BROWSE BY FIELD category buttons, and Moments by category.
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -12,31 +12,51 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { GlassCard, Avatar, EmptyState, Chip } from '@/components/ui';
+import { GlassCard, Avatar, EmptyState } from '@/components/ui';
 import { useTheme } from '@/components/ThemeProvider';
-import { spacing } from '@/constants/theme';
+import { spacing, radii } from '@/constants/theme';
 import { shareMoment } from '@/hooks/useShare';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import { api, getToken } from '@/lib/api';
 
+const GOLD = '#FFA726';
+const GRADIENTS: [string, string][] = [
+  ['#FF5E00', '#FF0066'],
+  ['#0066FF', '#00CCFF'],
+  ['#F50057', '#FF8C00'],
+  ['#7B1FA2', '#E040FB'],
+];
+const FIELD_COLORS = ['#9D00FF', '#FF0033', '#00BFA5', '#FF8C00', '#2196F3', '#E91E63'];
+const FIELD_ICONS = ['musical-notes', 'happy', 'film', 'barbell', 'book', 'color-palette', 'mic', 'globe'];
+
 type SearchTab = 'people' | 'moments';
 
-export default function ExploreTab() {
+function hashIndex(s: string, mod: number): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 9973;
+  return h % mod;
+}
+
+export default function DiscoverTab() {
   const { colors } = useTheme();
   const router = useRouter();
   const { impact } = useHaptics();
   const { click, success } = useSounds();
 
-  const [mode, setMode] = useState<SearchTab>('people');
+  const [mode, setMode] = useState<SearchTab>('moments');
   const [query, setQuery] = useState('');
   const [users, setUsers] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
   const [followBusy, setFollowBusy] = useState<string | null>(null);
   const [moments, setMoments] = useState<any[]>([]);
+  const [trending, setTrending] = useState<any[]>([]);
+  const [ranked, setRanked] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [category, setCategory] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -92,9 +112,15 @@ export default function ExploreTab() {
         const cats = (res.industries || []).flatMap((ind: any) => ind.categories || []);
         if (alive) setCategories(cats);
       } catch {
-        // taxonomy unavailable — Explore falls back to unfiltered moments
+        // taxonomy unavailable - Discover falls back to unfiltered moments
       }
     })();
+    api<{ trending: any[] }>('/api/discover/trending', { skipAuth: true })
+      .then((r) => setTrending(r.trending || []))
+      .catch(() => setTrending([]));
+    api<{ rankings: any[] }>('/api/rankings?window=all', { skipAuth: true })
+      .then((r) => setRanked((r.rankings || []).slice(0, 5)))
+      .catch(() => setRanked([]));
     return () => {
       alive = false;
     };
@@ -124,18 +150,36 @@ export default function ExploreTab() {
     }
   }
 
+  const topCategories = categories.slice(0, 8);
+
   return (
     <Screen refreshing={refreshing} onRefresh={loadMoments}>
-      {/* Mode tabs */}
-      <View style={[styles.modeRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      {/* Search bar */}
+      <TextInput
+        style={[styles.searchInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+        placeholder="Search Favorites, specialties, places"
+        placeholderTextColor={colors.muted}
+        value={query}
+        onChangeText={(t) => {
+          setQuery(t);
+          searchUsers(t);
+          if (t.trim()) setMode('people');
+        }}
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="search"
+      />
+
+      {/* Mode chips */}
+      <View style={[styles.modeRow, { borderColor: colors.border }]}>
         <Pressable
           onPress={() => {
             click();
             setMode('people');
           }}
-          style={[styles.modePill, mode === 'people' && { backgroundColor: colors.primary }]}
+          style={[styles.modePill, mode === 'people' && { backgroundColor: GOLD, borderColor: GOLD }]}
         >
-          <Text style={{ color: mode === 'people' ? '#fff' : colors.muted, fontWeight: '800', fontSize: 13 }}>
+          <Text style={{ color: mode === 'people' ? '#111' : colors.muted, fontWeight: '800', fontSize: 13 }}>
             People
           </Text>
         </Pressable>
@@ -144,30 +188,17 @@ export default function ExploreTab() {
             click();
             setMode('moments');
           }}
-          style={[styles.modePill, mode === 'moments' && { backgroundColor: colors.primary }]}
+          style={[styles.modePill, mode === 'moments' && { backgroundColor: GOLD, borderColor: GOLD }]}
         >
-          <Text style={{ color: mode === 'moments' ? '#fff' : colors.muted, fontWeight: '800', fontSize: 13 }}>
-            Moments
+          <Text style={{ color: mode === 'moments' ? '#111' : colors.muted, fontWeight: '800', fontSize: 13 }}>
+            Discover
           </Text>
         </Pressable>
       </View>
 
       {mode === 'people' ? (
         <>
-          <TextInput
-            style={[styles.searchInput, { backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }]}
-            placeholder="Search fans and Favorites by name or @handle"
-            placeholderTextColor={colors.muted}
-            value={query}
-            onChangeText={(t) => {
-              setQuery(t);
-              searchUsers(t);
-            }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-          />
-          {searching && <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />}
+          {searching && <ActivityIndicator color={GOLD} style={{ marginTop: 12 }} />}
           {users.length > 0 && (
             <View style={{ gap: 10, marginBottom: spacing.md }}>
               {users.map((u) => (
@@ -177,11 +208,11 @@ export default function ExploreTab() {
                     <View style={{ marginLeft: 12, flex: 1 }}>
                       <Text style={{ color: colors.text, fontWeight: '700', fontSize: 15 }}>
                         {u.displayName}
-                        {u.isFavorite ? ' ★' : ''}
+                        {u.isFavorite ? ' \u2605' : ''}
                       </Text>
                       <Text style={{ color: colors.muted, fontSize: 13 }} numberOfLines={1}>
                         @{u.handle}
-                        {u.isFavorite ? ' · Favorite' : ' · Fan'}
+                        {u.isFavorite ? ' \u00b7 Favorite' : ' \u00b7 Fan'}
                       </Text>
                     </View>
                     <Pressable
@@ -189,18 +220,18 @@ export default function ExploreTab() {
                       disabled={followBusy === u.id}
                       style={[
                         styles.followBtn,
-                        { borderColor: colors.primary },
-                        u.isFollowing && { backgroundColor: colors.primary },
+                        { borderColor: GOLD },
+                        u.isFollowing && { backgroundColor: GOLD },
                       ]}
                     >
                       <Text
                         style={{
-                          color: u.isFollowing ? '#fff' : colors.primary,
+                          color: u.isFollowing ? '#111' : GOLD,
                           fontWeight: '800',
                           fontSize: 12,
                         }}
                       >
-                        {followBusy === u.id ? '…' : u.isFollowing ? 'Following' : 'Follow'}
+                        {followBusy === u.id ? '\u2026' : u.isFollowing ? 'Following' : 'Follow'}
                       </Text>
                     </Pressable>
                   </View>
@@ -221,34 +252,115 @@ export default function ExploreTab() {
         </>
       ) : (
         <>
-          {categories.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ flexGrow: 0, marginBottom: 10 }}
-              contentContainerStyle={{ gap: 8, paddingRight: 16 }}
-            >
-              <Chip
-                label="All"
-                active={category === null}
-                onPress={() => {
-                  click();
-                  setCategory(null);
-                }}
-              />
-              {categories.map((c) => (
-                <Chip
-                  key={c.id}
-                  label={c.name || c.slug || 'Category'}
-                  active={category === c.id}
+          {/* RISING THIS WEEK */}
+          {trending.length > 0 && (
+            <View>
+              <Text style={[styles.sectionLabel, { color: colors.muted }]}>RISING THIS WEEK</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ flexGrow: 0, marginBottom: spacing.lg }}
+                contentContainerStyle={{ gap: 10, paddingRight: 16 }}
+              >
+                {trending.slice(0, 6).map((f: any, i: number) => (
+                  <Pressable
+                    key={f.handle}
+                    onPress={() => {
+                      click();
+                      router.push('/u/' + f.handle);
+                    }}
+                    accessibilityLabel={f.displayName}
+                  >
+                    <LinearGradient
+                      colors={GRADIENTS[i % GRADIENTS.length] as [string, string]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.risingCard}
+                    >
+                      <Text style={styles.risingInitials}>
+                        {(f.displayName || f.handle || '?').slice(0, 2).toUpperCase()}
+                      </Text>
+                      <Text style={styles.risingName} numberOfLines={1}>{f.displayName}</Text>
+                      <Text style={styles.risingSub} numberOfLines={1}>
+                        {f.category ? f.category + ' \u00b7 ' : ''}
+                        {(f.supporterCount || 0) >= 1000
+                          ? ((f.supporterCount || 0) / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
+                          : String(f.supporterCount || 0)}
+                      </Text>
+                    </LinearGradient>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* BROWSE BY FIELD */}
+          {topCategories.length > 0 && (
+            <View style={{ marginBottom: spacing.lg }}>
+              <Text style={[styles.sectionLabel, { color: colors.muted }]}>BROWSE BY FIELD</Text>
+              <View style={styles.fieldGrid}>
+                {topCategories.map((c: any) => {
+                  const active = category === c.id;
+                  const color = FIELD_COLORS[hashIndex(String(c.id || c.name), FIELD_COLORS.length)];
+                  const icon = (FIELD_ICONS[hashIndex(String(c.name || c.id), FIELD_ICONS.length)] +
+                    '-outline') as keyof typeof Ionicons.glyphMap;
+                  return (
+                    <Pressable
+                      key={c.id}
+                      onPress={() => {
+                        click();
+                        setCategory(active ? null : c.id);
+                      }}
+                      style={[
+                        styles.fieldBtn,
+                        { backgroundColor: colors.surface, borderColor: active ? GOLD : colors.border, borderWidth: active ? 2 : 1 },
+                      ]}
+                      accessibilityLabel={c.name}
+                    >
+                      <View style={[styles.fieldIcon, { backgroundColor: color + '22' }]}>
+                        <Ionicons name={icon} size={18} color={color} />
+                      </View>
+                      <Text numberOfLines={1} style={[styles.fieldLabel, { color: colors.text }]}>
+                        {c.name || c.slug || 'Category'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* MOST LOVED leaderboard */}
+          {ranked.length > 0 && (
+            <View style={{ marginBottom: spacing.lg }}>
+              <Text style={[styles.sectionLabel, { color: colors.muted }]}>MOST LOVED</Text>
+              {ranked.map((f: any, i: number) => (
+                <Pressable
+                  key={f.handle}
+                  style={styles.rankRow}
                   onPress={() => {
                     click();
-                    setCategory(c.id);
+                    router.push('/u/' + f.handle);
                   }}
-                />
+                >
+                  <Text style={[styles.rankNum, { color: colors.muted }]}>{i + 1}</Text>
+                  <Avatar name={f.handle} size={36} uri={f.avatarUrl || undefined} />
+                  <View style={{ marginLeft: 10, flex: 1 }}>
+                    <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>
+                      {f.displayName}
+                    </Text>
+                    <Text style={{ color: colors.muted, fontSize: 12 }}>
+                      {f.cohort === 'rising' ? 'Rising' : f.cohort === 'legend' ? 'Legend' : 'Established'} \u00b7 {f.supporterCount} supporters
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+                </Pressable>
               ))}
-            </ScrollView>
+            </View>
           )}
+
+          {/* Moments by category */}
+          <Text style={[styles.sectionLabel, { color: colors.muted }]}>MOMENTS</Text>
           {moments.length > 0 ? (
             <View style={{ gap: 12, marginBottom: spacing.md }}>
               {moments.map((m) => {
@@ -269,7 +381,7 @@ export default function ExploreTab() {
                         </Text>
                         <Text style={{ color: colors.muted, fontSize: 13 }}>
                           @{handle}
-                          {m.categoryTag ? ' · ' + m.categoryTag : ''}
+                          {m.categoryTag ? ' \u00b7 ' + m.categoryTag : ''}
                         </Text>
                       </Pressable>
                       <Pressable
@@ -279,7 +391,7 @@ export default function ExploreTab() {
                         }}
                         style={{ paddingHorizontal: 12 }}
                       >
-                        <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>
+                        <Text style={{ color: GOLD, fontWeight: '700', fontSize: 13 }}>
                           Share
                         </Text>
                       </Pressable>
@@ -304,28 +416,24 @@ export default function ExploreTab() {
 }
 
 const styles = StyleSheet.create({
-  modeRow: {
-    flexDirection: 'row',
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderRadius: 999,
-    padding: 4,
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-    gap: 4,
-  },
-  modePill: {
-    paddingHorizontal: 18,
-    paddingVertical: 7,
-    borderRadius: 999,
-  },
   searchInput: {
     borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderRadius: radii.full,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 15,
-    marginBottom: 14,
+    marginBottom: spacing.md,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: spacing.md,
+  },
+  modePill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radii.full,
+    borderWidth: 1,
   },
   userRow: {
     flexDirection: 'row',
@@ -338,6 +446,71 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     minWidth: 92,
     alignItems: 'center',
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  risingCard: {
+    width: 120,
+    height: 130,
+    borderRadius: radii.lg,
+    padding: 12,
+    justifyContent: 'flex-end',
+  },
+  risingInitials: {
+    position: 'absolute',
+    top: 10,
+    left: 12,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  risingName: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  risingSub: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  fieldGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  fieldBtn: {
+    width: '31%',
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    padding: 12,
+    alignItems: 'center',
+  },
+  fieldIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  rankRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  rankNum: {
+    width: 20,
+    fontWeight: '800',
+    fontSize: 13,
   },
   row: {
     flexDirection: 'row',
