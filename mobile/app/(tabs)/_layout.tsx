@@ -1,6 +1,6 @@
-/** Tabs layout
- * Home · Explore · [＋ create] · Feed · You
- * Floating pill tab bar with a centered gradient create button.
+/** Tabs layout - Rally design system
+ * Home - Moments - [+ create] - Inbox - Me
+ * Gold accent, centered create button, Discover hidden (opened from Home).
  */
 import { Redirect, Tabs, useRouter } from 'expo-router';
 import { Pressable, View, StyleSheet, Platform } from 'react-native';
@@ -9,6 +9,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/components/ThemeProvider';
 import { useSession } from '@/components/SessionProvider';
 import { radii } from '@/constants/theme';
+
+const GOLD = '#FFA726';
+const GOLD_DEEP = '#F57C00';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -39,7 +42,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
-        headerTintColor: colors.primary,
+        headerTintColor: GOLD,
         headerTitleStyle: {
           color: colors.text,
           fontWeight: '800',
@@ -49,23 +52,22 @@ export default function TabsLayout() {
         headerShadowVisible: false,
         tabBarStyle: {
           position: 'absolute',
-          left: 14,
-          right: 14,
+          left: 12,
+          right: 12,
           bottom: Platform.OS === 'ios' ? 20 : 12,
-          height: Platform.OS === 'ios' ? 68 : 62,
-          paddingTop: 8,
-          paddingBottom: 8,
+          height: Platform.OS === 'ios' ? 66 : 60,
+          paddingHorizontal: 6,
           backgroundColor: colors.surface,
           borderTopWidth: 1,
           borderColor: colors.border,
           borderRadius: radii.full,
           shadowColor: '#000',
-          shadowOpacity: isDark ? 0.4 : 0.12,
+          shadowOpacity: isDark ? 0.45 : 0.14,
           shadowRadius: 16,
           shadowOffset: { width: 0, height: 6 },
           elevation: 14,
         },
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: GOLD,
         tabBarInactiveTintColor: colors.tabInactive,
         tabBarLabelStyle: {
           fontSize: 10,
@@ -75,7 +77,7 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >
-      {/* Home (For You) */}
+      {/* Home */}
       <Tabs.Screen
         name="index"
         options={{
@@ -86,6 +88,13 @@ export default function TabsLayout() {
           ),
           headerRight: () => (
             <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => router.push('/explore')}
+                hitSlop={10}
+                accessibilityLabel="Discover and search"
+              >
+                <Ionicons name="search" size={22} color={colors.text} />
+              </Pressable>
               <Pressable
                 onPress={() => router.push('/notifications')}
                 hitSlop={10}
@@ -98,21 +107,21 @@ export default function TabsLayout() {
                 hitSlop={10}
                 accessibilityLabel="Toggle theme"
               >
-                <Ionicons name={isDark ? 'sunny' : 'moon'} size={20} color={colors.primary} />
+                <Ionicons name={isDark ? 'sunny' : 'moon'} size={20} color={GOLD} />
               </Pressable>
             </View>
           ),
         }}
       />
 
-      {/* Explore */}
+      {/* Moments */}
       <Tabs.Screen
-        name="explore"
+        name="feed"
         options={{
-          title: 'Explore',
-          tabBarLabel: 'Explore',
+          title: 'Moments',
+          tabBarLabel: 'Moments',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="compass" color={color} focused={focused} />
+            <TabIcon name="play" color={color} focused={focused} />
           ),
         }}
       />
@@ -135,41 +144,48 @@ export default function TabsLayout() {
               ]}
             >
               <LinearGradient
-                colors={[...colors.gradient] as [string, string]}
+                colors={[GOLD, GOLD_DEEP] as [string, string]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.createBtn}
               >
-                <Ionicons name="add" size={24} color="#fff" />
+                <Ionicons name="add" size={26} color="#fff" />
               </LinearGradient>
             </Pressable>
           ),
         }}
       />
 
-      {/* Feed (random) */}
+      {/* Inbox */}
       <Tabs.Screen
-        name="feed"
+        name="inbox"
         options={{
-          title: 'Feed',
-          tabBarLabel: 'Feed',
+          title: 'Inbox',
+          tabBarLabel: 'Inbox',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="play-circle" color={color} focused={focused} />
+            <TabIcon name="mail" color={color} focused={focused} />
           ),
         }}
       />
 
-      {/* You */}
+      {/* Me */}
       <Tabs.Screen
         name="you"
         options={{
-          title: 'You',
-          tabBarLabel: 'You',
+          title: 'Me',
+          tabBarLabel: 'Me',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="person" color={color} focused={focused} />
           ),
           headerRight: () => (
             <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => router.push('/wallet')}
+                hitSlop={10}
+                accessibilityLabel="Wallet"
+              >
+                <Ionicons name="wallet-outline" size={21} color={colors.text} />
+              </Pressable>
               <Pressable
                 onPress={() => router.push('/connection')}
                 hitSlop={10}
@@ -189,7 +205,16 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* Wallet — reachable by deep links, hidden from the tab bar */}
+      {/* Discover - opened from the Home search icon */}
+      <Tabs.Screen
+        name="explore"
+        options={{
+          title: 'Discover',
+          href: null,
+        }}
+      />
+
+      {/* Wallet - reachable from Me */}
       <Tabs.Screen
         name="wallet"
         options={{
@@ -205,23 +230,23 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 18,
+    gap: 16,
     paddingHorizontal: 16,
   },
   createWrap: {
-    marginTop: -14,
+    marginTop: -6,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7C5CFC',
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
+    shadowColor: '#F57C00',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 8,
   },
   createBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 46,
+    height: 46,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
