@@ -350,7 +350,7 @@ export default function DiscoverTab() {
                       {f.displayName}
                     </Text>
                     <Text style={{ color: colors.muted, fontSize: 12 }}>
-                      {f.cohort === 'rising' ? 'Rising' : f.cohort === 'legend' ? 'Legend' : 'Established'} \u00b7 {f.supporterCount} supporters
+                      {f.cohort === 'rising' ? 'Rising' : f.cohort === 'legend' ? 'Legend' : 'Established'}{' \u00b7 '}{f.supporterCount} supporters
                     </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={16} color={colors.muted} />
