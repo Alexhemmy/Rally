@@ -122,11 +122,12 @@ export default function FavoriteScreen() {
   async function sendGiftFromSheet(giftId: string, msg: string, anon: boolean) {
     setSelected(giftId);
     setMessage(msg);
-    await sendGift({ anonymous: anon });
+    await sendGift({ anonymous: anon, giftId: giftId });
   }
 
-  async function sendGift(options?: { anonymous?: boolean }) {
-    if (!selected) return;
+  async function sendGift(options?: { anonymous?: boolean; giftId?: string }) {
+    const gid = options?.giftId || selected;
+    if (!gid) return;
     setSending(true);
     setStatus(null);
     impact('medium');
@@ -136,13 +137,13 @@ export default function FavoriteScreen() {
         method: 'POST',
         body: JSON.stringify({
           favoriteHandle: handle,
-          catalogItemId: selected,
+          catalogItemId: gid,
           message: message || undefined,
           isAnonymous: options?.anonymous || false,
         }),
       });
 
-      const item = catalog.find((c) => c.id === selected);
+      const item = catalog.find((c) => c.id === gid);
       setBurstEmoji(emojiFor(item?.slug || ''));
       setBurst(true);
       success();
