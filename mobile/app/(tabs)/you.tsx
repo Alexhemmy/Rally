@@ -31,6 +31,7 @@ const QUICK_ACTIONS = [
 ];
 
 const ACCOUNT_LINKS = [
+  { href: '/settings', label: 'Settings' },
   { href: '/notifications', label: 'Notifications' },
   { href: '/onboarding', label: 'Onboarding checklist' },
   { href: '/search', label: 'Search' },
