@@ -26,6 +26,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { GradientButton, Avatar } from '@/components/ui';
 import { GiftBurst } from '@/components/GiftBurst';
+import { GiftTraySheet } from '@/components/GiftTraySheet';
 import { LongPressMenu, MenuAction } from '@/components/LongPressMenu';
 import { SwipeBack } from '@/components/SwipeBack';
 import { SoundTextInput } from '@/components/SoundTextInput';
@@ -63,6 +64,7 @@ export default function FavoriteScreen() {
   const [status, setStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [burst, setBurst] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [burstEmoji, setBurstEmoji] = useState('\uD83C\uDF81');
   const [menu, setMenu] = useState<{ title: string; actions: MenuAction[] } | null>(null);
   const [following, setFollowing] = useState<boolean | null>(null);
@@ -115,6 +117,12 @@ export default function FavoriteScreen() {
     } finally {
       setFollowBusy(false);
     }
+  }
+
+  async function sendGiftFromSheet(giftId: string, msg: string, anon: boolean) {
+    setSelected(giftId);
+    setMessage(msg);
+    await sendGift({ anonymous: anon });
   }
 
   async function sendGift(options?: { anonymous?: boolean }) {
@@ -357,6 +365,7 @@ export default function FavoriteScreen() {
                   onPress={() => {
                     impact('light');
                     click();
+                    setSheetOpen(true);
                   }}
                   accessibilityLabel="Send a Gift"
                 >
@@ -392,88 +401,20 @@ export default function FavoriteScreen() {
                 </Pressable>
               </View>
 
-              {/* Gift tray */}
-              <View style={{ paddingHorizontal: horizontalPad }}>
-                <Text style={[styles.sectionLabel, { color: colors.muted }]}>SEND A GIFT</Text>
-                <Text style={[styles.hint, { color: colors.muted, marginBottom: 10 }]}>
-                  Tap to select · hold for more options
-                </Text>
-
-                <Animated.View
-                  style={[
-                    styles.giftRow,
-                    { gap, transform: [{ scale: pulse }] },
-                  ]}
-                >
-                  {catalog.map((g) => (
-                    <Pressable
-                      key={g.id}
-                      onPress={() => {
-                        click();
-                        setSelected(g.id);
-                      }}
-                      onLongPress={() => openGiftOptions(g)}
-                      delayLongPress={350}
-                      style={[
-                        styles.gift,
-                        {
-                          width: giftW,
-                          backgroundColor: selected === g.id ? GOLD + '22' : colors.surface,
-                          borderColor: selected === g.id ? GOLD : colors.border,
-                        },
-                      ]}
-                    >
-                      <Text style={styles.giftEmoji}>{emojiFor(g.slug)}</Text>
-                      <Text
-                        style={[styles.giftName, { color: colors.text }]}
-                        numberOfLines={1}
-                      >
-                        {g.name}
-                      </Text>
-                      <Text style={{ color: colors.muted, fontSize: 11 }}>
-                        {g.tokenCost} tok
-                      </Text>
-                    </Pressable>
-                  ))}
-                </Animated.View>
-
-                <SoundTextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.bg,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
-                  placeholder="Optional message"
-                  placeholderTextColor={colors.muted}
-                  value={message}
-                  onChangeText={setMessage}
-                  maxLength={280}
-                />
-
-                <GradientButton
-                  label={sending ? 'Sending\u2026' : 'Send Gift'}
-                  onPress={() => sendGift()}
-                  disabled={!selected || sending}
-                  loading={sending}
-                  fullWidth
-                />
-
-                {status && (
-                  <Text
-                    style={{
-                      marginTop: 10,
-                      color: status.type === 'success' ? colors.success : colors.danger,
-                      fontWeight: '600',
-                      fontSize: 13,
-                    }}
-                  >
-                    {status.text}
-                  </Text>
-                )}
+              {/* Gift Tray bottom sheet */}
+              <GiftTraySheet
+                visible={sheetOpen}
+                onClose={() => setSheetOpen(false)}
+                name={fav.displayName || fav.handle}
+                sending={sending}
+                onSend={(giftId, msg, anon) => {
+                  setSheetOpen(false);
+                  sendGiftFromSheet(giftId, msg, anon);
+                }}
+              />
+            </>
               </View>
+
 
               <Text style={[styles.sectionLabel, { color: colors.muted, marginTop: 24, paddingHorizontal: horizontalPad }]}>
                 SUPPORTER WALL
