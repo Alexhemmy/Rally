@@ -26,6 +26,7 @@ type Pack = {
   bonusTokens?: number;
   price_cents?: number;
   priceCents?: number;
+  currency?: string;
 };
 
 function fmt(n: number): string {
@@ -182,7 +183,7 @@ export default function WalletTab() {
         <View style={{ gap: 12, marginBottom: spacing.lg }}>
           {packs.map((pack) => {
             const total = pack.tokens + bonus(pack);
-            const price = (priceCents(pack) / 100).toFixed(2);
+            const price = fmt(priceCents(pack) / 100);
             return (
               <View
                 key={pack.id}
@@ -199,7 +200,7 @@ export default function WalletTab() {
                     </Text>
                   </View>
                   <Text style={[styles.price, { color: GOLD }]}>
-                    {'$' + price}
+                    {'\u20A6' + price}
                   </Text>
                 </View>
 
