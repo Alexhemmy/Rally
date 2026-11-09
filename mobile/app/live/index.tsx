@@ -12,7 +12,7 @@ import { GradientButton, GlassCard, EmptyState, Avatar } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
 import { useTheme } from '@/components/ThemeProvider';
 import { api, getToken } from '@/lib/api';
-import { spacing, radii, type as typo } from '@/constants/theme';
+import { spacing, radii } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
 
 const GOLD = '#FFA726';

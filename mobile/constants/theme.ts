@@ -1,7 +1,7 @@
-/** Rally — refined "Ink & Frost" design system
- * Primary: sky blue (#0EA5E9)
- * Dark: deep ink with soft cyan/violet accents
- * Light: crisp cool white with clean sky accents
+/** Rally design system — gold on dark
+ * Primary: gold (#FFA726) with deep orange hover (#F57C00)
+ * Dark: near-black #0D0D0D with #121212 surfaces
+ * Light: crisp white with warm gold accents
  * Focus: friendly, high-contrast, mobile-first, interactive-ready
  */
 import { Dimensions, PixelRatio, Platform, useWindowDimensions } from 'react-native';
@@ -11,13 +11,13 @@ import { useMemo } from 'react';
 /*  Brand tokens                                                       */
 /* ------------------------------------------------------------------ */
 const BRAND = {
-  primary: '#0EA5E9',          // sky blue – the only color we never change
-  primaryHover: '#38BDF8',
-  primaryPressed: '#0284C7',
-  gradient: ['#22D3EE', '#7C5CFC'] as const,   // cyan → violet
-  gradientHot: ['#F472B6', '#8B5CF6'] as const, // pink → violet (special moments)
-  accent: '#8B5CF6',
-  accent2: '#F472B6',
+  primary: '#FFA726',          // gold – the rally accent
+  primaryHover: '#F57C00',
+  primaryPressed: '#E65100',
+  gradient: ['#FFA726', '#F57C00'] as const,   // gold → deep orange
+  gradientHot: ['#FFA726', '#7C4DFF'] as const, // gold → purple (special moments)
+  accent: '#7C4DFF',
+  accent2: '#00897B',
   warning: '#FBBF24',
 } as const;
 
@@ -27,30 +27,30 @@ const BRAND = {
 export const palettes = {
   dark: {
     ...BRAND,
-    primaryMuted: 'rgba(14, 165, 233, 0.16)',
-    secondary: '#121218',
-    galactic: '#1A1A24',
-    bg: '#09090F',
-    surface: '#121218',
-    surfaceElevated: '#1A1A24',
-    surfaceHover: '#22222E',
+    primaryMuted: 'rgba(255, 167, 38, 0.14)',
+    secondary: '#121212',
+    galactic: '#1A1A1A',
+    bg: '#0D0D0D',
+    surface: '#121212',
+    surfaceElevated: '#1A1A1A',
+    surfaceHover: '#222222',
     text: '#F7F7FB',
     textSecondary: '#C4C4D4',
     muted: '#8A8A9E',
-    border: '#232330',
-    borderSubtle: '#1C1C28',
+    border: '#232323',
+    borderSubtle: '#1C1C1C',
     success: '#34D399',
     danger: '#FB7185',
     tabInactive: '#5E5E75',
     onPrimary: '#FFFFFF',
-    overlay: 'rgba(9, 9, 15, 0.72)',
+    overlay: 'rgba(13, 13, 13, 0.72)',
     shadow: 'rgba(0, 0, 0, 0.45)',
   },
   light: {
     ...BRAND,
-    primaryHover: '#0284C7',
-    primaryPressed: '#0369A1',
-    primaryMuted: 'rgba(14, 165, 233, 0.12)',
+    primaryHover: '#F57C00',
+    primaryPressed: '#E65100',
+    primaryMuted: 'rgba(255, 167, 38, 0.12)',
     secondary: '#FFFFFF',
     galactic: '#EEF3FB',
     bg: '#F7F9FE',
