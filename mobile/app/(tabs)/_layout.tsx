@@ -161,8 +161,8 @@ export default function TabsLayout() {
           tabBarIcon: () => null,
           tabBarButton: () => (
             <Pressable
-              onPress={() => router.push('/compose-moment')}
-              accessibilityLabel="Create a Moment"
+              onPress={() => router.push('/create')}
+              accessibilityLabel="Create"
               accessibilityRole="button"
               style={({ pressed }) => [
                 styles.createWrap,
