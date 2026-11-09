@@ -223,7 +223,7 @@ export default function LoginScreen() {
 
             <Text style={{ color: colors.muted }}>·</Text>
 
-            <Pressable onPress={() => router.push('/register')}>
+            <Pressable onPress={() => router.push('/welcome')}>
               <Text style={[styles.link, { color: colors.primary }]}>
                 Register
               </Text>
