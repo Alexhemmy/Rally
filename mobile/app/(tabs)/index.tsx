@@ -1,258 +1,419 @@
 /** Home tab - Rally design
- * Story rail of people you follow + algorithmic For You Moment cards
- * with media thumbnails. Real API data only.
+ * Home IS the feed: full-screen vertical pager with Following / Rising / Live tabs.
+ * Each Moment fills the screen: media background, gradient overlays,
+ * author info, and a right action rail (react, comment, share, gift, report).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View, Pressable, ScrollView, Image } from 'react-native';
+import { Text, StyleSheet, View, Pressable, FlatList, Image, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { Screen } from '@/components/Screen';
-import { GlassCard, EmptyState } from '@/components/ui';
+import { Avatar, EmptyState } from '@/components/ui';
+import { CommentsSheet } from '@/components/CommentsSheet';
+import { ReportSheet } from '@/components/ReportSheet';
 import { useTheme } from '@/components/ThemeProvider';
-import { spacing, radii } from '@/constants/theme';
-import { shareMoment } from '@/hooks/useShare';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
+import { shareMoment } from '@/hooks/useShare';
 import { api, getToken } from '@/lib/api';
+import { getApiUrl } from '@/lib/config';
 
 const GOLD = '#FFA726';
 const GOLD_DEEP = '#F57C00';
+const LIVE_RED = '#ff4d4f';
 
-type Story = { handle: string; avatarUrl?: string };
+const TABS = [
+  { key: 'following', label: 'Following' },
+  { key: 'rising', label: 'Rising' },
+  { key: 'live', label: 'Live' },
+];
+
+const ENDPOINTS: Record<string, { path: string; auth: boolean }> = {
+  following: { path: '/api/feed/home', auth: true },
+  rising: { path: '/api/feed/explore', auth: false },
+  live: { path: '/api/feed/flash', auth: false },
+};
+
+function timeAgo(iso: string) {
+  const t = new Date(iso).getTime();
+  if (!t) return "";
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 60) return "now";
+  if (s < 3600) return Math.floor(s / 60) + "m";
+  if (s < 86400) return Math.floor(s / 3600) + "h";
+  return Math.floor(s / 86400) + "d";
+}
 
 export default function HomeTab() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const router = useRouter();
   const { impact } = useHaptics();
   const { click } = useSounds();
 
-  const [moments, setMoments] = useState<any[]>([]);
-  const [stories, setStories] = useState<Story[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  const load = useCallback(async () => {
-    setRefreshing(true);
-    impact('selection');
-    try {
-      if (!getToken()) {
-        setMoments([]);
-        setStories([]);
-      } else {
-        const res = await api<{ moments: any[] }>('/api/feed/for-you');
-        const list = res.moments || [];
-        setMoments(list);
-        const seen: Record<string, boolean> = {};
-        const rail: Story[] = [];
-        list.forEach((m) => {
-          const handle = m.favorite?.user?.handle || m.user?.handle;
-          if (handle && !seen[handle]) {
-            seen[handle] = true;
-            rail.push({ handle, avatarUrl: m.favorite?.user?.avatarUrl || m.user?.avatarUrl });
-          }
-        });
-        setStories(rail);
-      }
-    } catch {
-      setMoments([]);
-      setStories([]);
-    } finally {
-      setRefreshing(false);
-      setLoaded(true);
-    }
-  }, [impact]);
+  const [tab, setTab] = useState('rising');
+  const [dataByTab, setDataByTab] = useState<Record<string, any[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [reacted, setReacted] = useState<Record<string, boolean>>({});
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [base, setBase] = useState('');
+  const [commentsFor, setCommentsFor] = useState<string | null>(null);
+  const [reportFor, setReportFor] = useState<any | null>(null);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    getApiUrl().then((b) => setBase(b || '')).catch(() => undefined);
+  }, []);
+
+  const load = useCallback(async (which: string) => {
+    setLoading(true);
+    setFailed(false);
+    const ep = ENDPOINTS[which];
+    try {
+      const res = await api<{ moments: any[] }>(ep.path, {
+        skipAuth: !ep.auth || !getToken(),
+      });
+      const list = res.moments || [];
+      setDataByTab((prev) => ({ ...prev, [which]: list }));
+      const start: Record<string, number> = {};
+      for (const m of list) start[m.id] = m.commentCount || 0;
+      setCounts((prev) => ({ ...prev, ...start }));
+    } catch {
+      setDataByTab((prev) => ({ ...prev, [which]: [] }));
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (dataByTab[tab]) return;
+    load(tab);
+  }, [tab, dataByTab, load]);
+
+  async function react(m: any) {
+    if (reacted[m.id]) return;
+    if (!getToken()) {
+      router.push('/you');
+      return;
+    }
+    impact("medium");
+    setReacted((prev) => ({ ...prev, [m.id]: true }));
+    try {
+      await api('/api/moments/' + m.id + '/react', {
+        method: 'POST',
+        body: JSON.stringify({ type: 'like' }),
+      });
+    } catch {
+      setReacted((prev) => ({ ...prev, [m.id]: false }));
+    }
+  }
+
+  const moments = dataByTab[tab] || [];
+  const h = height;
+
+  function mediaSource(m: any): string | null {
+    const url: string | null = m.mediaUrl || (m.media && m.media[0] && m.media[0].url) || null;
+    if (!url) return null;
+    if (url.indexOf("http") === 0) return url;
+    return base ? base + url : null;
+  }
+
+  const renderItem = ({ item }: { item: any }) => {
+    const author = item.favorite?.user || null;
+    const handle = author?.handle || "rally";
+    const displayName = author?.displayName || "@" + handle;
+    const url = mediaSource(item);
+    const isLive = tab === "live" || item.isFlash;
+    const hasReacted = !!reacted[item.id];
+    const commentCount = counts[item.id] ?? (item.commentCount || 0);
+    return (
+      <View style={[styles.card, { height: h }]}>
+        {url && item.mediaType === "image" ? (
+          <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        ) : (
+          <LinearGradient
+            colors={[GOLD_DEEP + "00", colors.bg, "#00000000"] as [string, string, string]}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+        <LinearGradient
+          colors={["#00000000", "#00000000", "rgba(0,0,0,0.82)"] as [string, string, string]}
+          style={styles.bottomShade}
+        />
+        <LinearGradient
+          colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.18)", "#00000000"] as [string, string, string]}
+          style={styles.topShade}
+        />
+
+        {/* Author + text overlay */}
+        <View style={[styles.info, { bottom: Math.max(insets.bottom, 96) }]}>
+          <Pressable
+            style={styles.authorRow}
+            onPress={() => {
+              click();
+              router.push('/favorite/' + handle);
+            }}
+          >
+            <Avatar name={handle} size={44} ring uri={author?.avatarUrl || undefined} />
+            <View style={{ marginLeft: 10, flex: 1 }}>
+              <View style={styles.nameRow}>
+                <Text numberOfLines={1} style={styles.name}>
+                  {displayName}
+                </Text>
+                {isLive ? (
+                  <View style={styles.liveBadge}>
+                    <Text style={styles.liveText}>LIVE</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.handleLine}>
+                {"@" + handle} {"\u00b7"} {timeAgo(String(item.createdAt || ""))}
+              </Text>
+            </View>
+          </Pressable>
+          <Text style={styles.title}>{item.title}</Text>
+          {item.description ? (
+            <Text numberOfLines={2} style={styles.desc}>
+              {item.description}
+            </Text>
+          ) : null}
+          {item.categoryTag ? (
+            <View style={styles.tagPill}>
+              <Text style={styles.tagText}>{item.categoryTag}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Right action rail */}
+        <View style={[styles.rail, { bottom: Math.max(insets.bottom, 96) }]}>
+          <Pressable style={styles.railBtn} onPress={() => react(item)} accessibilityLabel="React">
+            <Ionicons name={hasReacted ? "heart" : "heart-outline"} size={30} color={hasReacted ? GOLD : "#fff"} />
+            <Text style={styles.railLabel}>{(item.reactionCount || 0) + (hasReacted ? 1 : 0)}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.railBtn}
+            onPress={() => {
+              click();
+              setCommentsFor(item.id);
+            }}
+            accessibilityLabel="Comments"
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={28} color="#fff" />
+            <Text style={styles.railLabel}>{commentCount}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.railBtn}
+            onPress={() => {
+              impact("light");
+              shareMoment(item.title, item.id);
+            }}
+            accessibilityLabel="Share"
+          >
+            <Ionicons name="share-social-outline" size={27} color="#fff" />
+            <Text style={styles.railLabel}>Share</Text>
+          </Pressable>
+          <Pressable
+            style={styles.railBtn}
+            onPress={() => {
+              click();
+              router.push('/favorite/' + handle);
+            }}
+            accessibilityLabel="Send a gift"
+          >
+            <View style={styles.giftBubble}>
+              <Ionicons name="gift" size={22} color="#111" />
+            </View>
+            <Text style={styles.railLabel}>Gift</Text>
+          </Pressable>
+          <Pressable
+            style={styles.railBtn}
+            onPress={() => setReportFor(item)}
+            accessibilityLabel="Report Moment"
+          >
+            <Ionicons name="flag-outline" size={24} color="#fff" />
+            <Text style={styles.railLabel}>Report</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  };
 
   return (
-    <Screen refreshing={refreshing} onRefresh={load}>
-      {/* Story rail */}
-      {stories.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0, marginBottom: spacing.md }}
-          contentContainerStyle={{ gap: 14, paddingRight: 16 }}
-        >
-          {stories.map((s) => (
-            <Pressable
-              key={s.handle}
-              style={styles.story}
-              onPress={() => {
-                click();
-                router.push('/u/' + s.handle);
-              }}
-              accessibilityLabel={'Open ' + s.handle}
-            >
-              <LinearGradient
-                colors={[GOLD, GOLD_DEEP] as [string, string]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.storyRing}
-              >
-                <View style={[styles.storyInner, { backgroundColor: colors.surface }]}>
-                  {s.avatarUrl ? (
-                    <Image source={{ uri: s.avatarUrl }} style={styles.storyAvatar} />
-                  ) : (
-                    <Text style={[styles.storyInitials, { color: GOLD }]}>
-                      {s.handle.slice(0, 2).toUpperCase()}
-                    </Text>
-                  )}
-                </View>
-              </LinearGradient>
-              <Text numberOfLines={1} style={[styles.storyLabel, { color: colors.muted }]}>
-                {s.handle}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      )}
-
-      {/* For You moments */}
-      {moments.length > 0 ? (
-        <View style={{ gap: 12, marginBottom: spacing.md }}>
-          {moments.map((m) => {
-            const handle = m.favorite?.user?.handle || m.user?.handle || 'rally';
-            const thumb = Array.isArray(m.media) && m.media.length > 0 ? m.media[0] : null;
-            const thumbUrl = thumb ? (thumb.absoluteUrl || thumb.publicUrl || thumb.url) : null;
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      {/* Tab bar */}
+      <View style={[styles.tabBar, { paddingTop: insets.top + 6 }]}>
+        <View style={styles.tabRow}>
+          {TABS.map((t) => {
+            const active = tab === t.key;
             return (
-              <GlassCard key={m.id}>
-                <View style={styles.row}>
-                  <Pressable
-                    style={styles.authorTouch}
-                    onPress={() => {
-                      click();
-                      router.push('/u/' + handle);
-                    }}
-                  >
-                    <Text style={[styles.title, { color: colors.text }]}>{m.title}</Text>
-                    <Text style={{ color: colors.muted, fontSize: 13 }}>
-                      @{handle}
-                      {m.categoryTag ? ' \u00b7 ' + m.categoryTag : ''}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      impact('light');
-                      shareMoment(m.title, m.id);
-                    }}
-                    style={styles.shareBtn}
-                    accessibilityLabel="Share this Moment"
-                  >
-                    <Ionicons name="share-social-outline" size={18} color={GOLD} />
-                  </Pressable>
-                </View>
-                {thumbUrl ? (
-                  <Pressable
-                    onPress={() => {
-                      click();
-                      router.push('/moments/' + m.id);
-                    }}
-                    style={[styles.thumbWrap, { borderColor: colors.border }]}
-                  >
-                    <Image source={{ uri: thumbUrl }} style={styles.thumb} resizeMode="cover" />
-                    {(thumb.type === 'video' || String(thumbUrl).indexOf('.mp4') >= 0) && (
-                      <View style={styles.playBadge}>
-                        <Ionicons name="play" size={14} color="#fff" />
-                      </View>
-                    )}
-                  </Pressable>
+              <Pressable
+                key={t.key}
+                onPress={() => {
+                  click();
+                  setTab(t.key);
+                }}
+                style={styles.tabBtn}
+                accessibilityLabel={t.label + " tab"}
+              >
+                <Text style={[styles.tabLabel, { color: active ? "#fff" : "rgba(255,255,255,0.55)" }]}>
+                  {t.label}
+                </Text>
+                {active ? (
+                  <View style={styles.tabUnderline} />
                 ) : null}
-              </GlassCard>
+              </Pressable>
             );
           })}
+          <Pressable onPress={() => load(tab)} hitSlop={10} style={styles.refreshBtn} accessibilityLabel="Refresh feed">
+            <Ionicons name="refresh" size={18} color="rgba(255,255,255,0.55)" />
+          </Pressable>
+        </View>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator color={GOLD} style={{ flex: 1 }} />
+      ) : moments.length === 0 ? (
+        <View style={[styles.emptyWrap, { paddingTop: insets.top + 60 }]}>
+          {failed && tab === "following" ? (
+            <EmptyState
+              icon="lock-closed-outline"
+              title="Sign in to follow your Favorites"
+              body="Create an account or sign in, then follow Favorites to fill this feed."
+            />
+          ) : tab === "live" ? (
+            <EmptyState
+              icon="flash-outline"
+              title="No live Moments right now"
+              body="Flash Moments drop for 24 hours. Check back soon!"
+            />
+          ) : (
+            <EmptyState
+              icon="trending-up-outline"
+              title="Quiet for now"
+              body="No Moments here yet. Discover Favorites on the Explore tab."
+            />
+          )}
         </View>
       ) : (
-        loaded && (
-          <View style={{ marginTop: spacing.lg }}>
-            <EmptyState
-              icon="sparkles-outline"
-              title="Nothing here yet"
-              body={
-                getToken()
-                  ? 'Follow fans and Favorites to personalize your For You feed.'
-                  : 'Log in to see Moments picked for you.'
-              }
-            />
-          </View>
-        )
+        <FlatList
+          data={moments}
+          keyExtractor={(m) => m.id}
+          renderItem={renderItem}
+          pagingEnabled
+          showsVerticalScrollIndicator={false}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          getItemLayout={(_data, index) => ({ length: h, offset: h * index, index })}
+          windowSize={3}
+        />
       )}
-    </Screen>
+
+      <CommentsSheet
+        visible={commentsFor !== null}
+        onClose={() => setCommentsFor(null)}
+        momentId={commentsFor || ""}
+        count={commentsFor ? counts[commentsFor] || 0 : 0}
+        onCountChange={(n) => {
+          if (commentsFor) setCounts((prev) => ({ ...prev, [commentsFor]: n }));
+        }}
+      />
+      <ReportSheet
+        visible={reportFor !== null}
+        onClose={() => setReportFor(null)}
+        targetType="moment"
+        targetId={reportFor ? reportFor.id : ""}
+        subjectLabel={reportFor ? reportFor.title : ""}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  story: {
-    alignItems: 'center',
-    width: 64,
+  root: { flex: 1 },
+  card: { flex: 1, overflow: "hidden" },
+  bottomShade: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "55%",
   },
-  storyRing: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: 'center',
-    justifyContent: 'center',
+  topShade: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 160,
   },
-  storyInner: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+  info: {
+    position: "absolute",
+    left: 16,
+    right: 88,
   },
-  storyAvatar: {
-    width: 52,
-    height: 52,
+  authorRow: { flexDirection: "row", alignItems: "center" },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  name: { color: "#fff", fontWeight: "900", fontSize: 16 },
+  liveBadge: {
+    backgroundColor: LIVE_RED,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
   },
-  storyInitials: {
-    fontWeight: '800',
-    fontSize: 16,
-  },
-  storyLabel: {
-    fontSize: 11,
-    marginTop: 6,
-    maxWidth: 64,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  authorTouch: {
-    marginLeft: 2,
-    flex: 1,
-  },
-  title: {
-    fontWeight: '700',
-    fontSize: 15,
-    marginBottom: 2,
-  },
-  shareBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  thumbWrap: {
-    marginTop: 10,
-    borderRadius: radii.md,
-    overflow: 'hidden',
+  liveText: { color: "#fff", fontSize: 10, fontWeight: "900" },
+  handleLine: { color: "rgba(255,255,255,0.72)", fontSize: 13, marginTop: 1 },
+  title: { color: "#fff", fontWeight: "900", fontSize: 19, lineHeight: 26, marginTop: 12 },
+  desc: { color: "rgba(255,255,255,0.85)", fontSize: 14, lineHeight: 20, marginTop: 6 },
+  tagPill: {
+    alignSelf: "flex-start",
     borderWidth: 1,
+    borderColor: GOLD,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    marginTop: 10,
   },
-  thumb: {
-    width: '100%',
-    height: 180,
-  },
-  playBadge: {
-    position: 'absolute',
+  tagText: { color: GOLD, fontSize: 11, fontWeight: "800" },
+  rail: {
+    position: "absolute",
     right: 10,
-    bottom: 10,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    gap: 18,
   },
+  railBtn: { alignItems: "center", gap: 4 },
+  railLabel: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  giftBubble: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: GOLD,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  tabRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 22,
+  },
+  tabBtn: { alignItems: "center", paddingVertical: 4 },
+  tabLabel: { fontWeight: "900", fontSize: 15 },
+  tabUnderline: {
+    marginTop: 3,
+    width: 22,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: GOLD,
+  },
+  refreshBtn: { position: "absolute", right: 16 },
+  emptyWrap: { flex: 1, paddingHorizontal: 24, alignItems: "center" },
 });
