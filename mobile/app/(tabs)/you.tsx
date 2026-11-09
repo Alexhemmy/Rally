@@ -20,6 +20,7 @@ const GOLD_DEEP = '#F57C00';
 const PURPLE = '#7C4DFF';
 
 const QUICK_ACTIONS = [
+  { href: '/live', label: 'Live', icon: 'radio-outline' },
   { href: '/wallet', label: 'Wallet', icon: 'wallet-outline' },
   { href: '/subscriptions', label: 'Fan Clubs', icon: 'people-outline' },
   { href: '/store', label: 'Store', icon: 'bag-outline' },
