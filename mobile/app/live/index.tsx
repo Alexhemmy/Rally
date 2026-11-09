@@ -7,6 +7,7 @@ import { Text, StyleSheet, View, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '@/components/Screen';
+import { GiftBurst } from '@/components/GiftBurst';
 import { GradientButton, GlassCard, EmptyState, Avatar } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
 import { useTheme } from '@/components/ThemeProvider';
@@ -62,6 +63,7 @@ export default function LiveScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
   const [giftingId, setGiftingId] = useState<string | null>(null);
+  const [burst, setBurst] = useState(false);
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -130,6 +132,7 @@ export default function LiveScreen() {
         method: 'POST',
         body: JSON.stringify({ catalogItemId: itemId }),
       });
+      setBurst(true);
       setMsg({ ok: true, text: 'Gift sent' });
       impact('success');
       const r = await api<{ leaderboard: BoardRow[] }>('/api/live/' + s.id + '/leaderboard', { skipAuth: true });
@@ -390,6 +393,7 @@ export default function LiveScreen() {
             })}
           </View>
         )}
+        <GiftBurst visible={burst} onDone={() => setBurst(false)} />
       </Screen>
     </SwipeBack>
   );
