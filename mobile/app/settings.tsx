@@ -40,6 +40,9 @@ export default function SettingsScreen() {
   const [spent, setSpent] = useState(0);
   const [anon, setAnon] = useState(false);
   const [capInput, setCapInput] = useState('');
+  const [weekCap, setWeekCap] = useState<number | null>(null);
+  const [weekSpent, setWeekSpent] = useState(0);
+  const [weekInput, setWeekInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -47,6 +50,8 @@ export default function SettingsScreen() {
     setCap(d.monthlySpendCap ?? null);
     setSpent(Number(d.spentThisMonth || 0));
     setAnon(!!d.anonymityDefault);
+    setWeekCap(d.weeklySpendCap ?? null);
+    setWeekSpent(Number(d.spentThisWeek || 0));
   }, []);
 
   const load = useCallback(async () => {
@@ -94,6 +99,29 @@ export default function SettingsScreen() {
     }
   }
 
+  async function saveWeekly(next: number | null) {
+    if (saving) return;
+    setSaving(true);
+    setStatus(null);
+    try {
+      const res = await api<any>('/api/limits', {
+        method: 'PUT',
+        body: JSON.stringify({ weeklySpendCap: next }),
+      });
+      apply(res);
+      setWeekInput('');
+      impact("success");
+      setStatus({
+        type: "success",
+        text: next === null ? "Weekly limit removed" : "Weekly limit set to T " + next.toLocaleString(),
+      });
+    } catch (e: any) {
+      setStatus({ type: "error", text: e && e.message ? e.message : "Could not save." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function toggleAnon(v: boolean) {
     setAnon(v);
     impact("light");
@@ -109,6 +137,8 @@ export default function SettingsScreen() {
 
   const pct = cap ? Math.min(100, Math.round((spent / cap) * 100)) : 0;
   const over = cap !== null && spent > cap;
+  const weekOver = weekCap !== null && weekSpent > weekCap;
+  const weekPct = weekCap ? Math.min(100, Math.round((weekSpent / weekCap) * 100)) : 0;
 
   return (
     <SwipeBack>
@@ -255,6 +285,90 @@ export default function SettingsScreen() {
                   {status.text}
                 </Text>
               ) : null}
+            </GlassCard>
+
+            {/* Weekly spending limit */}
+            <GlassCard style={{ marginTop: spacing.md }}>
+              <View style={[styles.capRow, { borderTopColor: colors.border }]}>
+                <Text style={{ color: colors.muted, fontSize: 13, fontWeight: "700" }}>WEEKLY LIMIT</Text>
+                <Text style={[styles.capValue, { color: colors.text }]}>
+                  {weekCap === null ? "No limit" : "T " + weekCap.toLocaleString()}
+                </Text>
+              </View>
+              <View style={styles.progressWrap}>
+                <View style={styles.progressLabels}>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>Spent this week</Text>
+                  <Text style={[styles.spentValue, { color: weekOver ? "#ef5350" : TEAL }]}>
+                    T {weekSpent.toLocaleString()}
+                  </Text>
+                </View>
+                <View style={[styles.track, { backgroundColor: colors.border }]}>
+                  <View
+                    style={[
+                      styles.fill,
+                      {
+                        width: (weekCap === null ? (weekSpent > 0 ? 100 : 0) : weekPct) + "%",
+                        backgroundColor: weekOver ? "#ef5350" : GOLD,
+                      },
+                    ]}
+                  />
+                </View>
+                {weekCap === null ? (
+                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6 }}>
+                    Set a weekly cap to track your gift tray limit.
+                  </Text>
+                ) : (
+                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6 }}>
+                    {weekPct}% of your weekly limit used
+                  </Text>
+                )}
+              </View>
+              <View style={[styles.capInputRow, { borderColor: colors.border }]}>
+                <Text style={{ color: GOLD, fontWeight: "900", fontSize: 15 }}>T</Text>
+                <TextInput
+                  style={[styles.capInput, { color: colors.text }]}
+                  placeholder="New weekly limit"
+                  placeholderTextColor={colors.muted}
+                  value={weekInput}
+                  onChangeText={(t) => setWeekInput(t.replace(/[^0-9]/g, ""))}
+                  keyboardType="number-pad"
+                  maxLength={7}
+                />
+              </View>
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+                <Pressable
+                  style={{ flex: 1 }}
+                  onPress={() => {
+                    const n = parseInt(weekInput, 10);
+                    if (!n || n < 1) {
+                      setStatus({ type: "error", text: "Enter a limit of at least 1 token." });
+                      return;
+                    }
+                    saveWeekly(n);
+                  }}
+                  disabled={saving}
+                  accessibilityLabel="Save weekly limit"
+                >
+                  <LinearGradient
+                    colors={[GOLD, GOLD_DEEP] as [string, string]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.saveBtn, saving && { opacity: 0.5 }]}
+                  >
+                    <Text style={styles.saveText}>{saving ? "Saving\u2026" : "Save weekly limit"}</Text>
+                  </LinearGradient>
+                </Pressable>
+                {weekCap !== null ? (
+                  <Pressable
+                    onPress={() => saveWeekly(null)}
+                    disabled={saving}
+                    style={[styles.removeBtn, { borderColor: colors.border }]}
+                    accessibilityLabel="Remove weekly limit"
+                  >
+                    <Text style={{ color: colors.muted, fontWeight: "700", fontSize: 14 }}>Remove</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </GlassCard>
 
             {/* Gifting preferences */}
