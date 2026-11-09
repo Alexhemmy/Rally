@@ -38,12 +38,14 @@ export function CommentsSheet({
   visible,
   onClose,
   momentId,
+  postId,
   count,
   onCountChange,
 }: {
   visible: boolean;
   onClose: () => void;
-  momentId: string;
+  momentId?: string;
+  postId?: string;
   count: number;
   onCountChange: (n: number) => void;
 }) {
@@ -55,6 +57,7 @@ export function CommentsSheet({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [reportTarget, setReportTarget] = useState<CommentRow | null>(null);
+  const target = postId ? '/api/posts/' + postId : '/api/moments/' + momentId;
 
   useEffect(() => {
     if (!visible) return;
@@ -63,8 +66,8 @@ export function CommentsSheet({
     setLoading(true);
     (async () => {
       try {
-        const res = await api<{ moment: any }>('/api/moments/' + momentId, { skipAuth: true });
-        const list: CommentRow[] = (res.moment?.comments || []).map((c: any) => ({
+        const res = await api<{ moment?: any; post?: any }>(target, { skipAuth: true });
+        const list: CommentRow[] = (res.moment?.comments || res.post?.comments || []).map((c: any) => ({
           id: c.id,
           body: c.body,
           createdAt: String(c.createdAt || new Date().toISOString()),
@@ -79,7 +82,7 @@ export function CommentsSheet({
         setLoading(false);
       }
     })();
-  }, [visible, momentId]);
+  }, [visible, momentId, postId]);
 
   async function send() {
     const body = text.trim();
@@ -91,7 +94,7 @@ export function CommentsSheet({
     setSending(true);
     setError('');
     try {
-      const res = await api<{ comment: any }>('/api/moments/' + momentId + '/comments', {
+      const res = await api<{ comment: any }>(target + '/comments', {
         method: 'POST',
         body: JSON.stringify({ body }),
       });
