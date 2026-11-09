@@ -69,6 +69,12 @@ function RootStack() {
         <Stack.Screen name="rivalries/index" options={{ title: 'Rivalries' }} />
         <Stack.Screen name="giveaways/index" options={{ title: 'Giveaways' }} />
 
+        {/* Money */}
+        <Stack.Screen name="earnings" options={{ title: 'Earnings' }} />
+        <Stack.Screen name="cash-out" options={{ title: 'Cash out' }} />
+        <Stack.Screen name="memberships" options={{ title: 'Memberships & orders' }} />
+        <Stack.Screen name="payment-result" options={{ title: 'Payment', presentation: 'modal' }} />
+
         {/* Creator tools */}
         <Stack.Screen name="dashboard/index" options={{ title: 'Dashboard' }} />
         <Stack.Screen name="dashboard/earnings/index" options={{ title: 'Earnings' }} />

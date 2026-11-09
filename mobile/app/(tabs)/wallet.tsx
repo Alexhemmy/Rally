@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Text, StyleSheet, View, Linking, Alert, Pressable, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '@/components/Screen';
@@ -36,6 +37,7 @@ function fmt(n: number): string {
 export default function WalletTab() {
   const { colors } = useTheme();
   const { impact } = useHaptics();
+  const router = useRouter();
 
   const [packs, setPacks] = useState<Pack[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,6 +84,8 @@ export default function WalletTab() {
     }
     setBuyingId(pack.id);
     impact('medium');
+    const tot = pack.tokens + bonus(pack);
+    const amt = fmt(priceCents(pack) / 100);
     try {
       const res = await api<{
         checkout?: { authorizationUrl?: string };
@@ -99,11 +103,32 @@ export default function WalletTab() {
         );
       } else if (res.purchase?.status === 'completed') {
         impact('success');
-        Alert.alert('Purchase complete', res.purchase.tokens + ' tokens were added to your wallet.');
-        await load();
+        router.push({
+          pathname: '/payment-result',
+          params: {
+            status: 'confirmed',
+            tokens: String(res.purchase.tokens ?? tot),
+            amount: amt,
+            method: 'card',
+            reference: String(res.purchase.reference ?? res.purchase.id ?? ''),
+            balance: res.wallet ? String(Number(res.wallet.balance) + Number(res.wallet.giftedBalance || 0)) : '',
+          },
+        });
       }
     } catch (e: any) {
-      Alert.alert('Purchase failed', e.message || 'Could not start checkout. Try again.');
+      impact('error');
+      router.push({
+        pathname: '/payment-result',
+        params: {
+          status: 'failed',
+          tokens: String(tot),
+          amount: amt,
+          method: 'card',
+          reference: '',
+          packId: pack.id,
+          reason: e && e.message ? e.message : '',
+        },
+      });
     } finally {
       setBuyingId(null);
     }
@@ -163,9 +188,10 @@ export default function WalletTab() {
           )}
           <Pressable
             style={({ pressed }) => [styles.cardBtn, pressed && { opacity: 0.7 }]}
-            accessibilityLabel="Cash out"
+            onPress={() => { impact('light'); router.push('/earnings'); }}
+            accessibilityLabel="Earnings"
           >
-            <Text style={styles.cardBtnText}>Cash out</Text>
+            <Text style={styles.cardBtnText}>Earnings</Text>
           </Pressable>
         </LinearGradient>
       </View>
