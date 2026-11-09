@@ -1,7 +1,8 @@
 /** GiftTraySheet - Rally design
- * Bottom sheet gift tray: token balance + top up, category tabs,
- * circular gift grid with T costs, message with counter, anonymity
- * toggle, and a gold Send button.
+ * Bottom sheet gift tray: token balance + Naira value + top up, category
+ * tabs, circular gift grid with T + naira costs, quantity stepper,
+ * weekly spend-limit bar, message with counter, anonymity toggle,
+ * and a gold Send button. Dual pricing: 1 Token = 10 naira.
  */
 import { useEffect, useState } from 'react';
 import {
@@ -25,6 +26,13 @@ import { api, getToken } from '@/lib/api';
 
 const GOLD = '#FFA726';
 const GOLD_DEEP = '#F57C00';
+const NAIRA = '\u20a6';
+const NAIRA_PER_TOKEN = 10;
+const MAX_QTY = 10;
+
+function naira(tokens: number) {
+  return NAIRA + (tokens * NAIRA_PER_TOKEN).toLocaleString('en-US');
+}
 
 type IconName = keyof typeof Ionicons.glyphMap;
 type CatalogItem = {
@@ -58,7 +66,7 @@ export function GiftTraySheet({
   visible: boolean;
   onClose: () => void;
   name: string;
-  onSend: (giftId: string, message: string, anonymous: boolean) => void;
+  onSend: (giftId: string, message: string, anonymous: boolean, quantity: number) => void;
   sending: boolean;
 }) {
   const { colors } = useTheme();
@@ -68,13 +76,16 @@ export function GiftTraySheet({
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState('Popular');
   const [selected, setSelected] = useState<string | null>(null);
+  const [qty, setQty] = useState(1);
   const [message, setMessage] = useState('');
   const [anonymous, setAnonymous] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
+  const [week, setWeek] = useState<{ cap: number | null; spent: number } | null>(null);
 
   useEffect(() => {
     if (!visible) return;
     setSelected(null);
+    setQty(1);
     setMessage('');
     setAnonymous(false);
     setLoading(true);
@@ -92,8 +103,15 @@ export function GiftTraySheet({
       api<{ wallet: any }>('/api/tokens/wallet')
         .then((w) => setBalance(Number(w.wallet?.balance ?? 0) + Number(w.wallet?.giftedBalance ?? 0)))
         .catch(() => setBalance(null));
+      api<any>('/api/limits')
+        .then((d) => {
+          setWeek({ cap: d.weeklySpendCap == null ? null : Number(d.weeklySpendCap), spent: Number(d.spentThisWeek || 0) });
+          if (d.anonymityDefault) setAnonymous(true);
+        })
+        .catch(() => setWeek(null));
     } else {
       setBalance(null);
+      setWeek(null);
     }
   }, [visible]);
 
@@ -103,7 +121,10 @@ export function GiftTraySheet({
   });
   const shown = tab === 'Popular' || tab === 'All' ? catalog : catalog.filter((c) => c.category === tab);
   const selectedItem = catalog.find((c) => c.id === selected);
-  const canAfford = balance === null || !selectedItem || selectedItem.tokenCost <= balance;
+  const totalCost = selectedItem ? selectedItem.tokenCost * qty : 0;
+  const canAfford = balance === null || !selectedItem || totalCost <= balance;
+  const weekPct = week && week.cap ? Math.min(100, Math.round((week.spent / week.cap) * 100)) : null;
+  const weekOver = !!(week && week.cap != null && week.spent > week.cap);
 
   return (
     <Modal
@@ -137,6 +158,11 @@ export function GiftTraySheet({
                 <Text style={[styles.balance, { color: colors.text }]}>
                   {balance === null ? '\u2014' : balance.toLocaleString('en-US')}
                 </Text>
+                {balance !== null && (
+                  <Text style={[styles.balanceNaira, { color: colors.muted }]}>
+                    {'\u2248'} {naira(balance)}
+                  </Text>
+                )}
                 <Pressable
                   onPress={() => router.push('/wallet')}
                   style={({ pressed }) => [styles.topUp, pressed && { opacity: 0.7 }]}
@@ -147,6 +173,28 @@ export function GiftTraySheet({
               </View>
             </View>
           </View>
+
+          {/* Weekly spend-limit bar */}
+          {week && week.cap != null && (
+            <View style={[styles.weekWrap, { borderColor: colors.border }]}>
+              <View style={styles.weekLabels}>
+                <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '700' }}>WEEKLY LIMIT</Text>
+                <Text style={{ color: weekOver ? '#ef5350' : colors.text, fontSize: 11, fontWeight: '800' }}>
+                  T {week.spent.toLocaleString('en-US')} / {week.cap.toLocaleString('en-US')}
+                </Text>
+              </View>
+              <View style={[styles.weekTrack, { backgroundColor: colors.border }]}>
+                <View
+                  style={{
+                    width: (weekPct || 0) + '%',
+                    height: '100%',
+                    borderRadius: 3,
+                    backgroundColor: weekOver ? '#ef5350' : GOLD,
+                  }}
+                />
+              </View>
+            </View>
+          )}
 
           {/* Category tabs */}
           <ScrollView
@@ -193,7 +241,7 @@ export function GiftTraySheet({
                   <Pressable
                     key={gif.id}
                     style={styles.giftCell}
-                    onPress={() => setSelected(gif.id)}
+                    onPress={() => { setSelected(gif.id); setQty(1); }}
                     accessibilityLabel={gif.name + " \u00b7 " + gif.tokenCost + " tokens"}
                   >
                     <View
@@ -211,9 +259,40 @@ export function GiftTraySheet({
                       {gif.name}
                     </Text>
                     <Text style={[styles.giftCost, { color: GOLD }]}>T {gif.tokenCost}</Text>
+                    <Text style={[styles.giftCostNaira, { color: colors.muted }]}>{naira(gif.tokenCost)}</Text>
                   </Pressable>
                 );
               })}
+            </View>
+          )}
+
+          {/* Quantity stepper */}
+          {selectedItem && (
+            <View style={[styles.qtyRow, { borderColor: colors.border }]}>
+              <Text style={{ color: colors.text, fontSize: 13, fontWeight: '700' }}>Quantity</Text>
+              <View style={styles.stepper}>
+                <Pressable
+                  onPress={() => setQty((q) => Math.max(1, q - 1))}
+                  disabled={qty <= 1 || sending}
+                  style={[styles.stepBtn, qty <= 1 && { opacity: 0.35 }]}
+                  accessibilityLabel="Decrease quantity"
+                >
+                  <Ionicons name="remove" size={16} color={colors.text} />
+                </Pressable>
+                <Text style={[styles.qtyValue, { color: colors.text }]}>{qty}</Text>
+                <Pressable
+                  onPress={() => setQty((q) => Math.min(MAX_QTY, q + 1))}
+                  disabled={qty >= MAX_QTY || sending}
+                  style={[styles.stepBtn, qty >= MAX_QTY && { opacity: 0.35 }]}
+                  accessibilityLabel="Increase quantity"
+                >
+                  <Ionicons name="add" size={16} color={colors.text} />
+                </Pressable>
+              </View>
+              <View style={styles.qtyTotal}>
+                <Text style={{ color: GOLD, fontWeight: '900', fontSize: 14 }}>T {totalCost}</Text>
+                <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '600' }}>{naira(totalCost)}</Text>
+              </View>
             </View>
           )}
 
@@ -246,7 +325,7 @@ export function GiftTraySheet({
 
           {/* Send */}
           <Pressable
-            onPress={() => selected && onSend(selected, message, anonymous)}
+            onPress={() => selected && onSend(selected, message, anonymous, qty)}
             disabled={!selected || sending || !canAfford}
             accessibilityLabel="Send gift"
           >
@@ -257,7 +336,7 @@ export function GiftTraySheet({
               style={[styles.sendBtn, (!selected || sending || !canAfford) && { opacity: 0.4 }]}
             >
               <Text style={styles.sendText}>
-                {sending ? 'Sending\u2026' : selectedItem ? 'Send \u00b7 T ' + selectedItem.tokenCost : 'Pick a gift'}
+                {sending ? 'Sending\u2026' : selectedItem ? 'Send \u00b7 T ' + totalCost + ' (' + naira(totalCost) + ')' : 'Pick a gift'}
               </Text>
             </LinearGradient>
           </Pressable>
@@ -290,7 +369,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   avatar: {
     width: 40,
@@ -331,6 +410,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 15,
   },
+  balanceNaira: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   topUp: {
     backgroundColor: GOLD,
     borderRadius: 999,
@@ -341,6 +424,24 @@ const styles = StyleSheet.create({
     color: '#111',
     fontWeight: '800',
     fontSize: 12,
+  },
+  weekWrap: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  weekLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  weekTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
   },
   tab: {
     borderWidth: 1,
@@ -376,10 +477,47 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 1,
   },
+  giftCostNaira: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 1,
+  },
   empty: {
     textAlign: 'center',
     marginVertical: 24,
     fontSize: 14,
+  },
+  qtyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: radii.full,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  stepBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,167,38,0.14)',
+  },
+  qtyValue: {
+    width: 34,
+    textAlign: 'center',
+    fontWeight: '900',
+    fontSize: 15,
+  },
+  qtyTotal: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
   inputWrap: {
     borderWidth: 1,

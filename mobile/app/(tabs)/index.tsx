@@ -96,7 +96,7 @@ export default function HomeTab() {
     }
   }
 
-  async function sendGift(giftId: string, message: string, anonymous: boolean) {
+  async function sendGift(giftId: string, message: string, anonymous: boolean, quantity: number) {
     if (!giftTarget) return;
     setSendingGift(true);
     impact('medium');
@@ -107,7 +107,7 @@ export default function HomeTab() {
           favoriteHandle: giftTarget.author.handle,
           catalogItemId: giftId,
           message,
-          isAnonymous: anonymous,
+          isAnonymous: anonymous, quantity: quantity || 1,
         }),
       });
       impact('success');
