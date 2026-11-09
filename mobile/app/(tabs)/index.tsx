@@ -1,419 +1,294 @@
-/** Home tab - Rally design
- * Home IS the feed: full-screen vertical pager with Following / Rising / Live tabs.
- * Each Moment fills the screen: media background, gradient overlays,
- * author info, and a right action rail (react, comment, share, gift, report).
+/** Home tab - Rally design system
+ * Home is the FEED for Posts (text and media updates by Favorites).
+ * Story rail on top, post cards below with react, comment, gift,
+ * share and report. Moments (video) live on the Moments tab.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View, Pressable, FlatList, Image, ActivityIndicator, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Text, StyleSheet, View, Pressable, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { Screen } from '@/components/Screen';
 import { Avatar, EmptyState } from '@/components/ui';
 import { CommentsSheet } from '@/components/CommentsSheet';
+import { GiftTraySheet } from '@/components/GiftTraySheet';
 import { ReportSheet } from '@/components/ReportSheet';
 import { useTheme } from '@/components/ThemeProvider';
-import { useHaptics } from '@/hooks/useHaptics';
-import { useSounds } from '@/hooks/useSounds';
-import { shareMoment } from '@/hooks/useShare';
 import { api, getToken } from '@/lib/api';
-import { getApiUrl } from '@/lib/config';
+import { spacing, radii } from '@/constants/theme';
+import { useHaptics } from '@/hooks/useHaptics';
+import { useShare } from '@/hooks/useShare';
 
 const GOLD = '#FFA726';
 const GOLD_DEEP = '#F57C00';
-const LIVE_RED = '#ff4d4f';
+const HEART_RED = '#EF5350';
 
-const TABS = [
-  { key: 'following', label: 'Following' },
-  { key: 'rising', label: 'Rising' },
-  { key: 'live', label: 'Live' },
-];
-
-const ENDPOINTS: Record<string, { path: string; auth: boolean }> = {
-  following: { path: '/api/feed/home', auth: true },
-  rising: { path: '/api/feed/explore', auth: false },
-  live: { path: '/api/feed/flash', auth: false },
+type Post = {
+  id: string;
+  favoriteId: string;
+  body: string;
+  mediaUrls: string[];
+  reactionCount: number;
+  commentCount: number;
+  createdAt: string;
+  author: { handle: string; displayName: string; avatarUrl?: string | null };
 };
 
 function timeAgo(iso: string) {
   const t = new Date(iso).getTime();
-  if (!t) return "";
+  if (!t) return '';
   const s = Math.max(0, (Date.now() - t) / 1000);
-  if (s < 60) return "now";
-  if (s < 3600) return Math.floor(s / 60) + "m";
-  if (s < 86400) return Math.floor(s / 3600) + "h";
-  return Math.floor(s / 86400) + "d";
+  if (s < 60) return 'now';
+  if (s < 3600) return Math.floor(s / 60) + 'm';
+  if (s < 86400) return Math.floor(s / 3600) + 'h';
+  return Math.floor(s / 86400) + 'd';
 }
 
 export default function HomeTab() {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
-  const router = useRouter();
   const { impact } = useHaptics();
-  const { click } = useSounds();
+  const { shareMoment } = useShare();
+  const router = useRouter();
 
-  const [tab, setTab] = useState('rising');
-  const [dataByTab, setDataByTab] = useState<Record<string, any[]>>({});
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-  const [reacted, setReacted] = useState<Record<string, boolean>>({});
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [base, setBase] = useState('');
-  const [commentsFor, setCommentsFor] = useState<string | null>(null);
-  const [reportFor, setReportFor] = useState<any | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [reactedIds, setReactedIds] = useState<Record<string, boolean>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [commentsTarget, setCommentsTarget] = useState<Post | null>(null);
+  const [giftTarget, setGiftTarget] = useState<Post | null>(null);
+  const [sendingGift, setSendingGift] = useState(false);
+  const [reportTarget, setReportTarget] = useState<Post | null>(null);
+  const [commentCount, setCommentCount] = useState(0);
 
-  useEffect(() => {
-    getApiUrl().then((b) => setBase(b || '')).catch(() => undefined);
-  }, []);
-
-  const load = useCallback(async (which: string) => {
-    setLoading(true);
-    setFailed(false);
-    const ep = ENDPOINTS[which];
+  const load = useCallback(async () => {
+    setRefreshing(true);
     try {
-      const res = await api<{ moments: any[] }>(ep.path, {
-        skipAuth: !ep.auth || !getToken(),
-      });
-      const list = res.moments || [];
-      setDataByTab((prev) => ({ ...prev, [which]: list }));
-      const start: Record<string, number> = {};
-      for (const m of list) start[m.id] = m.commentCount || 0;
-      setCounts((prev) => ({ ...prev, ...start }));
+      const r = await api<{ posts: Post[] }>('/api/posts/feed');
+      setPosts(r.posts || []);
     } catch {
-      setDataByTab((prev) => ({ ...prev, [which]: [] }));
-      setFailed(true);
+      // offline or signed out
+      setPosts([]);
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    if (dataByTab[tab]) return;
-    load(tab);
-  }, [tab, dataByTab, load]);
+    load();
+  }, [load]);
 
-  async function react(m: any) {
-    if (reacted[m.id]) return;
+  async function toggleReact(post: Post) {
     if (!getToken()) {
-      router.push('/you');
+      router.push('/login');
       return;
     }
-    impact("medium");
-    setReacted((prev) => ({ ...prev, [m.id]: true }));
+    setBusyId(post.id);
+    impact('light');
     try {
-      await api('/api/moments/' + m.id + '/react', {
-        method: 'POST',
-        body: JSON.stringify({ type: 'like' }),
-      });
+      const r = await api<{ reacted: boolean; reactionCount: number }>('/api/posts/' + post.id + '/react', { method: 'POST' });
+      setReactedIds((prev) => ({ ...prev, [post.id]: r.reacted }));
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, reactionCount: r.reactionCount } : p)));
+      if (r.reacted) impact('success');
     } catch {
-      setReacted((prev) => ({ ...prev, [m.id]: false }));
+      // ignore
+    } finally {
+      setBusyId(null);
     }
   }
 
-  const moments = dataByTab[tab] || [];
-  const h = height;
-
-  function mediaSource(m: any): string | null {
-    const url: string | null = m.mediaUrl || (m.media && m.media[0] && m.media[0].url) || null;
-    if (!url) return null;
-    if (url.indexOf("http") === 0) return url;
-    return base ? base + url : null;
+  async function sendGift(giftId: string, message: string, anonymous: boolean) {
+    if (!giftTarget) return;
+    setSendingGift(true);
+    impact('medium');
+    try {
+      await api('/api/gifts/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          favoriteHandle: giftTarget.author.handle,
+          catalogItemId: giftId,
+          message,
+          isAnonymous: anonymous,
+        }),
+      });
+      impact('success');
+      setGiftTarget(null);
+    } catch {
+      // sheet shows its own state
+    } finally {
+      setSendingGift(false);
+    }
   }
 
-  const renderItem = ({ item }: { item: any }) => {
-    const author = item.favorite?.user || null;
-    const handle = author?.handle || "rally";
-    const displayName = author?.displayName || "@" + handle;
-    const url = mediaSource(item);
-    const isLive = tab === "live" || item.isFlash;
-    const hasReacted = !!reacted[item.id];
-    const commentCount = counts[item.id] ?? (item.commentCount || 0);
-    return (
-      <View style={[styles.card, { height: h }]}>
-        {url && item.mediaType === "image" ? (
-          <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        ) : (
-          <LinearGradient
-            colors={[GOLD_DEEP + "00", colors.bg, "#00000000"] as [string, string, string]}
-            style={StyleSheet.absoluteFill}
-          />
-        )}
-        <LinearGradient
-          colors={["#00000000", "#00000000", "rgba(0,0,0,0.82)"] as [string, string, string]}
-          style={styles.bottomShade}
-        />
-        <LinearGradient
-          colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.18)", "#00000000"] as [string, string, string]}
-          style={styles.topShade}
-        />
-
-        {/* Author + text overlay */}
-        <View style={[styles.info, { bottom: Math.max(insets.bottom, 96) }]}>
-          <Pressable
-            style={styles.authorRow}
-            onPress={() => {
-              click();
-              router.push('/favorite/' + handle);
-            }}
-          >
-            <Avatar name={handle} size={44} ring uri={author?.avatarUrl || undefined} />
-            <View style={{ marginLeft: 10, flex: 1 }}>
-              <View style={styles.nameRow}>
-                <Text numberOfLines={1} style={styles.name}>
-                  {displayName}
-                </Text>
-                {isLive ? (
-                  <View style={styles.liveBadge}>
-                    <Text style={styles.liveText}>LIVE</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.handleLine}>
-                {"@" + handle} {"\u00b7"} {timeAgo(String(item.createdAt || ""))}
-              </Text>
-            </View>
-          </Pressable>
-          <Text style={styles.title}>{item.title}</Text>
-          {item.description ? (
-            <Text numberOfLines={2} style={styles.desc}>
-              {item.description}
-            </Text>
-          ) : null}
-          {item.categoryTag ? (
-            <View style={styles.tagPill}>
-              <Text style={styles.tagText}>{item.categoryTag}</Text>
-            </View>
-          ) : null}
-        </View>
-
-        {/* Right action rail */}
-        <View style={[styles.rail, { bottom: Math.max(insets.bottom, 96) }]}>
-          <Pressable style={styles.railBtn} onPress={() => react(item)} accessibilityLabel="React">
-            <Ionicons name={hasReacted ? "heart" : "heart-outline"} size={30} color={hasReacted ? GOLD : "#fff"} />
-            <Text style={styles.railLabel}>{(item.reactionCount || 0) + (hasReacted ? 1 : 0)}</Text>
-          </Pressable>
-          <Pressable
-            style={styles.railBtn}
-            onPress={() => {
-              click();
-              setCommentsFor(item.id);
-            }}
-            accessibilityLabel="Comments"
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={28} color="#fff" />
-            <Text style={styles.railLabel}>{commentCount}</Text>
-          </Pressable>
-          <Pressable
-            style={styles.railBtn}
-            onPress={() => {
-              impact("light");
-              shareMoment(item.title, item.id);
-            }}
-            accessibilityLabel="Share"
-          >
-            <Ionicons name="share-social-outline" size={27} color="#fff" />
-            <Text style={styles.railLabel}>Share</Text>
-          </Pressable>
-          <Pressable
-            style={styles.railBtn}
-            onPress={() => {
-              click();
-              router.push('/favorite/' + handle);
-            }}
-            accessibilityLabel="Send a gift"
-          >
-            <View style={styles.giftBubble}>
-              <Ionicons name="gift" size={22} color="#111" />
-            </View>
-            <Text style={styles.railLabel}>Gift</Text>
-          </Pressable>
-          <Pressable
-            style={styles.railBtn}
-            onPress={() => setReportFor(item)}
-            accessibilityLabel="Report Moment"
-          >
-            <Ionicons name="flag-outline" size={24} color="#fff" />
-            <Text style={styles.railLabel}>Report</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  };
+  // Story rail: your create tile first, then Favorites you follow
+  const stories: Post['author'][] = [];
+  const seen = new Set<string>();
+  for (const p of posts) {
+    if (!seen.has(p.author.handle)) {
+      seen.add(p.author.handle);
+      stories.push(p.author);
+    }
+  }
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      {/* Tab bar */}
-      <View style={[styles.tabBar, { paddingTop: insets.top + 6 }]}>
-        <View style={styles.tabRow}>
-          {TABS.map((t) => {
-            const active = tab === t.key;
+    <Screen refreshing={refreshing} onRefresh={load}>
+      {/* Story rail */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0, marginBottom: spacing.md }}
+        contentContainerStyle={{ gap: 14, paddingRight: 16 }}
+      >
+        <Pressable style={styles.storyTile} onPress={() => router.push('/compose-moment')} accessibilityLabel={'Create'}>
+          <LinearGradient
+            colors={[GOLD, GOLD_DEEP] as [string, string]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.youRing}
+          >
+            <View style={styles.youInner}>
+              <Ionicons name={'add'} size={20} color={'#fff'} />
+            </View>
+          </LinearGradient>
+          <Text style={[styles.storyName, { color: colors.text }]}>You</Text>
+        </Pressable>
+        {stories.map((a) => (
+          <Pressable key={a.handle} style={styles.storyTile} onPress={() => router.push('/favorite/' + a.handle)} accessibilityLabel={a.displayName}>
+            <Avatar name={a.handle} size={56} ring uri={a.avatarUrl || undefined} />
+            <Text numberOfLines={1} style={[styles.storyName, { color: colors.text }]}>
+              {a.displayName}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {/* Posts feed */}
+      {refreshing && posts.length === 0 ? (
+        <ActivityIndicator color={GOLD} style={{ marginVertical: 32 }} />
+      ) : posts.length === 0 ? (
+        <EmptyState
+          icon={'newspaper-outline'}
+          title={'No posts yet'}
+          body={'Posts from Favorites you follow appear here. Follow a Favorite from Discover to fill your feed.'}
+        />
+      ) : (
+        <View style={{ gap: 16, marginBottom: spacing.lg }}>
+          {posts.map((post) => {
+            const reacted = !!reactedIds[post.id];
             return (
-              <Pressable
-                key={t.key}
-                onPress={() => {
-                  click();
-                  setTab(t.key);
-                }}
-                style={styles.tabBtn}
-                accessibilityLabel={t.label + " tab"}
-              >
-                <Text style={[styles.tabLabel, { color: active ? "#fff" : "rgba(255,255,255,0.55)" }]}>
-                  {t.label}
-                </Text>
-                {active ? (
-                  <View style={styles.tabUnderline} />
-                ) : null}
-              </Pressable>
+              <View key={post.id} style={[styles.postCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                {/* Header */}
+                <View style={styles.postHead}>
+                  <Pressable onPress={() => router.push('/favorite/' + post.author.handle)} accessibilityLabel={post.author.displayName}>
+                    <Avatar name={post.author.handle} size={42} ring uri={post.author.avatarUrl || undefined} />
+                  </Pressable>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text numberOfLines={1} style={[styles.postName, { color: colors.text }]}>
+                      {post.author.displayName}
+                    </Text>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginTop: 1 }}>
+                      {'@' + post.author.handle} {'\u00b7'} {timeAgo(post.createdAt)}
+                    </Text>
+                  </View>
+                  <Pressable onPress={() => setReportTarget(post)} hitSlop={10} accessibilityLabel={'Report post'}>
+                    <Ionicons name={'ellipsis-horizontal'} size={18} color={colors.muted} />
+                  </Pressable>
+                </View>
+
+                {/* Body */}
+                <Text style={[styles.postBody, { color: colors.text }]}>{post.body}</Text>
+
+                {/* Media */}
+                {post.mediaUrls.length > 0 && (
+                  <View style={[styles.mediaGrid, post.mediaUrls.length === 1 && { flexDirection: 'column' }]}>
+                    {post.mediaUrls.slice(0, 4).map((url) => (
+                      <Image key={url} source={{ uri: url }} style={post.mediaUrls.length === 1 ? styles.mediaOne : styles.mediaCell} resizeMode={'cover'} />
+                    ))}
+                  </View>
+                )}
+
+                {/* Actions */}
+                <View style={styles.actionRow}>
+                  <Pressable onPress={() => toggleReact(post)} disabled={busyId === post.id} style={styles.actionBtn} accessibilityLabel={'React'}>
+                    <Ionicons name={reacted ? 'heart' : 'heart-outline'} size={20} color={reacted ? HEART_RED : colors.muted} />
+                    {post.reactionCount > 0 && (
+                      <Text style={[styles.actionCount, { color: reacted ? HEART_RED : colors.muted }]}>{post.reactionCount}</Text>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setCommentCount(post.commentCount);
+                      setCommentsTarget(post);
+                    }}
+                    style={styles.actionBtn}
+                    accessibilityLabel={'Comments'}
+                  >
+                    <Ionicons name={'chatbubble-outline'} size={20} color={colors.muted} />
+                    {post.commentCount > 0 && (
+                      <Text style={[styles.actionCount, { color: colors.muted }]}>{post.commentCount}</Text>
+                    )}
+                  </Pressable>
+                  <Pressable onPress={() => setGiftTarget(post)} style={styles.actionBtn} accessibilityLabel={'Send a gift'}>
+                    <Ionicons name={'gift-outline'} size={20} color={GOLD} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => shareMoment(post.body.slice(0, 60), post.id)}
+                    style={styles.actionBtn}
+                    accessibilityLabel={'Share'}
+                  >
+                    <Ionicons name={'share-social-outline'} size={20} color={colors.muted} />
+                  </Pressable>
+                </View>
+              </View>
             );
           })}
-          <Pressable onPress={() => load(tab)} hitSlop={10} style={styles.refreshBtn} accessibilityLabel="Refresh feed">
-            <Ionicons name="refresh" size={18} color="rgba(255,255,255,0.55)" />
-          </Pressable>
         </View>
-      </View>
-
-      {loading ? (
-        <ActivityIndicator color={GOLD} style={{ flex: 1 }} />
-      ) : moments.length === 0 ? (
-        <View style={[styles.emptyWrap, { paddingTop: insets.top + 60 }]}>
-          {failed && tab === "following" ? (
-            <EmptyState
-              icon="lock-closed-outline"
-              title="Sign in to follow your Favorites"
-              body="Create an account or sign in, then follow Favorites to fill this feed."
-            />
-          ) : tab === "live" ? (
-            <EmptyState
-              icon="flash-outline"
-              title="No live Moments right now"
-              body="Flash Moments drop for 24 hours. Check back soon!"
-            />
-          ) : (
-            <EmptyState
-              icon="trending-up-outline"
-              title="Quiet for now"
-              body="No Moments here yet. Discover Favorites on the Explore tab."
-            />
-          )}
-        </View>
-      ) : (
-        <FlatList
-          data={moments}
-          keyExtractor={(m) => m.id}
-          renderItem={renderItem}
-          pagingEnabled
-          showsVerticalScrollIndicator={false}
-          snapToAlignment="start"
-          decelerationRate="fast"
-          getItemLayout={(_data, index) => ({ length: h, offset: h * index, index })}
-          windowSize={3}
-        />
       )}
 
       <CommentsSheet
-        visible={commentsFor !== null}
-        onClose={() => setCommentsFor(null)}
-        momentId={commentsFor || ""}
-        count={commentsFor ? counts[commentsFor] || 0 : 0}
-        onCountChange={(n) => {
-          if (commentsFor) setCounts((prev) => ({ ...prev, [commentsFor]: n }));
+        visible={commentsTarget !== null}
+        onClose={() => {
+          const n = commentCount;
+          const id = commentsTarget ? commentsTarget.id : '';
+          setCommentsTarget(null);
+          setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, commentCount: n } : p)));
         }}
+        postId={commentsTarget ? commentsTarget.id : undefined}
+        count={commentCount}
+        onCountChange={setCommentCount}
       />
+
+      <GiftTraySheet
+        visible={giftTarget !== null}
+        onClose={() => setGiftTarget(null)}
+        name={giftTarget ? giftTarget.author.displayName : ''}
+        onSend={sendGift}
+        sending={sendingGift}
+      />
+
       <ReportSheet
-        visible={reportFor !== null}
-        onClose={() => setReportFor(null)}
-        targetType="moment"
-        targetId={reportFor ? reportFor.id : ""}
-        subjectLabel={reportFor ? reportFor.title : ""}
+        visible={reportTarget !== null}
+        onClose={() => setReportTarget(null)}
+        targetType={'post'}
+        targetId={reportTarget ? reportTarget.id : ''}
+        subjectLabel={reportTarget ? 'Post by @' + reportTarget.author.handle : ''}
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  card: { flex: 1, overflow: "hidden" },
-  bottomShade: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: "55%",
-  },
-  topShade: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 160,
-  },
-  info: {
-    position: "absolute",
-    left: 16,
-    right: 88,
-  },
-  authorRow: { flexDirection: "row", alignItems: "center" },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  name: { color: "#fff", fontWeight: "900", fontSize: 16 },
-  liveBadge: {
-    backgroundColor: LIVE_RED,
-    borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 1,
-  },
-  liveText: { color: "#fff", fontSize: 10, fontWeight: "900" },
-  handleLine: { color: "rgba(255,255,255,0.72)", fontSize: 13, marginTop: 1 },
-  title: { color: "#fff", fontWeight: "900", fontSize: 19, lineHeight: 26, marginTop: 12 },
-  desc: { color: "rgba(255,255,255,0.85)", fontSize: 14, lineHeight: 20, marginTop: 6 },
-  tagPill: {
-    alignSelf: "flex-start",
-    borderWidth: 1,
-    borderColor: GOLD,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    marginTop: 10,
-  },
-  tagText: { color: GOLD, fontSize: 11, fontWeight: "800" },
-  rail: {
-    position: "absolute",
-    right: 10,
-    alignItems: "center",
-    gap: 18,
-  },
-  railBtn: { alignItems: "center", gap: 4 },
-  railLabel: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  giftBubble: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: GOLD,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tabBar: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
-  tabRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 22,
-  },
-  tabBtn: { alignItems: "center", paddingVertical: 4 },
-  tabLabel: { fontWeight: "900", fontSize: 15 },
-  tabUnderline: {
-    marginTop: 3,
-    width: 22,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: GOLD,
-  },
-  refreshBtn: { position: "absolute", right: 16 },
-  emptyWrap: { flex: 1, paddingHorizontal: 24, alignItems: "center" },
+  storyTile: { alignItems: 'center', width: 64 },
+  youRing: { width: 56, height: 56, borderRadius: 28, padding: 2 },
+  youInner: { flex: 1, borderRadius: 26, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center' },
+  storyName: { fontSize: 11, fontWeight: '700', marginTop: 4 },
+  postCard: { borderWidth: 1, borderRadius: radii.lg, padding: 14 },
+  postHead: { flexDirection: 'row', alignItems: 'center' },
+  postName: { fontWeight: '800', fontSize: 15 },
+  postBody: { fontSize: 15, lineHeight: 22, marginTop: 10 },
+  mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  mediaOne: { width: '100%', height: 220, borderRadius: radii.md },
+  mediaCell: { width: '48%', height: 110, borderRadius: radii.sm },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 22, marginTop: 12 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 32 },
+  actionCount: { fontSize: 13, fontWeight: '700' },
 });
