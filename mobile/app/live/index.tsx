@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Text, StyleSheet, View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '@/components/Screen';
@@ -52,6 +53,7 @@ function whenText(iso?: string | null): string {
 export default function LiveScreen() {
   const { colors } = useTheme();
   const { impact } = useHaptics();
+  const router = useRouter();
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
@@ -322,6 +324,14 @@ export default function LiveScreen() {
                   {/* Expanded: leaderboard + gifts */}
                   {isActive && (
                     <View style={styles.expanded}>
+                      <View style={{ marginBottom: 12 }}>
+                        <GradientButton
+                          label={'Open session'}
+                          icon={'chevron-forward'}
+                          size={'sm'}
+                          onPress={() => router.push(('/live/' + s.id) as any)}
+                        />
+                      </View>
                       {board.length > 0 ? (
                         <Text style={[styles.sectionLabel, { color: colors.muted }]}>LIVE LEADERBOARD</Text>
                       ) : (
