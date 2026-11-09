@@ -11,6 +11,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useSession } from '@/components/SessionProvider';
 import { radii } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { BreakPrompt } from '@/components/BreakPrompt';
 
 const GOLD = '#FFA726';
 const GOLD_DEEP = '#F57C00';
@@ -56,6 +57,7 @@ export default function TabsLayout() {
   const cycleTheme = () => setMode(isDark ? 'light' : 'dark');
 
   return (
+    <>
     <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
@@ -249,6 +251,8 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    <BreakPrompt />
+    </>
   );
 }
 

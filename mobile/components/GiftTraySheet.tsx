@@ -125,6 +125,8 @@ export function GiftTraySheet({
   const canAfford = balance === null || !selectedItem || totalCost <= balance;
   const weekPct = week && week.cap ? Math.min(100, Math.round((week.spent / week.cap) * 100)) : null;
   const weekOver = !!(week && week.cap != null && week.spent > week.cap);
+  const capReached = !!(week && week.cap != null && week.spent >= week.cap);
+  const buyMode = !capReached && balance !== null && !!selectedItem && totalCost > balance;
 
   return (
     <Modal
@@ -325,21 +327,41 @@ export function GiftTraySheet({
 
           {/* Send */}
           <Pressable
-            onPress={() => selected && onSend(selected, message, anonymous, qty)}
-            disabled={!selected || sending || !canAfford}
-            accessibilityLabel="Send gift"
+            onPress={() => {
+              if (buyMode) {
+                onClose();
+                router.push('/wallet');
+              } else if (selected) {
+                onSend(selected, message, anonymous, qty);
+              }
+            }}
+            disabled={!selected || sending || capReached || (!canAfford && !buyMode)}
+            accessibilityLabel={buyMode ? 'Buy Tokens' : 'Send gift'}
           >
             <LinearGradient
               colors={[GOLD, GOLD_DEEP] as [string, string]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={[styles.sendBtn, (!selected || sending || !canAfford) && { opacity: 0.4 }]}
+              style={[styles.sendBtn, (!selected || sending || (!canAfford && !buyMode) || capReached) && { opacity: 0.4 }]}
             >
               <Text style={styles.sendText}>
-                {sending ? 'Sending\u2026' : selectedItem ? 'Send \u00b7 T ' + totalCost + ' (' + naira(totalCost) + ')' : 'Pick a gift'}
+                {sending
+                  ? 'Sending\u2026'
+                  : capReached
+                  ? 'Weekly limit reached'
+                  : buyMode
+                  ? 'Buy Tokens'
+                  : selectedItem
+                  ? 'Send \u00b7 T ' + totalCost + ' (' + naira(totalCost) + ')'
+                  : 'Pick a gift'}
               </Text>
             </LinearGradient>
           </Pressable>
+          {capReached ? (
+            <Text style={{ color: colors.muted, fontSize: 11, textAlign: 'center', marginTop: 8 }}>
+              Your weekly limit resets at the start of next week.
+            </Text>
+          ) : null}
         </View>
       </Pressable>
     </Modal>
