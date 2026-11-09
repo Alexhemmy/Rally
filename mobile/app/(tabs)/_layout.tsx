@@ -3,12 +3,14 @@
  * Gold accent, centered create button, Discover hidden (opened from Home).
  */
 import { Redirect, Tabs, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, View, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/components/ThemeProvider';
 import { useSession } from '@/components/SessionProvider';
 import { radii } from '@/constants/theme';
+import { api } from '@/lib/api';
 
 const GOLD = '#FFA726';
 const GOLD_DEEP = '#F57C00';
@@ -32,6 +34,21 @@ export default function TabsLayout() {
   const { session, loading } = useSession();
   const { colors, isDark, setMode } = useTheme();
   const router = useRouter();
+  const [liveCount, setLiveCount] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    api<{ sessions: { status: string }[] }>('/api/live', { skipAuth: true })
+      .then((r) => {
+        if (alive) setLiveCount((r.sessions || []).filter((s) => s.status === 'live').length);
+      })
+      .catch(() => {
+        // offline
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   if (loading) return null;
   if (!session) return <Redirect href="/login" />;
@@ -88,6 +105,15 @@ export default function TabsLayout() {
           ),
           headerRight: () => (
             <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => router.push('/live')}
+                hitSlop={10}
+                accessibilityLabel="Live sessions"
+                style={styles.liveWrap}
+              >
+                <Ionicons name="radio-outline" size={22} color={colors.text} />
+                {liveCount > 0 && <View style={styles.liveDot} />}
+              </Pressable>
               <Pressable
                 onPress={() => router.push('/explore')}
                 hitSlop={10}
@@ -227,6 +253,18 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
+  liveWrap: {
+    position: 'relative',
+  },
+  liveDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF5350',
+  },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
