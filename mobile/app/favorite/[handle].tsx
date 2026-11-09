@@ -119,13 +119,13 @@ export default function FavoriteScreen() {
     }
   }
 
-  async function sendGiftFromSheet(giftId: string, msg: string, anon: boolean) {
+  async function sendGiftFromSheet(giftId: string, msg: string, anon: boolean, qty: number) {
     setSelected(giftId);
     setMessage(msg);
-    await sendGift({ anonymous: anon, giftId: giftId });
+    await sendGift({ anonymous: anon, giftId: giftId, quantity: qty });
   }
 
-  async function sendGift(options?: { anonymous?: boolean; giftId?: string }) {
+  async function sendGift(options?: { anonymous?: boolean; giftId?: string; quantity?: number }) {
     const gid = options?.giftId || selected;
     if (!gid) return;
     setSending(true);
@@ -140,6 +140,7 @@ export default function FavoriteScreen() {
           catalogItemId: gid,
           message: message || undefined,
           isAnonymous: options?.anonymous || false,
+          quantity: options?.quantity || 1,
         }),
       });
 
@@ -408,9 +409,9 @@ export default function FavoriteScreen() {
                 onClose={() => setSheetOpen(false)}
                 name={fav.displayName || fav.handle}
                 sending={sending}
-                onSend={(giftId, msg, anon) => {
+                onSend={(giftId, msg, anon, qty) => {
                   setSheetOpen(false);
-                  sendGiftFromSheet(giftId, msg, anon);
+                  sendGiftFromSheet(giftId, msg, anon, qty);
                 }}
               />
 
