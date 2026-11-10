@@ -44,6 +44,8 @@ function RootStack() {
         <Stack.Screen name="signup" options={{ title: 'Create your account' }} />
         <Stack.Screen name="verify-phone" options={{ title: 'Verify your phone' }} />
         <Stack.Screen name="onboarding-preferences" options={{ title: 'Language and interests' }} />
+        <Stack.Screen name="terms-consent" options={{ title: 'Before you start' }} />
+        <Stack.Screen name="account-created" options={{ headerShown: false }} />
 
         {/* Core */}
         <Stack.Screen name="favorite/[handle]" options={{ title: 'Favorite' }} />
