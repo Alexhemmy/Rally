@@ -53,6 +53,7 @@ function RootStack() {
         <Stack.Screen name="safe-mode-welcome" options={{ title: 'Safe mode', headerShown: false }} />
         <Stack.Screen name="all-set" options={{ headerShown: false }} />
         <Stack.Screen name="post/[id]" options={{ title: 'Post' }} />
+        <Stack.Screen name="feed-settings" options={{ title: 'Feed and playback' }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}

@@ -54,7 +54,7 @@ export function WhySheet({
   onToggleRivalry: () => void;
   onMuteAuthor: () => void;
   onMuteCategory: () => void;
-  onMuteWord: () => void;
+  onMuteWord: (word?: string) => void;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -152,7 +152,7 @@ export function WhySheet({
               onPress={() => {
                 impact('light');
                 if (wordMode && word.trim()) {
-                  onMuteWord();
+                  onMuteWord(word.trim());
                   setWord('');
                   setWordMode(false);
                 } else {

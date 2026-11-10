@@ -26,6 +26,7 @@ const LINKS = [
   { href: '/permissions', label: 'App permissions', icon: 'hardware-chip-outline' },
   { href: '/connection', label: 'Connection', icon: 'server-outline' },
   { href: '/notifications', label: 'Notifications', icon: 'notifications-outline' },
+  { href: '/feed-settings', label: 'Feed and playback', icon: 'speedometer-outline' },
 ];
 
 export default function SettingsScreen() {

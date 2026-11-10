@@ -21,6 +21,7 @@ import { CommentsSheet } from '@/components/CommentsSheet';
 import { GiftTraySheet } from '@/components/GiftTraySheet';
 import { ReportSheet } from '@/components/ReportSheet';
 import { requestBreakPrompt } from '@/components/BreakPrompt';
+import { loadFeedPrefs, saveFeedPrefs, addMutedWord, addMutedAccount } from '@/lib/feedPrefs';
 import { useTheme } from '@/components/ThemeProvider';
 import { api, getToken } from '@/lib/api';
 import { spacing, radii } from '@/constants/theme';
@@ -101,6 +102,12 @@ export default function HomeTab() {
   const [undoId, setUndoId] = useState<string | null>(null);
   const [newestFirst, setNewestFirst] = useState(true);
   const [hideRivalry, setHideRivalry] = useState(false);
+
+  useEffect(() => {
+    loadFeedPrefs()
+      .then((p) => setNewestFirst(p.timeOrder))
+      .catch(() => {});
+  }, []);
   const [hiddenIds, setHiddenIds] = useState<Record<string, boolean>>({});
   const [hiddenAuthors, setHiddenAuthors] = useState<Record<string, boolean>>({});
   const [commentCount, setCommentCount] = useState(0);
@@ -626,16 +633,27 @@ export default function HomeTab() {
         authorName={whyTarget ? whyTarget.author.displayName : ''}
         categoryLabel={'Gospel'}
         newestFirst={newestFirst}
-        onToggleNewest={() => setNewestFirst((v) => !v)}
+        onToggleNewest={() => {
+          setNewestFirst((v) => {
+            saveFeedPrefs({ timeOrder: !v });
+            return !v;
+          });
+        }}
         hideRivalry={hideRivalry}
         onToggleRivalry={() => setHideRivalry((v) => !v)}
         onMuteAuthor={() => {
           const h = whyTarget ? whyTarget.author.handle : '';
           setWhyTarget(null);
-          if (h) setHiddenAuthors((prev) => ({ ...prev, [h]: true }));
+          if (h) {
+            setHiddenAuthors((prev) => ({ ...prev, [h]: true }));
+            addMutedAccount(h);
+          }
         }}
         onMuteCategory={() => setWhyTarget(null)}
-        onMuteWord={() => setWhyTarget(null)}
+        onMuteWord={(w?: string) => {
+          setWhyTarget(null);
+          if (w) addMutedWord(w);
+        }}
       />
 
       <CommentsSheet
