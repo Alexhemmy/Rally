@@ -75,6 +75,13 @@ function RootStack() {
         <Stack.Screen name="memberships" options={{ title: 'Memberships & orders' }} />
         <Stack.Screen name="payment-result" options={{ title: 'Payment', presentation: 'modal' }} />
 
+        {/* Fan to Favorite + recognition + rivalry */}
+        <Stack.Screen name="apply-favorite" options={{ title: 'Become a Favorite' }} />
+        <Stack.Screen name="favorite-progress" options={{ title: 'Favorite Progress' }} />
+        <Stack.Screen name="badges" options={{ title: 'Badges' }} />
+        <Stack.Screen name="call-out" options={{ title: 'Call-Out Card' }} />
+        <Stack.Screen name="beef-radar" options={{ title: 'Beef Radar' }} />
+
         {/* Creator tools */}
         <Stack.Screen name="dashboard/index" options={{ title: 'Dashboard' }} />
         <Stack.Screen name="dashboard/earnings/index" options={{ title: 'Earnings' }} />

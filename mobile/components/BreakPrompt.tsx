@@ -1,10 +1,9 @@
 /** BreakPrompt - Rally design (screen 53)
- * A centered card after a long session. Take a break returns to Home,
- * Keep watching dismisses it and restarts the timer. The reminder can
- * be switched off for this app session (calm by default).
+ * A centered card after 45 minutes. Take a break closes the app view,
+ * Keep watching dismisses it, and a toggle controls the 45-minute reminder.
  */
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/components/ThemeProvider';
@@ -15,17 +14,17 @@ const GOLD = '#FFA726';
 const INTERVAL_MINUTES = 45;
 
 export function BreakPrompt() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const { impact } = useHaptics();
   const [visible, setVisible] = useState(false);
-  const [off, setOff] = useState(false);
+  const [remindersOn, setRemindersOn] = useState(true);
 
   useEffect(() => {
-    if (off) return;
+    if (!remindersOn || visible) return;
     const timer = setTimeout(() => setVisible(true), INTERVAL_MINUTES * 60 * 1000);
     return () => clearTimeout(timer);
-  }, [off, visible]);
+  }, [remindersOn, visible]);
 
   function keepWatching() {
     impact('light');
@@ -40,26 +39,39 @@ export function BreakPrompt() {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={keepWatching}>
-      <Pressable style={styles.overlay} onPress={keepWatching}>
+      <View style={styles.overlay}>
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <View style={styles.iconWrap}>
-            <Ionicons name={'moon'} size={30} color={GOLD} />
+            <Ionicons name="moon" size={30} color={GOLD} />
           </View>
-          <Text style={[styles.title, { color: colors.text }]}>Time for a break?</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Time for a breather?</Text>
           <Text style={[styles.body, { color: colors.muted }]}>
-            You have been here a while. Rally will be right here when you get back.
+            {'You have been on Rally for ' + INTERVAL_MINUTES + ' minutes. Everything will be right here when you get back.'}
           </Text>
-          <Pressable style={styles.primaryBtn} onPress={takeBreak} accessibilityLabel={'Take a break'}>
+          <Pressable style={styles.primaryBtn} onPress={takeBreak} accessibilityLabel="Take a break">
             <Text style={styles.primaryText}>Take a break</Text>
           </Pressable>
-          <Pressable style={styles.secondaryBtn} onPress={keepWatching} accessibilityLabel={'Keep watching'}>
+          <Pressable
+            style={[styles.secondaryBtn, { backgroundColor: isDark ? '#1C1C28' : '#EDEDF2' }]}
+            onPress={keepWatching}
+            accessibilityLabel="Keep watching"
+          >
             <Text style={[styles.secondaryText, { color: colors.text }]}>Keep watching</Text>
           </Pressable>
-          <Pressable onPress={() => { setOff(true); setVisible(false); }} hitSlop={8} accessibilityLabel={'Turn off break reminders'}>
-            <Text style={[styles.offText, { color: colors.muted }]}>Do not remind me again</Text>
-          </Pressable>
+          <View style={styles.toggleRow}>
+            <Text style={[styles.toggleLabel, { color: colors.muted }]}>
+              {'Remind me every ' + INTERVAL_MINUTES + ' minutes'}
+            </Text>
+            <Switch
+              value={remindersOn}
+              onValueChange={(v) => { impact('light'); setRemindersOn(v); }}
+              trackColor={{ false: '#3A3A4A', true: '#34D399' }}
+              thumbColor="#fff"
+              accessibilityLabel="Break reminders"
+            />
+          </View>
         </View>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
@@ -74,5 +86,6 @@ const styles = StyleSheet.create({
   primaryText: { color: '#111', fontWeight: '900', fontSize: 15 },
   secondaryBtn: { borderRadius: radii.full, paddingVertical: 13, width: '100%', alignItems: 'center', marginTop: 8 },
   secondaryText: { fontWeight: '800', fontSize: 15 },
-  offText: { fontSize: 12, marginTop: 14 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 18 },
+  toggleLabel: { fontSize: 13, flex: 1, marginRight: 10 },
 });
