@@ -37,6 +37,14 @@ function RootStack() {
         {/* Tabs */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
+        {/* Onboarding entry */}
+        <Stack.Screen name="welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="intro" options={{ headerShown: false }} />
+        <Stack.Screen name="how-use-rally" options={{ title: 'How will you use Rally?' }} />
+        <Stack.Screen name="signup" options={{ title: 'Create your account' }} />
+        <Stack.Screen name="verify-phone" options={{ title: 'Verify your phone' }} />
+        <Stack.Screen name="onboarding-preferences" options={{ title: 'Language and interests' }} />
+
         {/* Core */}
         <Stack.Screen name="favorite/[handle]" options={{ title: 'Favorite' }} />
         <Stack.Screen name="u/[handle]" options={{ title: 'Profile' }} />
