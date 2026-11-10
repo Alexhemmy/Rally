@@ -14,6 +14,9 @@ import { Avatar } from '@/components/ui';
 import { FeedSkeleton } from '@/components/FeedSkeleton';
 import { PostOptionsSheet } from '@/components/PostOptionsSheet';
 import { SaveToCollectionSheet } from '@/components/SaveToCollectionSheet';
+import { ShareSheet } from '@/components/ShareSheet';
+import { NotInterestedSheet } from '@/components/NotInterestedSheet';
+import { WhySheet } from '@/components/WhySheet';
 import { CommentsSheet } from '@/components/CommentsSheet';
 import { GiftTraySheet } from '@/components/GiftTraySheet';
 import { ReportSheet } from '@/components/ReportSheet';
@@ -88,6 +91,14 @@ export default function HomeTab() {
   const [reportTarget, setReportTarget] = useState<Post | null>(null);
   const [optionsTarget, setOptionsTarget] = useState<Post | null>(null);
   const [saveTarget, setSaveTarget] = useState<Post | null>(null);
+  const [shareTarget, setShareTarget] = useState<Post | null>(null);
+  const [notInterestedTarget, setNotInterestedTarget] = useState<Post | null>(null);
+  const [whyTarget, setWhyTarget] = useState<Post | null>(null);
+  const [translatedIds, setTranslatedIds] = useState<Record<string, boolean>>({});
+  const [showTranslateBanner, setShowTranslateBanner] = useState(true);
+  const [undoId, setUndoId] = useState<string | null>(null);
+  const [newestFirst, setNewestFirst] = useState(true);
+  const [hideRivalry, setHideRivalry] = useState(false);
   const [hiddenIds, setHiddenIds] = useState<Record<string, boolean>>({});
   const [hiddenAuthors, setHiddenAuthors] = useState<Record<string, boolean>>({});
   const [commentCount, setCommentCount] = useState(0);
@@ -147,6 +158,26 @@ export default function HomeTab() {
     }
   }
 
+  function toggleTranslated(id: string) {
+    setTranslatedIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  function hidePost(id: string, muteHandle?: string) {
+    setHiddenIds((prev) => ({ ...prev, [id]: true }));
+    if (muteHandle) setHiddenAuthors((prev) => ({ ...prev, [muteHandle]: true }));
+    setUndoId(id);
+  }
+
+  function undoHide() {
+    if (!undoId) return;
+    setHiddenIds((prev) => {
+      const next = { ...prev };
+      delete next[undoId];
+      return next;
+    });
+    setUndoId(null);
+  }
+
   async function sendGift(giftId: string, message: string, anonymous: boolean, quantity: number) {
     if (!giftTarget) return;
     setSendingGift(true);
@@ -186,7 +217,9 @@ export default function HomeTab() {
     .sort((a, b) =>
       scope === 'rising'
         ? b.reactionCount + b.commentCount - (a.reactionCount + a.commentCount)
-        : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        : newestFirst
+          ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
 
   const isPostsScope = scope !== 'live';
@@ -229,6 +262,27 @@ export default function HomeTab() {
           <Text style={[styles.offlineText, { color: colors.text }]}>You are offline. Showing saved posts.</Text>
           <Pressable onPress={load} hitSlop={8} accessibilityLabel="Retry">
             <Text style={[styles.retryText, { color: GOLD }]}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {showTranslateBanner && isPostsScope ? (
+        <View style={[styles.translateBanner, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+          <Ionicons name="globe" size={16} color={colors.success} />
+          <Text style={[styles.offlineText, { color: colors.textSecondary, fontWeight: '600' }]}>
+            {'Translate posts automatically from Yor\u00f9b\u00e1, Hausa and Igbo into English.'}
+          </Text>
+          <Pressable onPress={() => router.push('/settings')} hitSlop={8} accessibilityLabel="Change in Settings">
+            <Text style={[styles.retryText, { color: GOLD }]}>Change in Settings</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {undoId ? (
+        <View style={styles.undoToast}>
+          <Text style={styles.undoText}>Post hidden</Text>
+          <Pressable onPress={undoHide} hitSlop={8} accessibilityLabel="Undo">
+            <Text style={styles.undoBtn}>Undo</Text>
           </Pressable>
         </View>
       ) : null}
@@ -393,7 +447,16 @@ export default function HomeTab() {
                 </View>
 
                 {/* Body */}
-                <Text style={[styles.postBody, { color: colors.text }]}>{post.body}</Text>
+                <Pressable onPress={() => router.push('/post/' + post.id)}>
+                  <Text style={[styles.postBody, { color: colors.text }]}>{post.body}</Text>
+                </Pressable>
+                {translatedIds[post.id] ? (
+                  <Pressable style={styles.translatedRow} onPress={() => toggleTranslated(post.id)} accessibilityLabel="Show original">
+                    <Ionicons name="globe" size={14} color={colors.success} />
+                    <Text style={[styles.translatedText, { color: colors.success }]}>Translated from Yor\u00f9b\u00e1</Text>
+                    <Text style={[styles.translatedText, { color: colors.muted }]}>Show original</Text>
+                  </Pressable>
+                ) : null}
 
                 {/* Media */}
                 {post.mediaUrls.length > 0 && (
@@ -464,10 +527,28 @@ export default function HomeTab() {
           setOptionsTarget(null);
           setSaveTarget(p);
         }}
-        onNotInterested={() => {
+        onShare={() => {
+          const p = optionsTarget;
+          setOptionsTarget(null);
+          setShareTarget(p);
+        }}
+        onTranslated={() => {
           const id = optionsTarget ? optionsTarget.id : '';
           setOptionsTarget(null);
-          setHiddenIds((prev) => ({ ...prev, [id]: true }));
+          if (id) {
+            setTranslatedIds((prev) => ({ ...prev, [id]: true }));
+            setShowTranslateBanner(true);
+          }
+        }}
+        onWhyExplain={() => {
+          const p = optionsTarget;
+          setOptionsTarget(null);
+          setWhyTarget(p);
+        }}
+        onNotInterested={() => {
+          const p = optionsTarget;
+          setOptionsTarget(null);
+          setNotInterestedTarget(p);
         }}
         onMute={() => {
           const h = optionsTarget ? optionsTarget.author.handle : '';
@@ -489,6 +570,43 @@ export default function HomeTab() {
         postKey={saveTarget ? 'post:' + saveTarget.id : undefined}
       />
 
+      <ShareSheet
+        visible={shareTarget !== null}
+        onClose={() => setShareTarget(null)}
+        linkId={shareTarget ? shareTarget.id : ''}
+        kind="post"
+        recipients={stories.map((a) => ({ handle: a.handle, displayName: a.displayName, avatarUrl: a.avatarUrl }))}
+      />
+
+      <NotInterestedSheet
+        visible={notInterestedTarget !== null}
+        onClose={() => setNotInterestedTarget(null)}
+        authorName={notInterestedTarget ? notInterestedTarget.author.displayName : ''}
+        onDone={(reason, mute30) => {
+          const p = notInterestedTarget;
+          setNotInterestedTarget(null);
+          if (p) hidePost(p.id, mute30 ? p.author.handle : undefined);
+        }}
+      />
+
+      <WhySheet
+        visible={whyTarget !== null}
+        onClose={() => setWhyTarget(null)}
+        authorName={whyTarget ? whyTarget.author.displayName : ''}
+        categoryLabel={'Gospel'}
+        newestFirst={newestFirst}
+        onToggleNewest={() => setNewestFirst((v) => !v)}
+        hideRivalry={hideRivalry}
+        onToggleRivalry={() => setHideRivalry((v) => !v)}
+        onMuteAuthor={() => {
+          const h = whyTarget ? whyTarget.author.handle : '';
+          setWhyTarget(null);
+          if (h) setHiddenAuthors((prev) => ({ ...prev, [h]: true }));
+        }}
+        onMuteCategory={() => setWhyTarget(null)}
+        onMuteWord={() => setWhyTarget(null)}
+      />
+
       <CommentsSheet
         visible={commentsTarget !== null}
         onClose={() => {
@@ -500,6 +618,8 @@ export default function HomeTab() {
         postId={commentsTarget ? commentsTarget.id : undefined}
         count={commentCount}
         onCountChange={setCommentCount}
+        composerName={commentsTarget ? commentsTarget.author.displayName : undefined}
+        favoriteHandle={commentsTarget ? commentsTarget.author.handle : undefined}
       />
 
       <GiftTraySheet
@@ -595,4 +715,28 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   liveBadgeText: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  translatedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  translatedText: { fontSize: 13, fontWeight: '700' },
+  translateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: spacing.md,
+  },
+  undoToast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F5F5F0',
+    borderRadius: radii.full,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: spacing.md,
+  },
+  undoText: { color: '#111', fontSize: 14, fontWeight: '800' },
+  undoBtn: { color: '#E4572E', fontSize: 14, fontWeight: '800' },
 });

@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 
 const GOLD = '#FFA726';
 const GOLD_DEEP = '#F57C00';
+const TEAL = '#34D399';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -33,12 +34,16 @@ export function ReportSheet({
   targetType,
   targetId,
   subjectLabel,
+  onBlock,
+  onMute,
 }: {
   visible: boolean;
   onClose: () => void;
   targetType: 'user' | 'moment' | 'gift' | 'comment' | 'message';
   targetId: string;
   subjectLabel: string;
+  onBlock?: () => void;
+  onMute?: () => void;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -161,6 +166,23 @@ export function ReportSheet({
 
               {error ? <Text style={[styles.error, { color: "#ef5350" }]}>{error}</Text> : null}
 
+              {onBlock || onMute ? (
+                <View style={styles.actionsRow}>
+                  {onBlock ? (
+                    <Pressable style={[styles.secondaryBtn, { backgroundColor: colors.surfaceElevated }]} onPress={() => { onBlock(); onClose(); }} accessibilityLabel="Block">
+                      <Ionicons name="ban-outline" size={17} color={colors.text} />
+                      <Text style={[styles.secondaryText, { color: colors.text }]}>Block</Text>
+                    </Pressable>
+                  ) : null}
+                  {onMute ? (
+                    <Pressable style={[styles.secondaryBtn, { backgroundColor: colors.surfaceElevated }]} onPress={() => { onMute(); onClose(); }} accessibilityLabel="Mute">
+                      <Ionicons name="eye-outline" size={17} color={colors.text} />
+                      <Text style={[styles.secondaryText, { color: colors.text }]}>Mute</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+
               <Pressable onPress={submit} disabled={!reason || sending} accessibilityLabel="Send report">
                 <LinearGradient
                   colors={[GOLD, GOLD_DEEP] as [string, string]}
@@ -224,6 +246,17 @@ const styles = StyleSheet.create({
   },
   detailsInput: { fontSize: 14, minHeight: 44, padding: 0 },
   error: { marginTop: 8, fontSize: 13, fontWeight: "600" },
+  actionsRow: { flexDirection: "row", gap: 10, marginTop: 14 },
+  secondaryBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    borderRadius: radii.md,
+    paddingVertical: 13,
+  },
+  secondaryText: { fontSize: 15, fontWeight: "800" },
   submitBtn: {
     borderRadius: radii.full,
     alignItems: "center",

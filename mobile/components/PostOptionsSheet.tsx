@@ -25,6 +25,9 @@ export function PostOptionsSheet({
   onMute,
   onReport,
   onSaveToCollection,
+  onShare,
+  onTranslated,
+  onWhyExplain,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -36,6 +39,9 @@ export function PostOptionsSheet({
   onMute: () => void;
   onReport: () => void;
   onSaveToCollection: () => void;
+  onShare: () => void;
+  onTranslated: () => void;
+  onWhyExplain?: () => void;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -70,10 +76,11 @@ export function PostOptionsSheet({
       icon: 'language-outline',
       label: 'Translate',
       sub: 'Yor\u00f9b\u00e1 to English',
-      onPress: () => { impact('light'); setTranslated((t) => !t); },
+      onPress: () => { impact('light'); onTranslated(); },
     },
     { icon: 'link-outline', label: 'Copy link', onPress: copyLink },
-    { icon: 'sparkles-outline', label: 'Why am I seeing this', onPress: () => { impact('light'); setWhy((w) => !w); } },
+    { icon: 'share-social-outline', label: 'Share to...', onPress: () => { impact('light'); onShare(); } },
+    { icon: 'sparkles-outline', label: 'Why am I seeing this', onPress: () => { impact('light'); if (onWhyExplain) { onWhyExplain(); } else { setWhy((w) => !w); } } },
     { icon: 'eye-outline', label: 'Not interested', onPress: () => { impact('light'); onNotInterested(); } },
     { icon: 'ban-outline', label: 'Mute ' + authorName, onPress: () => { impact('light'); onMute(); } },
     { icon: 'flag-outline', label: 'Report', danger: true, onPress: () => { impact('light'); onReport(); } },
