@@ -29,7 +29,7 @@ function MomentsPage() {
           </LinearGradient>
           <View style={pageStyles.videoLabel}>
             <Ionicons name={'mic'} size={13} color={'#111'} />
-            <Text style={pageStyles.videoText}>Mia Adebayo {•} Worship set</Text>
+            <Text style={pageStyles.videoText}>Mia Adebayo {'\u2022'} Worship set</Text>
           </View>
         </View>
         <View style={pageStyles.sideIcons}>
@@ -63,7 +63,7 @@ function GiftsPage() {
             ))}
           </View>
           <Ionicons name={'gift'} size={64} color={'#fff'} />
-          <Text style={pageStyles.giftSent}>+ {₦}500 sent</Text>
+          <Text style={pageStyles.giftSent}>+ {'\u20a6'}500 sent</Text>
         </LinearGradient>
       </View>
       <Text style={pageStyles.h1Bottom}>Say it with a Gift</Text>
@@ -78,7 +78,7 @@ function CommunityPage() {
       <View style={pageStyles.chatCard}>
         <LinearGradient colors={['#5C6BC0', PURPLE] as [string, string]} style={pageStyles.chatGradient}>
           <View style={pageStyles.bubble}>
-            <Text style={pageStyles.bubbleName}>Ada {•} Fan Club</Text>
+            <Text style={pageStyles.bubbleName}>Ada {'\u2022'} Fan Club</Text>
             <Text style={pageStyles.bubbleText}>That bridge gave me chills.</Text>
           </View>
           <View style={[pageStyles.bubble, pageStyles.bubbleLeft]}>
