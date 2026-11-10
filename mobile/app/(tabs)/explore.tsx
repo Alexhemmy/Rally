@@ -694,7 +694,7 @@ const styles = StyleSheet.create({
   resultTiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   resultTile: { width: '31%', aspectRatio: 0.82, borderRadius: radii.md },
   tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: spacing.md },
-  tagChip: { borderRadius: radii.full, paddingHorizontal: 18, paddingVertical: 12 }
+  tagChip: { borderRadius: radii.full, paddingHorizontal: 18, paddingVertical: 12 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
