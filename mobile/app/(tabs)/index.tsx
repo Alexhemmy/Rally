@@ -20,6 +20,7 @@ import { WhySheet } from '@/components/WhySheet';
 import { CommentsSheet } from '@/components/CommentsSheet';
 import { GiftTraySheet } from '@/components/GiftTraySheet';
 import { ReportSheet } from '@/components/ReportSheet';
+import { requestBreakPrompt } from '@/components/BreakPrompt';
 import { useTheme } from '@/components/ThemeProvider';
 import { api, getToken } from '@/lib/api';
 import { spacing, radii } from '@/constants/theme';
@@ -29,6 +30,7 @@ import { useShare } from '@/hooks/useShare';
 const GOLD = '#FFA726';
 const GOLD_DEEP = '#F57C00';
 const HEART_RED = '#EF5350';
+const TEAL = '#34D399';
 
 type Scope = 'for-you' | 'following' | 'rising' | 'live';
 
@@ -515,6 +517,35 @@ export default function HomeTab() {
         </View>
       )}
 
+      {/* All caught up - mock 23 */}
+      {isPostsScope && !loading && !offline && visiblePosts.length > 0 ? (
+        <View style={[styles.caughtUp, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.caughtUpCheck}>
+            <Ionicons name="checkmark" size={26} color="#04120C" />
+          </View>
+          <Text style={[styles.caughtUpTitle, { color: colors.text }]}>You are all caught up</Text>
+          <Text style={[styles.caughtUpBody, { color: colors.muted }]}>
+            You have seen everything from the last 3 days. Rally does not loop old posts to keep you scrolling.
+          </Text>
+          <View style={styles.caughtUpBtns}>
+            <Pressable
+              style={[styles.caughtUpBtn, { backgroundColor: colors.surfaceElevated }]}
+              onPress={() => setScope('rising')}
+              accessibilityLabel="Explore Rising"
+            >
+              <Text style={[styles.caughtUpBtnText, { color: colors.text }]}>Explore Rising</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.caughtUpBtn, { backgroundColor: colors.surfaceElevated }]}
+              onPress={requestBreakPrompt}
+              accessibilityLabel="Take a break"
+            >
+              <Text style={[styles.caughtUpBtnText, { color: colors.text }]}>Take a break</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
       <PostOptionsSheet
         visible={optionsTarget !== null}
         onClose={() => setOptionsTarget(null)}
@@ -739,4 +770,25 @@ const styles = StyleSheet.create({
   },
   undoText: { color: '#111', fontSize: 14, fontWeight: '800' },
   undoBtn: { color: '#E4572E', fontSize: 14, fontWeight: '800' },
+  caughtUp: {
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    alignItems: 'center',
+    padding: 22,
+    marginBottom: spacing.lg,
+  },
+  caughtUpCheck: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: TEAL,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  caughtUpTitle: { fontSize: 20, fontWeight: '900', textAlign: 'center' },
+  caughtUpBody: { fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 8 },
+  caughtUpBtns: { flexDirection: 'row', gap: 12, marginTop: 18 },
+  caughtUpBtn: { borderRadius: radii.full, paddingHorizontal: 20, paddingVertical: 13 },
+  caughtUpBtnText: { fontWeight: '800', fontSize: 14 },
 });

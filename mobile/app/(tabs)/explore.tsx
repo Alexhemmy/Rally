@@ -25,6 +25,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { api, getToken } from '@/lib/api';
 
 const GOLD = '#FFA726';
+const TEAL = '#34D399';
 const GRADIENTS: [string, string][] = [
   ['#FF5E00', '#FF0066'],
   ['#0066FF', '#00CCFF'],
@@ -61,6 +62,9 @@ export default function DiscoverTab() {
   const [category, setCategory] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [fieldChip, setFieldChip] = useState('For you');
+  const [showAllTrending, setShowAllTrending] = useState(false);
+  const [searchScope, setSearchScope] = useState('Top');
 
   const searchUsers = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -150,6 +154,26 @@ export default function DiscoverTab() {
     }
   }
 
+  const q = query.trim().toLowerCase();
+  const matchedMoments = q
+    ? moments.filter((m) =>
+        ((m.title || '') + ' ' + (m.description || '') + ' ' + (m.categoryTag || '')).toLowerCase().indexOf(q) >= 0
+      )
+    : [];
+  const tagSet = new Set<string>();
+  moments.forEach((m) => {
+    if (m.categoryTag) tagSet.add('#' + String(m.categoryTag).toLowerCase().replace(/\s+/g, ''));
+  });
+  const qWords = q.split(/\s+/).filter(Boolean);
+  const matchedTags = q
+    ? Array.from(tagSet).filter((t) => qWords.some((w) => t.indexOf(w) >= 0)).slice(0, 8)
+    : [];
+  const chipFiltered = fieldChip === 'For you'
+    ? trending
+    : trending.filter((f: any) =>
+        ((f.category || '') + ' ' + (f.industry || '')).toLowerCase().indexOf(fieldChip.toLowerCase()) >= 0
+      );
+
   const topCategories = categories.slice(0, 8);
 
   return (
@@ -196,7 +220,150 @@ export default function DiscoverTab() {
         </Pressable>
       </View>
 
-      {mode === 'people' ? (
+      {/* Field chips - mock 21 */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0, marginBottom: spacing.md }}
+        contentContainerStyle={{ gap: 8, paddingRight: 16 }}
+      >
+        {['For you', 'Music', 'Comedy', 'Film', 'Sports'].map((c) => {
+          const active = fieldChip === c;
+          return (
+            <Pressable
+              key={c}
+              onPress={() => {
+                click();
+                setFieldChip(c);
+              }}
+              style={[styles.modePill, { borderColor: colors.border }, active && { backgroundColor: '#F5F5F0', borderColor: '#F5F5F0' }]}
+              accessibilityLabel={c}
+            >
+              <Text style={{ color: active ? '#111' : colors.text, fontWeight: '800', fontSize: 13 }}>{c}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {query.trim() ? (
+        <>
+          {/* Results scope chips - mock 20 */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0, marginBottom: spacing.md }}
+            contentContainerStyle={{ gap: 8, paddingRight: 16 }}
+          >
+            {['Top', 'Favorites', 'Moments', 'Tags', 'Rooms'].map((s) => {
+              const active = searchScope === s;
+              return (
+                <Pressable
+                  key={s}
+                  onPress={() => {
+                    click();
+                    setSearchScope(s);
+                  }}
+                  style={[styles.modePill, { borderColor: colors.border }, active && { backgroundColor: '#F5F5F0', borderColor: '#F5F5F0' }]}
+                  accessibilityLabel={s + ' results'}
+                >
+                  <Text style={{ color: active ? '#111' : colors.text, fontWeight: '800', fontSize: 13 }}>{s}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {searching ? <ActivityIndicator color={GOLD} style={{ marginTop: 12 }} /> : null}
+
+          {(searchScope === 'Top' || searchScope === 'Favorites') && users.length > 0 ? (
+            <View>
+              <Text style={[styles.sectionLabel, { color: colors.muted }]}>FAVORITES</Text>
+              <View style={{ gap: 10, marginBottom: spacing.md }}>
+                {users.map((u) => (
+                  <GlassCard key={u.id}>
+                    <View style={styles.userRow}>
+                      <Avatar name={u.handle} size={44} ring uri={u.avatarUrl || undefined} />
+                      <View style={{ marginLeft: 12, flex: 1 }}>
+                        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 15 }}>
+                          {u.displayName}
+                        </Text>
+                        <Text style={{ color: colors.muted, fontSize: 13 }} numberOfLines={1}>
+                          @{u.handle}
+                          {u.favoriteProfile ? ' \u00b7 ' + ((u.favoriteProfile.supporterCount || 0) >= 1000 ? Math.round((u.favoriteProfile.supporterCount || 0) / 100) / 10 + 'K supporters' : (u.favoriteProfile.supporterCount || 0) + ' supporters') : ''}
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => toggleFollow(u)}
+                        disabled={followBusy === u.id}
+                        style={[
+                          styles.followBtn,
+                          { borderColor: GOLD },
+                          u.isFollowing && { backgroundColor: GOLD },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: u.isFollowing ? '#111' : GOLD,
+                            fontWeight: '800',
+                            fontSize: 12,
+                          }}
+                        >
+                          {followBusy === u.id ? '\u2026' : u.isFollowing ? 'Following' : 'Follow'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </GlassCard>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {searchScope === 'Rooms' ? (
+              <EmptyState icon="radio-outline" title="No rooms yet" body="Live rooms matching this search will appear here." />
+          ) : null}
+
+          {(searchScope === 'Top' || searchScope === 'Moments') && matchedMoments.length > 0 ? (
+            <View>
+              <Text style={[styles.sectionLabel, { color: colors.muted }]}>MOMENTS</Text>
+              <View style={styles.resultTiles}>
+                {matchedMoments.slice(0, 6).map((m: any, i: number) => (
+                  <Pressable
+                    key={m.id}
+                    onPress={() => {
+                      click();
+                      router.push('/moments/' + m.id);
+                    }}
+                    accessibilityLabel={m.title}
+                  >
+                    <LinearGradient
+                      colors={GRADIENTS[i % GRADIENTS.length] as [string, string]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.resultTile}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {(searchScope === 'Top' || searchScope === 'Tags') && matchedTags.length > 0 ? (
+            <View>
+              <Text style={[styles.sectionLabel, { color: colors.muted }]}>TAGS</Text>
+              <View style={styles.tagWrap}>
+                {matchedTags.map((t) => (
+                  <View key={t} style={[styles.tagChip, { backgroundColor: colors.surfaceElevated }]}>
+                    <Text style={{ color: colors.text, fontWeight: '800', fontSize: 14 }}>{t}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {searchScope === 'Top' && !searching && users.length === 0 && matchedMoments.length === 0 && matchedTags.length === 0 ? (
+              <EmptyState icon="search-outline" title="No results" body="Try a different name, specialty or tag." />
+          ) : null}
+        </>
+      ) : mode === 'people' ? (
         <>
           {searching && <ActivityIndicator color={GOLD} style={{ marginTop: 12 }} />}
           {users.length > 0 && (
@@ -253,16 +420,21 @@ export default function DiscoverTab() {
       ) : (
         <>
           {/* RISING THIS WEEK */}
-          {trending.length > 0 && (
+          {chipFiltered.length > 0 && (
             <View>
-              <Text style={[styles.sectionLabel, { color: colors.muted }]}>RISING THIS WEEK</Text>
+              <View style={styles.sectionHead}>
+                <Text style={[styles.sectionLabel, { color: colors.muted, marginBottom: 0 }]}>RISING THIS WEEK</Text>
+                <Pressable onPress={() => setShowAllTrending((s) => !s)} hitSlop={8} accessibilityLabel="See all rising">
+                  <Text style={{ color: GOLD, fontWeight: '800', fontSize: 14 }}>{showAllTrending ? 'Show less' : 'See all'}</Text>
+                </Pressable>
+              </View>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={{ flexGrow: 0, marginBottom: spacing.lg }}
                 contentContainerStyle={{ gap: 10, paddingRight: 16 }}
               >
-                {trending.slice(0, 6).map((f: any, i: number) => (
+                {chipFiltered.slice(0, showAllTrending ? 20 : 6).map((f: any, i: number) => (
                   <Pressable
                     key={f.handle}
                     onPress={() => {
@@ -333,7 +505,10 @@ export default function DiscoverTab() {
           {/* MOST LOVED leaderboard */}
           {ranked.length > 0 && (
             <View style={{ marginBottom: spacing.lg }}>
-              <Text style={[styles.sectionLabel, { color: colors.muted }]}>MOST LOVED</Text>
+                <View style={styles.sectionHead}>
+                <Text style={[styles.sectionLabel, { color: colors.muted, marginBottom: 0 }]}>MOST LOVED IN NIGERIA</Text>
+                <Text style={{ color: colors.muted, fontWeight: '700', fontSize: 13 }}>this week</Text>
+              </View>
               {ranked.map((f: any, i: number) => (
                 <Pressable
                   key={f.handle}
@@ -343,7 +518,7 @@ export default function DiscoverTab() {
                     router.push('/u/' + f.handle);
                   }}
                 >
-                  <Text style={[styles.rankNum, { color: colors.muted }]}>{i + 1}</Text>
+                  <Text style={[styles.rankNum, { color: GOLD }]}>{i + 1}</Text>
                   <Avatar name={f.handle} size={36} uri={f.avatarUrl || undefined} />
                   <View style={{ marginLeft: 10, flex: 1 }}>
                     <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>
@@ -353,7 +528,9 @@ export default function DiscoverTab() {
                       {f.cohort === 'rising' ? 'Rising' : f.cohort === 'legend' ? 'Legend' : 'Established'}{' \u00b7 '}{f.supporterCount} supporters
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+                  <Text style={[styles.rankDelta, { color: (f as any).rankDelta ? TEAL : colors.muted }]}>
+                    {(f as any).rankDelta ? '^ ' + (f as any).rankDelta : '\u2014'}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -512,6 +689,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 13,
   },
+  rankDelta: { fontWeight: '800', fontSize: 13 },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  resultTiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  resultTile: { width: '31%', aspectRatio: 0.82, borderRadius: radii.md },
+  tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: spacing.md },
+  tagChip: { borderRadius: radii.full, paddingHorizontal: 18, paddingVertical: 12 }
   row: {
     flexDirection: 'row',
     alignItems: 'center',

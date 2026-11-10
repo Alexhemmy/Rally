@@ -66,7 +66,7 @@ export function GiftTraySheet({
   visible: boolean;
   onClose: () => void;
   name: string;
-  onSend: (giftId: string, message: string, anonymous: boolean, quantity: number) => void;
+  onSend: (giftId: string, message: string, anonymous: boolean, quantity: number, giftName?: string) => void;
   sending: boolean;
 }) {
   const { colors } = useTheme();
@@ -332,7 +332,7 @@ export function GiftTraySheet({
                 onClose();
                 router.push('/wallet');
               } else if (selected) {
-                onSend(selected, message, anonymous, qty);
+                onSend(selected, message, anonymous, qty, selectedItem ? selectedItem.name : undefined);
               }
             }}
             disabled={!selected || sending || capReached || (!canAfford && !buyMode)}

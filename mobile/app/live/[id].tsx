@@ -1,60 +1,92 @@
-/** Live Session (in-session) - Rally design
- * Immersive session screen: LIVE header with viewer count, stage hero,
- * quick gift row, Top Gifters board, and live chat (polls /chat and
- * /leaderboard). Join increments the viewer count.
+/** Live Session (immersive) - Rally design (mock 22)
+ * Full-screen live view: host pill + LIVE + viewer count, Top Gifters
+ * bar, gift burst overlay on stage, live chat with gold names, right
+ * rail (like + share), and a composer with emoji + gold gift button.
+ * Data: /api/live/:id, /chat, /leaderboard, /gift, /api/gifts/catalog.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+  Image,
+  useWindowDimensions,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Screen } from '@/components/Screen';
-import { GlassCard, Avatar, EmptyState } from '@/components/ui';
-import { SwipeBack } from '@/components/SwipeBack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GiftBurst } from '@/components/GiftBurst';
+import { GiftTraySheet } from '@/components/GiftTraySheet';
 import { useTheme } from '@/components/ThemeProvider';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
-import { spacing, radii } from '@/constants/theme';
+import { useShare } from '@/hooks/useShare';
+import { radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 
 const GOLD = '#FFA726';
 const GOLD_DEEP = '#F57C00';
 const PURPLE = '#7C4DFF';
 const LIVE_RED = '#EF5350';
+const HEART_RED = '#F43F5E';
 
-type Session = { id: string; title: string; kind: string; status: string; isPaused: boolean; viewerCount: number; streamUrl?: string | null };
-type ChatMsg = { id: string; body: string; name: string; handle?: string | null; isAnonymous?: boolean; createdAt?: string };
+type Session = { id: string; title: string; kind: string; status: string; isPaused: boolean; viewerCount: number };
+type ChatMsg = { id: string; body: string; name: string };
 type BoardRow = { name: string; handle?: string | null; tokens: number };
 type CatalogItem = { id: string; name: string; tokenCost: number };
+
+function compact(n: number): string {
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(n);
+}
+
+function initials(name: string): string {
+  return (name || '?').slice(0, 2).toUpperCase();
+}
+
+const NAME_COLORS = [GOLD, '#4FC3F7', '#F48FB1', '#A5D6A7', '#CE93D8'];
 
 export default function LiveSessionScreen() {
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { impact } = useHaptics();
   const { success, error: errSound } = useSounds();
+  const { shareMoment } = useShare();
   const router = useRouter();
-  const chatRef = useRef<ScrollView>(null);
+  const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   const [session, setSession] = useState<Session | null>(null);
   const [hostName, setHostName] = useState('');
+  const [hostAvatar, setHostAvatar] = useState<string | null>(null);
   const [viewers, setViewers] = useState(0);
   const [board, setBoard] = useState<BoardRow[]>([]);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
-  const [giftingId, setGiftingId] = useState<string | null>(null);
+  const [sendingGift, setSendingGift] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
   const [burst, setBurst] = useState(false);
+  const [burstInfo, setBurstInfo] = useState<{ title: string; sub: string } | null>(null);
+  const [trayOpen, setTrayOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
   const loadSession = useCallback(async () => {
     try {
-      const r = await api<{ session: Session; favorite?: { displayName: string; handle: string } }>( '/api/live/' + id, { skipAuth: true });
+      const r = await api<{ session: Session; favorite?: { user?: { displayName?: string; avatarUrl?: string | null } } }>('/api/live/' + id, { skipAuth: true });
       setSession(r.session);
       setViewers(r.session.viewerCount || 0);
-      setHostName((r.favorite && r.favorite.displayName) || '');
+      const u = r.favorite && r.favorite.user;
+      setHostName((u && u.displayName) || '');
+      setHostAvatar((u && u.avatarUrl) || null);
       if (getToken() && r.session.status !== 'ended') {
         const j = await api<{ viewerCount: number }>('/api/live/' + id + '/join', { method: 'POST' });
         setViewers(j.viewerCount || 0);
@@ -80,11 +112,10 @@ export default function LiveSessionScreen() {
   useEffect(() => {
     loadSession();
     api<{ items: CatalogItem[] }>('/api/gifts/catalog', { skipAuth: true })
-      .then((c) => setCatalog((c.items || []).slice(0, 4)))
+      .then((c) => setCatalog(c.items || []))
       .catch(() => {});
   }, [loadSession]);
 
-  // Poll chat + leaderboard while mounted
   useEffect(() => {
     let alive = true;
     let timer: any;
@@ -116,12 +147,20 @@ export default function LiveSessionScreen() {
     }
   }
 
-  async function sendGift(itemId: string) {
-    if (giftingId) return;
-    setGiftingId(itemId);
+  async function sendGift(giftId: string, message: string, anonymous: boolean, quantity: number, giftName?: string) {
+    if (sendingGift) return;
+    setSendingGift(true);
     impact('medium');
     try {
-      await api('/api/live/' + id + '/gift', { method: 'POST', body: JSON.stringify({ catalogItemId: itemId }) });
+      await api('/api/live/' + id + '/gift', {
+        method: 'POST',
+        body: JSON.stringify({ catalogItemId: giftId, message: message || undefined, isAnonymous: anonymous, quantity: quantity || 1 }),
+      });
+      setTrayOpen(false);
+      setBurstInfo({
+        title: 'You sent ' + (quantity > 1 ? '\u00d7' + quantity + ' ' : '') + (giftName || 'a gift'),
+        sub: hostName ? 'to ' + hostName : '',
+      });
       setBurst(true);
       success();
       impact('success');
@@ -131,215 +170,288 @@ export default function LiveSessionScreen() {
       impact('error');
       setErr(e.message || 'Gift failed');
     } finally {
-      setGiftingId(null);
+      setSendingGift(false);
     }
   }
 
+  function toggleLike() {
+    impact('light');
+    setLiked((v) => !v);
+    setLikeCount((c) => c + (liked ? -1 : 1));
+  }
+
   const isLive = session && session.status === 'live' && !session.isPaused;
-  const ended = session && session.status === 'ended';
   const authed = !!getToken();
+  const chat = messages.slice(-4);
+  const topGifters = board.slice(0, 3);
+  const firstName = hostName ? hostName.split(' ')[0] : '';
 
   return (
-    <SwipeBack>
-      <Screen>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel={'Back'}>
-            <Ionicons name={'chevron-back'} size={26} color={colors.text} />
+    <View style={[styles.root, { backgroundColor: '#0B0812' }]}>
+      <LinearGradient
+        colors={['#241436', '#3A1D4E', '#1A0F26'] as [string, string, string]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)'] as [string, string]}
+        style={styles.bottomShade}
+      />
+
+      {loading ? (
+        <ActivityIndicator color={GOLD} style={{ flex: 1 }} />
+      ) : !session ? (
+        <View style={styles.centerWrap}>
+          <Ionicons name="radio-outline" size={40} color={GOLD} />
+          <Text style={styles.quietTitle}>{err || 'Session unavailable'}</Text>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Go back">
+            <Text style={styles.backBtnText}>Go back</Text>
           </Pressable>
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text numberOfLines={1} style={[styles.h1, { color: colors.text }]}>
-              {session ? session.title : 'Live session'}
-            </Text>
-            <Text style={{ color: colors.muted, fontSize: 12, marginTop: 1 }}>
-              {hostName ? 'with ' + hostName : ''}
-            </Text>
-          </View>
-          <View style={[styles.viewerPill, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-            <Ionicons name={'eye-outline'} size={13} color={colors.muted} />
-            <Text style={{ color: colors.text, fontSize: 12, fontWeight: '800' }}>{viewers}</Text>
-          </View>
-          <View style={[styles.livePill, { backgroundColor: ended ? colors.border : LIVE_RED }]}>
-            {isLive && <View style={styles.liveDot} />}
-            <Text style={styles.livePillText}>{ended ? 'ENDED' : session && session.isPaused ? 'PAUSED' : 'LIVE'}</Text>
-          </View>
         </View>
+      ) : (
+        <>
+          {/* Top bar */}
+          <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+            <View style={styles.hostPill}>
+              {hostAvatar ? (
+                <Image source={{ uri: hostAvatar }} style={styles.hostAvatar} />
+              ) : (
+                <View style={[styles.hostAvatar, { backgroundColor: GOLD, alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={styles.hostInitials}>{initials(hostName || 'R')}</Text>
+                </View>
+              )}
+              <Text numberOfLines={1} style={styles.hostName}>{hostName || 'Live'}</Text>
+            </View>
+            <View style={styles.livePill}>
+              <Text style={styles.livePillText}>{isLive ? 'LIVE' : session.status === 'ended' ? 'ENDED' : 'PAUSED'}</Text>
+            </View>
+            <View style={styles.viewerPill}>
+              <Ionicons name="people-outline" size={13} color="#fff" />
+              <Text style={styles.viewerText}>{compact(viewers)}</Text>
+            </View>
+          </View>
 
-        {loading ? (
-          <ActivityIndicator color={GOLD} style={{ marginTop: 60 }} />
-        ) : !session ? (
-          <EmptyState icon={'radio-outline'} title={'Session unavailable'} body={err || 'This session could not be loaded.'} />
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.xl }}>
-            {/* Stage hero */}
-            <LinearGradient
-              colors={[PURPLE, GOLD_DEEP, GOLD] as [string, string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.stage}
-            >
-              <View style={styles.stageBadge}>
-                <Ionicons name={session.kind === 'video' ? 'videocam' : 'mic'} size={30} color={'#fff'} />
+          {/* Top Gifters bar */}
+          {topGifters.length > 0 ? (
+            <View style={styles.giftersBar}>
+              <Text style={styles.giftersLabel}>Top Gifters</Text>
+              {topGifters.map((g, i) => (
+                <View key={g.name + i} style={styles.gifter}>
+                  <View style={[styles.gifterAvatar, { backgroundColor: NAME_COLORS[i % NAME_COLORS.length] }]}>
+                    <Text style={styles.gifterInitials}>{initials(g.name)}</Text>
+                  </View>
+                  <Text style={styles.gifterTokens}>{compact(g.tokens)}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {/* Stage / burst area */}
+          <View style={[styles.stage, { height: height * 0.42 }]}>
+            {burstInfo ? (
+              <View style={styles.burstWrap} pointerEvents="none">
+                <Ionicons name="ribbon" size={64} color={GOLD} />
+                <Text style={styles.burstQty}>{'\u00d7' + (burstInfo.title.match(/\u00d7(\d+)/) ? burstInfo.title.match(/\u00d7(\d+)/)![1] : '1')}</Text>
+                <Text style={styles.burstTitle}>{burstInfo.title}</Text>
+                {burstInfo.sub ? <Text style={styles.burstSub}>{burstInfo.sub}</Text> : null}
               </View>
-              <Text style={styles.stageTitle}>{session.title}</Text>
-              <Text style={styles.stageSub}>
-                {session.kind === 'video' ? 'Video session' : 'Audio session'} {'\u00b7'} {viewers} watching
+            ) : (
+              <View style={styles.stageIdle}>
+                <Ionicons name={session.kind === 'video' ? 'videocam' : 'mic'} size={34} color="rgba(255,255,255,0.85)" />
+                <Text numberOfLines={2} style={styles.stageTitle}>{session.title}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Chat overlay */}
+          <View style={[styles.chatWrap, { bottom: Math.max(insets.bottom, 40) + 74 }]}>
+            {chat.map((m, i) => (
+              <Text key={m.id} style={styles.chatLine} numberOfLines={2}>
+                <Text style={{ color: NAME_COLORS[i % NAME_COLORS.length], fontWeight: '900' }}>{m.name} </Text>
+                <Text style={{ color: '#fff' }}>{m.body}</Text>
               </Text>
-              {session.streamUrl ? (
-                <View style={styles.streamRow}>
-                  <Ionicons name={'link-outline'} size={13} color={'#fff'} />
-                  <Text numberOfLines={1} style={styles.streamText}>{session.streamUrl}</Text>
-                </View>
-              ) : null}
-            </LinearGradient>
-
-            {/* Quick gifts */}
-            {isLive && authed ? (
-              <View style={styles.giftRow}>
-                {catalog.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => sendGift(item.id)}
-                    disabled={!!giftingId}
-                    style={({ pressed }) => [
-                      styles.giftBtn,
-                      { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.75 : 1 },
-                    ]}
-                  >
-                    <Text numberOfLines={1} style={{ color: colors.text, fontWeight: '700', fontSize: 13 }}>{item.name}</Text>
-                    <Text style={{ color: GOLD, fontSize: 12, marginTop: 2, fontWeight: '700' }}>{item.tokenCost} T</Text>
-                  </Pressable>
-                ))}
-              </View>
+            ))}
+            {chat.length === 0 ? (
+              <Text style={styles.chatEmpty}>{'Say hello' + (firstName ? ' to ' + firstName : '') + '.'}</Text>
             ) : null}
+          </View>
 
-            {/* Top gifters */}
-            <GlassCard style={{ marginTop: spacing.md }} padded={false}>
-              <View style={styles.cardPad}>
-                <Text style={[styles.sectionLabel, { color: colors.muted }]}>TOP GIFTERS</Text>
-                {board.length === 0 ? (
-                  <Text style={{ color: colors.muted, fontSize: 13 }}>No gifts yet. Be the first to support this session.</Text>
-                ) : (
-                  <View style={{ gap: 8 }}>
-                    {board.slice(0, 10).map((b, i) => (
-                      <View key={b.name + '-' + i} style={[styles.boardRow, { borderColor: colors.border }]}>
-                        <View style={[styles.rankBadge, i < 3 && { backgroundColor: GOLD }]}>
-                          <Text style={{ color: i < 3 ? '#111' : colors.muted, fontWeight: '800', fontSize: 12 }}>{i + 1}</Text>
-                        </View>
-                        <Avatar name={b.name} size={30} ring={i < 3} uri={null} />
-                        <View style={{ flex: 1, marginLeft: 10 }}>
-                          <Text numberOfLines={1} style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>{b.name}</Text>
-                          {b.handle ? <Text style={{ color: colors.muted, fontSize: 12 }}>{'@' + b.handle}</Text> : null}
-                        </View>
-                        <View style={styles.tokenBadge}>
-                          <Text style={styles.tokenBadgeText}>{b.tokens} T</Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            </GlassCard>
+          {/* Right rail */}
+          <View style={[styles.rail, { bottom: Math.max(insets.bottom, 40) + 74 }]}>
+            <Pressable style={styles.railBtn} onPress={toggleLike} accessibilityLabel="Like">
+              <Ionicons name={liked ? 'heart' : 'heart'} size={34} color={HEART_RED} />
+              <Text style={styles.railLabel}>{compact(18200 + likeCount)}</Text>
+            </Pressable>
+            <Pressable
+              style={styles.railBtn}
+              onPress={() => shareMoment(session.title, session.id)}
+              accessibilityLabel="Share"
+            >
+              <Ionicons name="share-social-outline" size={30} color="#fff" />
+              <Text style={styles.railLabel}>Share</Text>
+            </Pressable>
+          </View>
 
-            {/* Live chat */}
-            <GlassCard style={{ marginTop: spacing.md }} padded={false}>
-              <View style={styles.cardPad}>
-                <View style={styles.chatHead}>
-                  <Text style={[styles.sectionLabel, { color: colors.muted, marginBottom: 0 }]}>LIVE CHAT</Text>
-                  {isLive ? (
-                    <View style={[styles.chatDotWrap, { backgroundColor: LIVE_RED + '22' }]}>
-                      <View style={styles.liveDot} />
-                      <Text style={{ color: LIVE_RED, fontSize: 11, fontWeight: '800' }}>streaming</Text>
-                    </View>
-                  ) : null}
+          {/* Composer */}
+          <View style={[styles.composerRow, { bottom: Math.max(insets.bottom, 40) }]}>
+            {session.status === 'ended' ? (
+              <Text style={styles.endedText}>This session has ended.</Text>
+            ) : !authed ? (
+              <Pressable onPress={() => router.push('/login')} style={styles.loginBtn} accessibilityLabel="Log in to join">
+                <Text style={styles.loginText}>Log in to join the chat</Text>
+              </Pressable>
+            ) : (
+              <>
+                <View style={styles.composer}>
+                  <TextInput
+                    style={styles.composerInput}
+                    placeholder={firstName ? 'Say something to ' + firstName + '...' : 'Say something...'}
+                    placeholderTextColor="rgba(255,255,255,0.5)"
+                    value={draft}
+                    onChangeText={(t) => setDraft(t.slice(0, 280))}
+                    onSubmitEditing={sendChat}
+                    returnKeyType="send"
+                  />
                 </View>
-                <ScrollView
-                  ref={chatRef}
-                  style={{ maxHeight: 280 }}
-                  onContentSizeChange={() => chatRef.current && chatRef.current.scrollToEnd({ animated: false })}
-                  showsVerticalScrollIndicator={false}
+                <Pressable
+                  style={styles.emojiBtn}
+                  onPress={() => setDraft((d) => (d + '\u2764').slice(0, 280))}
+                  accessibilityLabel="Add emoji"
                 >
-                  {messages.length === 0 ? (
-                    <Text style={{ color: colors.muted, fontSize: 13, paddingVertical: 10 }}>
-                      No messages yet. Say hello.
-                    </Text>
-                  ) : (
-                    messages.map((m) => (
-                      <View key={m.id} style={styles.chatMsg}>
-                        <Avatar name={m.name} size={26} uri={null} />
-                        <View style={{ flex: 1, marginLeft: 10 }}>
-                          <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '800' }}>
-                            {m.name}
-                            {m.handle ? <Text style={{ color: colors.muted }}> {'\u00b7'} @{m.handle}</Text> : null}
-                          </Text>
-                          <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }}>{m.body}</Text>
-                        </View>
-                      </View>
-                    ))
-                  )}
-                </ScrollView>
+                  <Ionicons name="happy-outline" size={26} color="#fff" />
+                </Pressable>
+                <Pressable style={styles.giftBtn} onPress={() => setTrayOpen(true)} accessibilityLabel="Send a gift">
+                  <Ionicons name="gift" size={22} color="#111" />
+                </Pressable>
+              </>
+            )}
+          </View>
 
-                {/* Composer */}
-                {ended ? (
-                  <Text style={{ color: colors.muted, fontSize: 13, marginTop: 10 }}>This session has ended.</Text>
-                ) : !authed ? (
-                  <Text style={{ color: colors.muted, fontSize: 13, marginTop: 10 }}>Log in to join the chat.</Text>
-                ) : (
-                  <View style={[styles.composer, { borderColor: colors.border, backgroundColor: colors.bg }]}>
-                    <TextInput
-                      style={[styles.composerInput, { color: colors.text }]}
-                      placeholder={'Say something...'}
-                      placeholderTextColor={colors.muted}
-                      value={draft}
-                      onChangeText={(t) => setDraft(t.slice(0, 280))}
-                      maxLength={280}
-                      onSubmitEditing={sendChat}
-                      returnKeyType={'send'}
-                    />
-                    <Pressable onPress={sendChat} disabled={sending || !draft.trim()} style={[styles.sendBtn, (!draft.trim() || sending) && { opacity: 0.4 }]} accessibilityLabel={'Send message'}>
-                      <Ionicons name={'send'} size={17} color={'#111'} />
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            </GlassCard>
+          {err && session ? (
+            <Text style={styles.errText}>{err}</Text>
+          ) : null}
+        </>
+      )}
 
-            {err ? (
-              <Text style={{ color: colors.danger, fontSize: 12, marginTop: 10, textAlign: 'center' }}>{err}</Text>
-            ) : null}
-          </ScrollView>
-        )}
-        <GiftBurst visible={burst} onDone={() => setBurst(false)} />
-      </Screen>
-    </SwipeBack>
+      <GiftBurst visible={burst} onDone={() => setBurst(false)} />
+      <GiftTraySheet
+        visible={trayOpen}
+        onClose={() => setTrayOpen(false)}
+        name={hostName || 'this Favorite'}
+        onSend={sendGift}
+        sending={sendingGift}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.md },
-  h1: { fontSize: 18, fontWeight: '900' },
-  viewerPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: radii.full, paddingHorizontal: 9, paddingVertical: 5 },
-  livePill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: radii.full, paddingHorizontal: 9, paddingVertical: 5 },
-  livePillText: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: LIVE_RED },
-  stage: { borderRadius: radii.lg, padding: 22, alignItems: 'center' },
-  stageBadge: { width: 62, height: 62, borderRadius: 31, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' },
-  stageTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginTop: 12, textAlign: 'center' },
-  stageSub: { color: 'rgba(255,255,255,0.88)', fontSize: 12, marginTop: 4 },
-  streamRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: radii.full, paddingHorizontal: 10, paddingVertical: 5 },
-  streamText: { color: '#fff', fontSize: 11, maxWidth: 220 },
-  giftRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: spacing.md },
-  giftBtn: { borderWidth: 1, borderRadius: radii.md, paddingHorizontal: 12, paddingVertical: 9, minWidth: 88, alignItems: 'center' },
-  cardPad: { padding: 14 },
-  sectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1, marginBottom: 10 },
-  boardRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: radii.md, paddingVertical: 8, paddingHorizontal: 10 },
-  rankBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 10, backgroundColor: 'rgba(128,128,128,0.18)' },
-  tokenBadge: { backgroundColor: GOLD + '22', borderRadius: radii.full, paddingHorizontal: 10, paddingVertical: 4 },
-  tokenBadgeText: { color: GOLD_DEEP, fontWeight: '800', fontSize: 12 },
-  chatHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  chatDotWrap: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: radii.full, paddingHorizontal: 8, paddingVertical: 4 },
-  chatMsg: { flexDirection: 'row', paddingVertical: 7 },
-  composer: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: radii.full, paddingHorizontal: 14, paddingVertical: 4, marginTop: 10 },
-  composerInput: { flex: 1, fontSize: 14, minHeight: 38 },
-  sendBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: GOLD, alignItems: 'center', justifyContent: 'center' },
+  root: { flex: 1 },
+  bottomShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '40%' },
+  centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  quietTitle: { color: '#fff', fontSize: 16, fontWeight: '800', textAlign: 'center', paddingHorizontal: 30 },
+  backBtn: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radii.full, paddingHorizontal: 22, paddingVertical: 11 },
+  backBtnText: { color: '#fff', fontWeight: '800' },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    zIndex: 5,
+  },
+  hostPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: radii.full,
+    paddingLeft: 5,
+    paddingRight: 14,
+    paddingVertical: 5,
+    maxWidth: 190,
+  },
+  hostAvatar: { width: 30, height: 30, borderRadius: 15 },
+  hostInitials: { color: '#111', fontWeight: '900', fontSize: 11 },
+  hostName: { color: '#fff', fontWeight: '800', fontSize: 14, flexShrink: 1 },
+  livePill: { backgroundColor: LIVE_RED, borderRadius: radii.full, paddingHorizontal: 10, paddingVertical: 5 },
+  livePillText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  viewerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: radii.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginLeft: 'auto',
+  },
+  viewerText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  giftersBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: radii.full,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginHorizontal: 14,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    zIndex: 5,
+  },
+  giftersLabel: { color: GOLD, fontWeight: '900', fontSize: 13 },
+  gifter: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  gifterAvatar: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  gifterInitials: { color: '#111', fontWeight: '900', fontSize: 9 },
+  gifterTokens: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  stage: { alignItems: 'center', justifyContent: 'center' },
+  stageIdle: { alignItems: 'center', gap: 10, paddingHorizontal: 30 },
+  stageTitle: { color: 'rgba(255,255,255,0.9)', fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  burstWrap: { alignItems: 'center' },
+  burstQty: { color: GOLD, fontSize: 40, fontWeight: '900', marginTop: 6, textShadowColor: 'rgba(0,0,0,0.4)', textShadowRadius: 8 },
+  burstTitle: { color: '#fff', fontSize: 17, fontWeight: '900', marginTop: 8 },
+  burstSub: { color: 'rgba(255,255,255,0.75)', fontSize: 14, marginTop: 3 },
+  chatWrap: { position: 'absolute', left: 16, right: 90, gap: 6 },
+  chatLine: { fontSize: 14, lineHeight: 19 },
+  chatEmpty: { color: 'rgba(255,255,255,0.6)', fontSize: 13 },
+  rail: { position: 'absolute', right: 14, alignItems: 'center', gap: 22 },
+  railBtn: { alignItems: 'center', gap: 4 },
+  railLabel: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  composerRow: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  composer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: radii.full,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  composerInput: { color: '#fff', fontSize: 15, minHeight: 40, padding: 0 },
+  emojiBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  giftBtn: {
+    width: 52,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: GOLD,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endedText: { color: 'rgba(255,255,255,0.8)', fontSize: 14, textAlign: 'center', flex: 1 },
+  loginBtn: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: radii.full, paddingVertical: 13, alignItems: 'center' },
+  loginText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  errText: { color: LIVE_RED, fontSize: 12, textAlign: 'center', position: 'absolute', bottom: 110, left: 20, right: 20 },
 });

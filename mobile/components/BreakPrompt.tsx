@@ -13,12 +13,25 @@ import { useHaptics } from '@/hooks/useHaptics';
 const GOLD = '#FFA726';
 const INTERVAL_MINUTES = 45;
 
+type BreakListener = () => void;
+let breakListener: BreakListener | null = null;
+
+/** Ask the global BreakPrompt (mounted in the tabs layout) to show. */
+export function requestBreakPrompt() {
+  if (breakListener) breakListener();
+}
+
 export function BreakPrompt() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const { impact } = useHaptics();
   const [visible, setVisible] = useState(false);
   const [remindersOn, setRemindersOn] = useState(true);
+
+  useEffect(() => {
+    breakListener = () => setVisible(true);
+    return () => { breakListener = null; };
+  }, []);
 
   useEffect(() => {
     if (!remindersOn || visible) return;
@@ -42,7 +55,7 @@ export function BreakPrompt() {
       <View style={styles.overlay}>
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <View style={styles.iconWrap}>
-            <Ionicons name="moon" size={30} color={GOLD} />
+            <Ionicons name="moon" size={30} color="#A78BFA" />
           </View>
           <Text style={[styles.title, { color: colors.text }]}>Time for a breather?</Text>
           <Text style={[styles.body, { color: colors.muted }]}>
@@ -79,7 +92,7 @@ export function BreakPrompt() {
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   card: { borderRadius: radii.lg, padding: 22, width: '100%', alignItems: 'center' },
-  iconWrap: { width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(255,167,38,0.14)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  iconWrap: { width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(124,77,255,0.22)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   title: { fontSize: 19, fontWeight: '900', marginBottom: 8 },
   body: { fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 18 },
   primaryBtn: { backgroundColor: GOLD, borderRadius: radii.full, paddingVertical: 13, paddingHorizontal: 28, width: '100%', alignItems: 'center' },

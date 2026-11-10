@@ -13,6 +13,9 @@ import { Avatar, EmptyState } from '@/components/ui';
 import { CommentsSheet } from '@/components/CommentsSheet';
 import { ReportSheet } from '@/components/ReportSheet';
 import { SaveToCollectionSheet } from '@/components/SaveToCollectionSheet';
+import { GiftTraySheet } from '@/components/GiftTraySheet';
+import { FavoriteQuickView } from '@/components/FavoriteQuickView';
+import { GiftBurst } from '@/components/GiftBurst';
 import { useTheme } from '@/components/ThemeProvider';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
@@ -68,6 +71,12 @@ export default function FeedTab() {
   const [followState, setFollowState] = useState<Record<string, boolean>>({});
   const [sortNewest, setSortNewest] = useState(true);
   const [whyFor, setWhyFor] = useState<string | null>(null);
+  const [giftFor, setGiftFor] = useState<any | null>(null);
+  const [sendingGift, setSendingGift] = useState(false);
+  const [quickFor, setQuickFor] = useState<any | null>(null);
+  const [burst, setBurst] = useState(false);
+  const [burstInfo, setBurstInfo] = useState<{ title: string; sub: string } | null>(null);
+  const [giftEvents, setGiftEvents] = useState<{ id: string; name: string; gift: string; qty: number }[]>([]);
 
   useEffect(() => {
     getApiUrl().then((b) => setBase(b || '')).catch(() => undefined);
@@ -132,6 +141,42 @@ export default function FeedTab() {
     }
   }
 
+  async function sendMomentGift(giftId: string, message: string, anonymous: boolean, quantity: number, giftName?: string) {
+    if (!giftFor || sendingGift) return;
+    setSendingGift(true);
+    impact('medium');
+    try {
+      await api('/api/gifts/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          favoriteHandle: giftFor.favorite && giftFor.favorite.user ? giftFor.favorite.user.handle : '',
+          catalogItemId: giftId,
+          message: message || undefined,
+          isAnonymous: anonymous,
+          momentId: giftFor.id,
+          quantity: quantity || 1,
+        }),
+      });
+      const who = giftFor.favorite && giftFor.favorite.user
+        ? giftFor.favorite.user.displayName || '@' + giftFor.favorite.user.handle
+        : 'this Favorite';
+      setGiftEvents((prev) => [
+        { id: giftId + '-' + Date.now(), name: 'You', gift: giftName || 'gift', qty: quantity || 1 },
+      ].concat(prev).slice(0, 3));
+      setBurstInfo({
+        title: 'You sent ' + (quantity > 1 ? 'x' + quantity + ' ' : '') + (giftName || 'a gift'),
+        sub: 'to ' + who,
+      });
+      setBurst(true);
+      impact('success');
+      setGiftFor(null);
+    } catch {
+      // the tray keeps its own error state
+    } finally {
+      setSendingGift(false);
+    }
+  }
+
   const rawMoments = dataByTab[tab] || [];
   const moments = tab === 'following'
     ? rawMoments.slice().sort((a, b) =>
@@ -186,7 +231,7 @@ export default function FeedTab() {
             style={styles.authorRow}
             onPress={() => {
               click();
-              router.push('/favorite/' + handle);
+              setQuickFor(item);
             }}
           >
             <Avatar name={handle} size={44} ring uri={author?.avatarUrl || undefined} />
@@ -232,6 +277,20 @@ export default function FeedTab() {
           ) : null}
         </View>
 
+        {/* Recent gift chips - mock 19 */}
+        {tab === 'following' && giftEvents.length > 0 ? (
+          <View style={[styles.giftFeed, { bottom: Math.max(insets.bottom, 96) }]} pointerEvents="none">
+            {giftEvents.map((g) => (
+              <View key={g.id} style={styles.giftChip}>
+                <Ionicons name="gift" size={13} color={GOLD} />
+                <Text style={styles.giftChipText}>
+                  {g.name + ' sent ' + (g.qty > 1 ? g.gift + ' x' + g.qty : 'a ' + g.gift)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {/* Right action rail */}
         <View style={[styles.rail, { bottom: Math.max(insets.bottom, 96) }]}>
           <Pressable style={styles.railBtn} onPress={() => toggleFollow(handle)} accessibilityLabel={isFollowing ? 'Following' : 'Follow'}>
@@ -274,7 +333,7 @@ export default function FeedTab() {
             style={styles.railBtn}
             onPress={() => {
               click();
-              router.push('/favorite/' + handle);
+              setGiftFor(item);
             }}
             accessibilityLabel="Send a gift"
           >
@@ -422,6 +481,40 @@ export default function FeedTab() {
         onClose={() => setSaveFor(null)}
         momentId={saveFor || undefined}
       />
+      <GiftTraySheet
+        visible={giftFor !== null}
+        onClose={() => setGiftFor(null)}
+        name={giftFor && giftFor.favorite && giftFor.favorite.user
+          ? giftFor.favorite.user.displayName || giftFor.favorite.user.handle
+          : ''}
+        onSend={sendMomentGift}
+        sending={sendingGift}
+      />
+      <FavoriteQuickView
+        visible={quickFor !== null}
+        onClose={() => setQuickFor(null)}
+        handle={quickFor && quickFor.favorite && quickFor.favorite.user ? quickFor.favorite.user.handle : ''}
+        displayName={quickFor && quickFor.favorite && quickFor.favorite.user ? quickFor.favorite.user.displayName : ''}
+        avatarUrl={quickFor && quickFor.favorite && quickFor.favorite.user ? quickFor.favorite.user.avatarUrl : null}
+        isFollowing={quickFor ? !!followState[quickFor.favorite && quickFor.favorite.user ? quickFor.favorite.user.handle : ''] : false}
+        onToggleFollow={() => {
+          if (quickFor && quickFor.favorite && quickFor.favorite.user) {
+            const h = quickFor.favorite.user.handle;
+            if (h) toggleFollow(h);
+          }
+        }}
+        onGift={() => {
+          const m = quickFor;
+          setQuickFor(null);
+          setGiftFor(m);
+        }}
+      />
+      <GiftBurst
+        visible={burst}
+        title={burstInfo ? burstInfo.title : undefined}
+        sub={burstInfo ? burstInfo.sub : undefined}
+        onDone={() => setBurst(false)}
+      />
     </View>
   );
 }
@@ -558,4 +651,16 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   sortChipText: { color: "#fff", fontSize: 13, fontWeight: "800" },
+  giftFeed: { position: 'absolute', left: 16, gap: 8, zIndex: 8 },
+  giftChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: 'rgba(20,20,24,0.85)',
+    borderRadius: radii.full,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
+  },
+  giftChipText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 });

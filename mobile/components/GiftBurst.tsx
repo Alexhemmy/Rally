@@ -9,10 +9,12 @@ import { useTheme } from '@/components/ThemeProvider';
 type Props = {
   visible: boolean;
   emoji?: string;
+  title?: string;
+  sub?: string;
   onDone?: () => void;
 };
 
-export function GiftBurst({ visible, emoji = '🎁', onDone }: Props) {
+export function GiftBurst({ visible, emoji = '🎁', title, sub, onDone }: Props) {
   const { colors } = useTheme();
 
   const scale = useRef(new Animated.Value(0)).current;
@@ -102,9 +104,14 @@ export function GiftBurst({ visible, emoji = '🎁', onDone }: Props) {
         ]}
       >
         <Text style={styles.emoji}>{emoji}</Text>
-        <Text style={[styles.label, { color: colors.primaryHover }]}>
-          Gift sent!
-        </Text>
+        {title ? (
+          <Text style={styles.burstTitle}>{title}</Text>
+        ) : (
+          <Text style={[styles.label, { color: colors.primaryHover }]}>
+            Gift sent!
+          </Text>
+        )}
+        {sub ? <Text style={styles.burstSub}>{sub}</Text> : null}
       </Animated.View>
 
       {particles.map((p, i) => (
@@ -151,4 +158,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     fontSize: 22,
   },
+  burstTitle: { color: '#fff', fontWeight: '900', fontSize: 18, marginTop: 10, textAlign: 'center' },
+  burstSub: { color: 'rgba(255,255,255,0.75)', fontWeight: '700', fontSize: 14, marginTop: 3, textAlign: 'center' },
 });
