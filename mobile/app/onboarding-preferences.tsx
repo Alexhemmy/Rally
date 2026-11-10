@@ -89,7 +89,7 @@ export default function OnboardingPreferencesScreen() {
     <SwipeBack pullDown>
       <Screen>
         <Text style={[styles.h1, { color: colors.text }]}>Language and interests</Text>
-        <Text style={[styles.sub, { color: colors.muted }]}>Step 3 of 5. Nothing here is mandatory.</Text>
+        <Text style={[styles.sub, { color: colors.muted }]}>Step 3 of 6. Nothing here is mandatory.</Text>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.xl }}>
           <Text style={[styles.label, { color: colors.muted }]}>INTERFACE LANGUAGE</Text>
           <View style={{ gap: 8, marginBottom: spacing.lg }}>
