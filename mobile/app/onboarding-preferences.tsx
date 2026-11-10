@@ -1,5 +1,5 @@
 /** Language and Interests - Rally design (screen 12)
- * Step 3 of 5. One interface language, several content languages,
+ * Step 3 of 6. One interface language, several content languages,
  * several interests. Nothing is mandatory; Continue is always enabled.
  * Saves via PATCH /api/users/me then completes onboarding.
  */
@@ -68,15 +68,13 @@ export default function OnboardingPreferencesScreen() {
         method: 'PATCH',
         body: JSON.stringify({ locale, contentLanguages: content, interests }),
       });
-      await api('/api/auth/onboarding/complete', { method: 'POST', body: JSON.stringify({}) });
       success();
       impact('success');
-      router.replace('/' as any);
+      router.replace('/create-profile' as any);
     } catch (e: any) {
       setErr(e.message || 'Could not save your choices.');
       try {
-        await api('/api/auth/onboarding/complete', { method: 'POST', body: JSON.stringify({}) });
-        router.replace('/' as any);
+        router.replace('/create-profile' as any);
       } catch {
         setSaving(false);
       }

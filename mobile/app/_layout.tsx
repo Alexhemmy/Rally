@@ -46,6 +46,13 @@ function RootStack() {
         <Stack.Screen name="onboarding-preferences" options={{ title: 'Language and interests' }} />
         <Stack.Screen name="terms-consent" options={{ title: 'Before you start' }} />
         <Stack.Screen name="account-created" options={{ headerShown: false }} />
+        <Stack.Screen name="create-profile" options={{ title: 'Set up your profile' }} />
+        <Stack.Screen name="follow-favorites" options={{ title: 'Follow Favorites' }} />
+        <Stack.Screen name="spending-safety" options={{ title: 'Set a monthly limit' }} />
+        <Stack.Screen name="setup-notifications" options={{ title: 'Stay in the loop' }} />
+        <Stack.Screen name="safe-mode-welcome" options={{ title: 'Safe mode', headerShown: false }} />
+        <Stack.Screen name="all-set" options={{ headerShown: false }} />
+        <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}
         <Stack.Screen name="favorite/[handle]" options={{ title: 'Favorite' }} />

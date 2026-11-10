@@ -16,6 +16,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import { spacing, radii, type as typo } from '@/constants/theme';
 import { api, setToken } from '@/lib/api';
+import { onboardingFlags } from '@/lib/onboarding-flags';
 
 const GOLD = '#FFA726';
 const GREEN = '#34D399';
@@ -110,6 +111,7 @@ export default function SignUpScreen() {
         }),
       });
       setToken(res.token);
+      onboardingFlags.minor = age !== null && age < 18;
       success();
       impact('success');
       if (mode === 'phone') {
