@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, EmptyState } from '@/components/ui';
 import { CommentsSheet } from '@/components/CommentsSheet';
 import { ReportSheet } from '@/components/ReportSheet';
+import { SaveToCollectionSheet } from '@/components/SaveToCollectionSheet';
 import { useTheme } from '@/components/ThemeProvider';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
@@ -62,6 +63,11 @@ export default function FeedTab() {
   const [base, setBase] = useState('');
   const [commentsFor, setCommentsFor] = useState<string | null>(null);
   const [reportFor, setReportFor] = useState<any | null>(null);
+  const [saveFor, setSaveFor] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Record<string, boolean>>({});
+  const [followState, setFollowState] = useState<Record<string, boolean>>({});
+  const [sortNewest, setSortNewest] = useState(true);
+  const [whyFor, setWhyFor] = useState<string | null>(null);
 
   useEffect(() => {
     getApiUrl().then((b) => setBase(b || '')).catch(() => undefined);
@@ -111,7 +117,31 @@ export default function FeedTab() {
     }
   }
 
-  const moments = dataByTab[tab] || [];
+  async function toggleFollow(handle: string) {
+    if (!getToken()) {
+      router.push('/login');
+      return;
+    }
+    const on = !!followState[handle];
+    impact('light');
+    setFollowState((prev) => ({ ...prev, [handle]: !on }));
+    try {
+      await api('/api/users/' + handle + '/follow', { method: on ? 'DELETE' : 'POST' });
+    } catch {
+      setFollowState((prev) => ({ ...prev, [handle]: on }));
+    }
+  }
+
+  const rawMoments = dataByTab[tab] || [];
+  const moments = tab === 'following'
+    ? rawMoments.slice().sort((a, b) =>
+        sortNewest
+          ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          : (b.reactionCount * 2 + b.supportCount * 3 + b.commentCount) - (a.reactionCount * 2 + a.supportCount * 3 + a.commentCount)
+      )
+    : rawMoments;
+  const milestoneTotal = rawMoments.reduce((s, m) => s + (m.supportCount || 0) + (m.reactionCount || 0), 0);
+  const milestoneTarget = 5000;
   const h = height;
 
   function mediaSource(m: any): string | null {
@@ -129,6 +159,8 @@ export default function FeedTab() {
     const isLive = tab === "live" || item.isFlash;
     const hasReacted = !!reacted[item.id];
     const commentCount = counts[item.id] ?? (item.commentCount || 0);
+    const isFollowing = !!followState[handle];
+    const isSaved = !!savedIds[item.id];
     return (
       <View style={[styles.card, { height: h }]}>
         {url && item.mediaType === "image" ? (
@@ -185,10 +217,33 @@ export default function FeedTab() {
               <Text style={styles.tagText}>{item.categoryTag}</Text>
             </View>
           ) : null}
+          {tab === 'following' ? (
+            <Pressable
+              onPress={() => setWhyFor(whyFor === item.id ? null : item.id)}
+              hitSlop={8}
+              style={{ marginTop: 10, flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}
+              accessibilityLabel="Why am I seeing this"
+            >
+              <Ionicons name="sparkles-outline" size={13} color="rgba(255,255,255,0.6)" />
+              <Text style={styles.whyText}>
+                {'From a Favorite you follow'} {whyFor === item.id ? '\u00b7 Ranked by recency and engagement' : '\u00b7 Why am I seeing this?'}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {/* Right action rail */}
         <View style={[styles.rail, { bottom: Math.max(insets.bottom, 96) }]}>
+          <Pressable style={styles.railBtn} onPress={() => toggleFollow(handle)} accessibilityLabel={isFollowing ? 'Following' : 'Follow'}>
+            <View style={styles.followWrap}>
+              <Avatar name={handle} size={44} ring uri={author?.avatarUrl || undefined} />
+              {!isFollowing ? (
+                <View style={styles.followPlus}>
+                  <Ionicons name="add" size={13} color="#fff" />
+                </View>
+              ) : null}
+            </View>
+          </Pressable>
           <Pressable style={styles.railBtn} onPress={() => react(item)} accessibilityLabel="React">
             <Ionicons name={hasReacted ? "heart" : "heart-outline"} size={30} color={hasReacted ? GOLD : "#fff"} />
             <Text style={styles.railLabel}>{(item.reactionCount || 0) + (hasReacted ? 1 : 0)}</Text>
@@ -227,6 +282,18 @@ export default function FeedTab() {
               <Ionicons name="gift" size={22} color="#111" />
             </View>
             <Text style={styles.railLabel}>Gift</Text>
+          </Pressable>
+          <Pressable
+            style={styles.railBtn}
+            onPress={() => {
+              impact('light');
+              setSavedIds((prev) => ({ ...prev, [item.id]: true }));
+              setSaveFor(item.id);
+            }}
+            accessibilityLabel="Save to Collection"
+          >
+            <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={26} color={isSaved ? GOLD : '#fff'} />
+            <Text style={styles.railLabel}>{isSaved ? 'Saved' : 'Save'}</Text>
           </Pressable>
           <Pressable
             style={styles.railBtn}
@@ -272,6 +339,29 @@ export default function FeedTab() {
           </Pressable>
         </View>
       </View>
+
+      {tab === 'following' && milestoneTotal > 0 ? (
+        <View pointerEvents="none" style={[styles.milestone, { top: insets.top + 54 }]}>
+          <View style={styles.milestoneTop}>
+            <Text style={styles.milestoneTitle}>Milestone: 5,000 Gifts</Text>
+            <Text style={styles.milestoneCount}>
+              {Math.min(milestoneTotal, milestoneTarget).toLocaleString()} / {milestoneTarget.toLocaleString()}
+            </Text>
+          </View>
+          <View style={styles.milestoneTrack}>
+            <View style={[styles.milestoneFill, { width: Math.min(100, (milestoneTotal / milestoneTarget) * 100) + '%' }]} />
+          </View>
+        </View>
+      ) : null}
+
+      {tab === 'following' && moments.length > 0 ? (
+        <View style={[styles.sortRow, { top: insets.top + (milestoneTotal > 0 ? 112 : 54) }]}>
+          <Pressable style={styles.sortChip} onPress={() => setSortNewest((s) => !s)} accessibilityLabel="Sort feed">
+            <Ionicons name="time-outline" size={14} color="#fff" />
+            <Text style={styles.sortChipText}>{sortNewest ? 'Newest' : 'Top'}</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {loading ? (
         <ActivityIndicator color={GOLD} style={{ flex: 1 }} />
@@ -326,6 +416,11 @@ export default function FeedTab() {
         targetType="moment"
         targetId={reportFor ? reportFor.id : ""}
         subjectLabel={reportFor ? reportFor.title : ""}
+      />
+      <SaveToCollectionSheet
+        visible={saveFor !== null}
+        onClose={() => setSaveFor(null)}
+        momentId={saveFor || undefined}
       />
     </View>
   );
@@ -416,4 +511,51 @@ const styles = StyleSheet.create({
   },
   refreshBtn: { position: "absolute", right: 16 },
   emptyWrap: { flex: 1, paddingHorizontal: 24, alignItems: "center" },
+  whyText: { color: "rgba(255,255,255,0.6)", fontSize: 12, flex: 1, lineHeight: 17 },
+  followWrap: { width: 44, height: 44 },
+  followPlus: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: GOLD,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(0,0,0,0.6)",
+  },
+  milestone: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    zIndex: 12,
+    backgroundColor: "rgba(20,20,24,0.82)",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  milestoneTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  milestoneTitle: { color: "#fff", fontWeight: "900", fontSize: 14 },
+  milestoneCount: { color: "rgba(255,255,255,0.75)", fontSize: 12, fontWeight: "700" },
+  milestoneTrack: {
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    marginTop: 8,
+    overflow: "hidden",
+  },
+  milestoneFill: { height: 5, borderRadius: 3, backgroundColor: GOLD },
+  sortRow: { position: "absolute", left: 16, zIndex: 12 },
+  sortChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(20,20,24,0.82)",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  sortChipText: { color: "#fff", fontSize: 13, fontWeight: "800" },
 });
