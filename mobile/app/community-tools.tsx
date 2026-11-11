@@ -182,13 +182,15 @@ export default function CommunityToolsScreen() {
         ) : null}
 
         {tab === 'reports' ? (
-          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Ionicons name="flag-outline" size={22} color={GOLD} />
-            <Text style={{ color: colors.text, fontWeight: '800', fontSize: 16, marginTop: 10 }}>No report queue yet</Text>
-            <Text style={{ color: colors.muted, fontSize: 14, marginTop: 6, lineHeight: 20, textAlign: 'center' }}>
-              Fans can already report posts and comments. A review queue for creators is on the roadmap, so this tab stays empty until then.
-            </Text>
-          </View>
+          <Pressable onPress={() => router.push('/held-comments')} accessibilityLabel="Open Moderation">
+            <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="flag-outline" size={22} color={GOLD} />
+              <Text style={{ color: colors.text, fontWeight: '800', fontSize: 16, marginTop: 10 }}>No report queue yet</Text>
+              <Text style={{ color: colors.muted, fontSize: 14, marginTop: 6, lineHeight: 20, textAlign: 'center' }}>
+                Fans can already report posts and comments. Open Moderation to review held comments and blocked words; a full report queue is on the roadmap.
+              </Text>
+            </View>
+          </Pressable>
         ) : null}
 
         {tab === 'team' ? (
@@ -235,6 +237,12 @@ export default function CommunityToolsScreen() {
               </View>
 
               <Text style={{ color: colors.muted, fontSize: 13, marginTop: 10 }}>Every action is saved in an audit log.</Text>
+
+              <Pressable onPress={() => router.push('/rankings')} style={styles.rankLink} accessibilityLabel="Rankings and score">
+                <Ionicons name="trophy-outline" size={18} color={GOLD} />
+                <Text style={{ color: GOLD, fontWeight: '800', fontSize: 15, flex: 1 }}>See your Rally Score and rankings</Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+              </Pressable>
             </View>
           </ScrollView>
         ) : null}
@@ -267,4 +275,13 @@ const styles = StyleSheet.create({
   inviteRow: { flexDirection: 'row', gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1 },
   inviteInput: { flex: 1, borderWidth: 1, borderRadius: radii.md, paddingHorizontal: 14, minHeight: 46, fontSize: 15 },
   inviteBtn: { backgroundColor: GOLD, borderRadius: radii.md, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
+  rankLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(128,128,128,0.15)',
+  },
 });
