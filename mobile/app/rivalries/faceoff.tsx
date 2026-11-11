@@ -14,6 +14,7 @@ import { Screen } from '@/components/Screen';
 import { useTheme } from '@/components/ThemeProvider';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { spacing, radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 
@@ -78,6 +79,9 @@ export default function FaceOffScreen() {
       );
       setFo({ ...fo, votesA: r.faceOff.votesA, votesB: r.faceOff.votesB });
       setVoted(side);
+      AsyncStorage.getItem('rally.faceOffVotes')
+        .then((v) => AsyncStorage.setItem('rally.faceOffVotes', String(Number(v || '0') + 1)))
+        .catch(() => undefined);
       success();
       impact('success');
     } catch (e: any) {
@@ -191,6 +195,16 @@ export default function FaceOffScreen() {
             <Text style={{ color: colors.muted, fontSize: 15 }}>Gifts on the Favorite pages</Text>
           </View>
 
+          {countdown(fo.closesAt) === 'Ended' ? (
+            <Pressable
+              onPress={() => router.push({ pathname: '/rivalries/faceoff-result', params: { faceOffId: fo.id, votesA: String(fo.votesA), votesB: String(fo.votesB), nameA, nameB, question: fo.question, votedSide: voted || '', rivalryId: rivalry.id } })}
+              style={styles.resultBtn}
+              accessibilityLabel="See result"
+            >
+              <Text style={{ color: '#111', fontWeight: '900', fontSize: 15 }}>See result</Text>
+            </Pressable>
+          ) : null}
+
           {/* Conduct note */}
           <View style={[styles.note, { backgroundColor: GOLD + '0F', borderColor: GOLD + '44' }]}>
             <Ionicons name="shield-checkmark-outline" size={16} color={GOLD} />
@@ -276,4 +290,5 @@ const styles = StyleSheet.create({
   },
   quietBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: radii.full },
   goldBtn: { flex: 1, backgroundColor: GOLD, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: radii.full },
+  resultBtn: { backgroundColor: GOLD, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: radii.full, marginTop: 14 },
 });

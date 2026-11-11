@@ -83,9 +83,14 @@ export default function RivalriesScreen() {
         {/* Header */}
         <View style={styles.headerRow}>
           <Text style={[styles.h1, { color: colors.text, flex: 1 }]}>Rivalries</Text>
-          <Pressable onPress={() => { impact('light'); router.push('/rivalries/settings'); }} hitSlop={10} accessibilityLabel="Rivalry settings">
-            <Ionicons name="settings-outline" size={22} color={colors.muted} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable onPress={() => { impact('light'); router.push('/rivalries/trophies'); }} hitSlop={10} accessibilityLabel="Rivalry trophies">
+              <Ionicons name="trophy-outline" size={22} color={colors.muted} />
+            </Pressable>
+            <Pressable onPress={() => { impact('light'); router.push('/rivalries/settings'); }} hitSlop={10} accessibilityLabel="Rivalry settings">
+              <Ionicons name="settings-outline" size={22} color={colors.muted} />
+            </Pressable>
+          </View>
         </View>
         <Text style={[styles.subtitle, { color: colors.muted }]}>
           Opt-in, moderated energy without harm. No money wagering.
@@ -256,6 +261,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: spacing.sm,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   h1: {
     ...typo.h1,

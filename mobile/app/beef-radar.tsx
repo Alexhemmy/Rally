@@ -73,6 +73,10 @@ export default function BeefRadarScreen() {
     impact('medium');
     try {
       const res = await api<any>('/api/rivalries/' + id + path, { method: 'POST', body: JSON.stringify({}) });
+      if (path.indexOf('pause-channel') > -1) {
+        router.push({ pathname: '/rivalries/cooldown', params: { id: String(id), name: data && data.rivalry ? data.rivalry.b : '' } });
+        return;
+      }
       setMsg(res && res.note ? res.note : okText);
       await load();
     } catch (e: any) {

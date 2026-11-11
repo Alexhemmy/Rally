@@ -97,6 +97,11 @@ function RootStack() {
         <Stack.Screen name="rivalries/faceoff-new" options={{ headerShown: false }} />
         <Stack.Screen name="rivalries/invite" options={{ headerShown: false }} />
         <Stack.Screen name="rivalries/settings" options={{ headerShown: false }} />
+        <Stack.Screen name="rivalries/faceoff-result" options={{ headerShown: false }} />
+        <Stack.Screen name="rivalries/cooldown" options={{ headerShown: false }} />
+        <Stack.Screen name="rivalries/trophies" options={{ headerShown: false }} />
+        <Stack.Screen name="callout" options={{ headerShown: false }} />
+        <Stack.Screen name="callout-card" options={{ headerShown: false }} />
         <Stack.Screen name="compare" options={{ title: 'Compare' }} />
 
         {/* Profile, battle and walls (mocks 33-40) */}
