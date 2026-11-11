@@ -34,6 +34,12 @@ function fmt(n: number): string {
   return Math.round(n).toLocaleString('en-US');
 }
 
+function dayLabel(iso: string): string {
+  try {
+    return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+  } catch { return iso; }
+}
+
 export default function EarningsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -74,7 +80,10 @@ export default function EarningsScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Go back">
             <Ionicons name="chevron-back" size={26} color={colors.text} />
           </Pressable>
-          <Text style={[styles.h1, { color: colors.text }]}>Earnings</Text>
+          <Text style={[styles.h1, { color: colors.text, flex: 1 }]}>Earnings</Text>
+          <Pressable onPress={() => router.push('/gifts-settings')} hitSlop={10} accessibilityLabel="Gift settings">
+            <Ionicons name="gift-outline" size={22} color={GOLD} />
+          </Pressable>
         </View>
 
         {!authed ? (
@@ -118,9 +127,8 @@ export default function EarningsScreen() {
             >
               <Text style={styles.balanceLabel}>AVAILABLE TO CASH OUT</Text>
               <Text style={styles.balanceValue}>{'\u20A6' + fmt(data.balance.available)}</Text>
-              <Text style={styles.balanceSub}>{'\u20A6' + fmt(data.balance.pending) + ' pending'}</Text>
               <Text style={styles.balanceSub}>
-                {'Next payout day: ' + data.nextPayoutDay}
+                {'Pending \u20A6' + fmt(data.balance.pending) + ' \u00b7 Next payout ' + dayLabel(data.nextPayoutDay)}
               </Text>
             </LinearGradient>
 
@@ -139,6 +147,25 @@ export default function EarningsScreen() {
                 <Text style={styles.cashText}>Cash out</Text>
               </LinearGradient>
             </Pressable>
+
+            {/* Quick links */}
+            <View style={styles.linkRow}>
+              {([
+                ['Statement', '/statement', 'receipt-outline'],
+                ['Insights', '/insights', 'stats-chart-outline'],
+                ['Supporters', '/supporters', 'people-outline'],
+              ] as [string, string, string][]).map(([label, href, icon]) => (
+                <Pressable
+                  key={href}
+                  onPress={() => { impact('light'); router.push(href as any); }}
+                  style={[styles.linkChip, { borderColor: colors.border }]}
+                  accessibilityLabel={label}
+                >
+                  <Ionicons name={icon as any} size={15} color={GOLD} />
+                  <Text style={{ color: colors.text, fontSize: 12, fontWeight: '800', marginLeft: 6 }}>{label}</Text>
+                </Pressable>
+              ))}
+            </View>
 
             {/* Gifts per day bar chart */}
             <Text style={[styles.section, { color: colors.muted }]}>GIFTS PER DAY</Text>
@@ -233,5 +260,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radii.md,
     padding: 14,
+  },
+  linkRow: { flexDirection: 'row', gap: 8, marginTop: spacing.md },
+  linkChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: radii.full,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
 });

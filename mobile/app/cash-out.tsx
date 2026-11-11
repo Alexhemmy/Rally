@@ -15,6 +15,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useHaptics } from '@/hooks/useHaptics';
 import { spacing, radii } from '@/constants/theme';
 import { api } from '@/lib/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GOLD = '#FFA726';
 const GOLD_DEEP = '#F57C00';
@@ -41,6 +42,7 @@ export default function CashOutScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [savedAccount, setSavedAccount] = useState<{ bank: string; number: string; name: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,6 +56,15 @@ export default function CashOutScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('rally.payoutAccount');
+        if (raw) setSavedAccount(JSON.parse(raw));
+      } catch { /* fresh */ }
+    })();
+  }, []);
+
   const value = Number(amount || 0);
   const pickChip = (c: '25' | '50' | 'custom' | 'max') => {
     impact('light');
@@ -66,7 +77,7 @@ export default function CashOutScreen() {
   const amountError =
     value > available ? 'More than your available balance' :
     value > 0 && value < MIN_CASHOUT ? 'Cash out at least \u20A6' + fmt(MIN_CASHOUT) : '';
-  const accountReady = account.length >= 6 && bank.length >= 2;
+  const accountReady = savedAccount ? true : account.length >= 6 && bank.length >= 2;
   const canSend = value > 0 && value <= available && value >= MIN_CASHOUT && accountReady && !sending;
 
   async function submit() {
@@ -77,10 +88,25 @@ export default function CashOutScreen() {
     try {
       await api<any>('/api/payouts/request', {
         method: 'POST',
-        body: JSON.stringify({ amount: value, method: 'bank', destination: bank + ' ' + account, onDemand: false }),
+        body: JSON.stringify({
+          amount: value,
+          method: 'bank',
+          destination: savedAccount ? savedAccount.bank + ' ' + savedAccount.number : bank + ' ' + account,
+          onDemand: false,
+        }),
       });
       impact('success');
-      setStatus({ ok: true, text: 'Cash out of \u20A6' + fmt(value) + ' requested. It arrives within 1 business day.' });
+      const bankUsed = savedAccount ? savedAccount.bank : bank;
+      const last4 = (savedAccount ? savedAccount.number : account).slice(-4);
+      router.push({
+        pathname: '/payout-requested',
+        params: {
+          amount: String(value),
+          bank: bankUsed || 'your bank',
+          last4,
+          reference: res.payout && res.payout.id ? String(res.payout.id) : '',
+        },
+      });
       setAmount('');
       setChip('custom');
       await load();
@@ -151,38 +177,63 @@ export default function CashOutScreen() {
 
         {/* Pay out to */}
         <Text style={[styles.section, { color: colors.muted }]}>PAY OUT TO</Text>
-        <View style={[styles.accountCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.accountHead}>
-            <Ionicons name="business-outline" size={18} color={colors.text} />
-            <Text style={{ color: colors.text, fontWeight: '800', fontSize: 14, marginLeft: 8, flex: 1 }}>
-              {(bank || 'Your bank') + (masked ? ' ' + masked : '')}
-            </Text>
-            {accountReady ? (
+        {savedAccount ? (
+          <Pressable
+            onPress={() => router.push('/payout-account')}
+            style={[styles.accountCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            accessibilityLabel="Change payout account"
+          >
+            <View style={styles.accountHead}>
+              <Ionicons name="business-outline" size={18} color={GOLD} />
+              <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15, marginLeft: 10, flex: 1 }}>
+                {savedAccount.bank + ' \u00b7\u00b7 ' + savedAccount.number.slice(-4)}
+              </Text>
               <View style={styles.verifiedChip}>
                 <Text style={styles.verifiedText}>VERIFIED</Text>
               </View>
-            ) : null}
+            </View>
+            <Text style={{ color: colors.muted, fontSize: 12, marginTop: 6 }}>
+              In your own name \u00b7 verified
+            </Text>
+            <Text style={{ color: GOLD, fontSize: 12, fontWeight: '800', marginTop: 8 }}>Change</Text>
+          </Pressable>
+        ) : (
+          <View style={[styles.accountCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.accountHead}>
+              <Ionicons name="business-outline" size={18} color={colors.text} />
+              <Text style={{ color: colors.text, fontWeight: '800', fontSize: 14, marginLeft: 8, flex: 1 }}>
+                {(bank || 'Your bank') + (masked ? ' ' + masked : '')}
+              </Text>
+              {accountReady ? (
+                <View style={styles.verifiedChip}>
+                  <Text style={styles.verifiedText}>VERIFIED</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6 }}>
+              In your own name \u00B7 verified before the first payout
+            </Text>
+            <TextInput
+              style={[styles.accountInput, { borderColor: colors.border, color: colors.text }]}
+              placeholder="Bank name"
+              placeholderTextColor={colors.muted}
+              value={bank}
+              onChangeText={setBank}
+            />
+            <TextInput
+              style={[styles.accountInput, { borderColor: colors.border, color: colors.text }]}
+              placeholder="Account number (10 digits)"
+              placeholderTextColor={colors.muted}
+              value={account}
+              onChangeText={(t) => setAccount(t.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+              maxLength={10}
+            />
+            <Pressable onPress={() => router.push('/payout-account')} hitSlop={8}>
+              <Text style={{ color: GOLD, fontSize: 12, fontWeight: '800', marginTop: 10 }}>Save this account for next time</Text>
+            </Pressable>
           </View>
-          <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6 }}>
-            In your own name \u00B7 verified before the first payout
-          </Text>
-          <TextInput
-            style={[styles.accountInput, { borderColor: colors.border, color: colors.text }]}
-            placeholder="Bank name"
-            placeholderTextColor={colors.muted}
-            value={bank}
-            onChangeText={setBank}
-          />
-          <TextInput
-            style={[styles.accountInput, { borderColor: colors.border, color: colors.text }]}
-            placeholder="Account number (10 digits)"
-            placeholderTextColor={colors.muted}
-            value={account}
-            onChangeText={(t) => setAccount(t.replace(/[^0-9]/g, ''))}
-            keyboardType="number-pad"
-            maxLength={10}
-          />
-        </View>
+        )}
 
         {/* Receive summary */}
         <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>

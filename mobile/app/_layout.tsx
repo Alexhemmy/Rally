@@ -60,6 +60,14 @@ function RootStack() {
         <Stack.Screen name="verify-identity" options={{ title: 'Verification' }} />
         <Stack.Screen name="edit-page" options={{ title: 'Edit page' }} />
         <Stack.Screen name="favorite-studio" options={{ headerShown: false }} />
+
+        {/* Money: gifts, payouts, statement, insights, supporters */}
+        <Stack.Screen name="gifts-settings" options={{ title: 'Gifts' }} />
+        <Stack.Screen name="payout-account" options={{ title: 'Payout account' }} />
+        <Stack.Screen name="payout-requested" options={{ headerShown: false }} />
+        <Stack.Screen name="statement" options={{ title: 'Statement' }} />
+        <Stack.Screen name="insights" options={{ title: 'Insights' }} />
+        <Stack.Screen name="supporters" options={{ title: 'Supporters' }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}
