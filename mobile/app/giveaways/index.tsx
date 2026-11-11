@@ -57,7 +57,7 @@ export default function GiveawaysScreen() {
     impact('medium');
 
     try {
-      await api(`/api/giveaways/${id}/enter`, { method: 'POST' });
+      await api('/api/giveaways/' + id + '/enter', { method: 'POST' });
       setMsg({
         type: 'success',
         text: 'You’re in! Winners are weighted by activeness, dedication and passion — never by spend.',
@@ -126,9 +126,14 @@ export default function GiveawaysScreen() {
           <View style={{ gap: 12 }}>
             {giveaways.map((g) => (
               <GlassCard key={g.id}>
+                <Pressable
+                onPress={() => { impact('light'); router.push({ pathname: '/giveaways/detail', params: { id: g.id } }); }}
+                accessibilityLabel="Giveaway details"
+              >
                 <Text style={[styles.title, { color: colors.text }]}>
                   {g.favoriteName || 'A Favorite'} · Giveaway
                 </Text>
+              </Pressable>
 
                 <View style={styles.meta}>
                   <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 15 }}>

@@ -163,6 +163,16 @@ export default function FanClubJoinScreen() {
                 </Pressable>
               </View>
             ) : null}
+
+            {/* Renewal note (mock 17) */}
+            {tiers.length > 0 ? (
+              <View style={[styles.renewNote, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                <Ionicons name="calendar-outline" size={16} color={TEAL} />
+                <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 20, flex: 1 }}>
+                  Renews monthly. Cancel any time in Memberships and the benefits last until the period ends.
+                </Text>
+              </View>
+            ) : null}
           </ScrollView>
 
           {/* Join bar */}
@@ -180,6 +190,9 @@ export default function FanClubJoinScreen() {
                   </Text>
                 </LinearGradient>
               </Pressable>
+              <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 10 }}>
+                Paid with your card at checkout
+              </Text>
             </View>
           ) : null}
         </>
@@ -208,4 +221,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
   joinBtn: { alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: radii.full },
+  renewNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    padding: 14,
+    marginTop: 14,
+  },
 });

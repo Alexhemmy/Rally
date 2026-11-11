@@ -86,6 +86,11 @@ function RootStack() {
         <Stack.Screen name="pay" options={{ title: 'Pay' }} />
         <Stack.Screen name="spending-limits" options={{ title: 'Spending limits' }} />
         <Stack.Screen name="fan-club-join" options={{ headerShown: false }} />
+        <Stack.Screen name="store-front" options={{ title: 'Store' }} />
+        <Stack.Screen name="request-shoutout" options={{ title: 'Request' }} />
+        <Stack.Screen name="receipt" options={{ title: 'Receipt' }} />
+        <Stack.Screen name="refund" options={{ title: 'Refund' }} />
+        <Stack.Screen name="giveaways/detail" options={{ headerShown: false }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}

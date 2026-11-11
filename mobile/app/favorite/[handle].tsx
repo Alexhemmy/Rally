@@ -430,6 +430,23 @@ export default function FavoriteScreen() {
                 <Ionicons name="chevron-forward" size={16} color={colors.muted} />
               </Pressable>
 
+              {/* Visit the store (mock 18) */}
+              <Pressable
+                onPress={() => {
+                  impact('light');
+                  router.push({ pathname: '/store-front', params: { handle } });
+                }}
+                style={({ pressed }) => [
+                  styles.joinClubBtn,
+                  { borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: horizontalPad, opacity: pressed ? 0.7 : 1 },
+                ]}
+                accessibilityLabel="Visit the store"
+              >
+                <Ionicons name="storefront-outline" size={16} color={GOLD} />
+                <Text style={[styles.joinClubText, { color: colors.text }]}>Visit the store</Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+              </Pressable>
+
               {/* Top supporters this week */}
               {topSupporters.length > 0 && (
                 <View style={[styles.topRow, { paddingHorizontal: horizontalPad }]}>
