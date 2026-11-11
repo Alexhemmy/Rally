@@ -5,7 +5,7 @@
  * 5 seconds. Gift goal arrives from the setup screen as a param.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View, Pressable, TextInput } from 'react-native';
+import { Text, StyleSheet, View, Pressable, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import { radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GOLD = '#FFA726';
 const LIVE_RED = '#E9355B';
@@ -44,6 +45,9 @@ export default function LiveHostScreen() {
   const [board, setBoard] = useState<BoardRow[]>([]);
   const [draft, setDraft] = useState('');
   const [ending, setEnding] = useState(false);
+  const [modTarget, setModTarget] = useState<ChatMsg | null>(null);
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const [muted, setMuted] = useState<Record<string, number>>({});
 
   const goalNum = parseInt(String(goal || '5000'), 10) || 5000;
 
@@ -68,9 +72,40 @@ export default function LiveHostScreen() {
     return () => { clearInterval(t); };
   }, [poll]);
 
+  useEffect(() => {
+    AsyncStorage.getItem('rally.liveMod')
+      .then((raw) => {
+        if (!raw) return;
+        const all = JSON.parse(raw);
+        const mine = all[String(id)] || { hidden: [], muted: {} };
+        setHiddenIds(mine.hidden || []);
+        setMuted(mine.muted || {});
+      })
+      .catch(() => undefined);
+  }, [id]);
+
+  function persistMod(hidden: string[], mutedMap: Record<string, number>) {
+    AsyncStorage.getItem('rally.liveMod')
+      .then((raw) => {
+        const all = raw ? JSON.parse(raw) : {};
+        all[String(id)] = { hidden: hidden, muted: mutedMap };
+        return AsyncStorage.setItem('rally.liveMod', JSON.stringify(all));
+      })
+      .catch(() => undefined);
+  }
+
+  function moderateLatest() {
+    impact('light');
+    if (chat.length) setModTarget(chat[chat.length - 1]);
+    else Alert.alert('Moderate', 'No comments to moderate yet.');
+  }
+
   const giftsTotal = board.reduce((a, b) => a + b.tokens, 0);
   const progress = Math.min(1, giftsTotal / goalNum);
-  const chat = messages.slice(-4);
+  const nowMs = Date.now();
+  const chat = messages
+    .filter((m) => hiddenIds.indexOf(m.id) === -1 && !(muted[m.name] && muted[m.name] > nowMs))
+    .slice(-4);
 
   async function endLive() {
     if (ending) return;
@@ -135,7 +170,7 @@ export default function LiveHostScreen() {
           { icon: 'chatbubble-outline', label: 'Chat focus' },
           { icon: 'shield-checkmark-outline', label: 'Moderate' },
         ].map((b) => (
-          <Pressable key={b.icon} style={styles.railBtn} accessibilityLabel={b.label}>
+          <Pressable key={b.icon} style={styles.railBtn} accessibilityLabel={b.label} onPress={b.label === 'Moderate' ? moderateLatest : undefined}>
             <Ionicons name={b.icon as any} size={22} color="#fff" />
           </Pressable>
         ))}
@@ -144,12 +179,14 @@ export default function LiveHostScreen() {
       {/* Chat feed */}
       <View style={[styles.chatWrap, { bottom: Math.max(insets.bottom, 40) + 96 }]}>
         {chat.map((m, i) => (
-          <View key={m.id} style={styles.chatLine}>
-            <Text numberOfLines={1}>
-              <Text style={{ color: '#fff', fontWeight: '900' }}>{m.name} </Text>
-              <Text style={{ color: 'rgba(255,255,255,0.92)' }}>{m.body}</Text>
-            </Text>
-          </View>
+          <Pressable key={m.id} onPress={() => setModTarget(m)} accessibilityLabel={'Moderate comment from ' + m.name}>
+            <View style={styles.chatLine}>
+              <Text numberOfLines={1}>
+                <Text style={{ color: '#fff', fontWeight: '900' }}>{m.name} </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.92)' }}>{m.body}</Text>
+              </Text>
+            </View>
+          </Pressable>
         ))}
         {chat.length === 0 ? (
           <View style={styles.chatLine}><Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Chat is quiet. Say hello to your fans.</Text></View>
@@ -178,6 +215,89 @@ export default function LiveHostScreen() {
           </LinearGradient>
         </Pressable>
       </View>
+
+      {/* Host moderation sheet (mock 11) */}
+      {modTarget ? (
+        <Pressable style={styles.modOverlay} onPress={() => setModTarget(null)}>
+          <Pressable style={styles.modSheet} onPress={() => undefined}>
+            <View style={styles.modGrab} />
+            <View style={styles.modHead}>
+              <View style={styles.modAvatar}>
+                <Text style={{ color: '#fff', fontWeight: '900', fontSize: 16 }}>?</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modHandle}>{'@' + (modTarget.name || 'viewer').toLowerCase().replace(/\s+/g, '_')}</Text>
+                <Text style={styles.modJoined}>Watching now</Text>
+              </View>
+            </View>
+            <Text style={styles.modQuote}>{'"' + modTarget.body + '"'}</Text>
+
+            <Pressable
+              style={styles.modRow}
+              onPress={() => {
+                impact('light');
+                const h = hiddenIds.concat([modTarget.id]);
+                setHiddenIds(h);
+                persistMod(h, muted);
+                setModTarget(null);
+              }}
+              accessibilityLabel="Hide this comment"
+            >
+              <Ionicons name="eye-outline" size={22} color="#fff" />
+              <Text style={styles.modRowText}>Hide this comment</Text>
+            </Pressable>
+            <Pressable
+              style={styles.modRow}
+              onPress={() => {
+                impact('light');
+                const mu = { ...muted };
+                mu[modTarget.name] = Date.now() + 10 * 60000;
+                setMuted(mu);
+                persistMod(hiddenIds, mu);
+                setModTarget(null);
+              }}
+              accessibilityLabel="Mute for 10 minutes"
+            >
+              <Ionicons name="time-outline" size={22} color="#fff" />
+              <Text style={styles.modRowText}>Mute for 10 minutes</Text>
+            </Pressable>
+            <Pressable
+              style={styles.modRow}
+              onPress={() => {
+                impact('medium');
+                const mu = { ...muted };
+                mu[modTarget.name] = Date.now() + 24 * 3600000;
+                setMuted(mu);
+                persistMod(hiddenIds, mu);
+                setModTarget(null);
+                Alert.alert('Removed from live', (modTarget.name || 'Viewer') + ' can no longer comment in this session. Removal is enforced on this device until the live moderation backend ships.');
+              }}
+              accessibilityLabel="Remove from live"
+            >
+              <Ionicons name="ban-outline" size={22} color="#fff" />
+              <Text style={styles.modRowText}>Remove from live</Text>
+            </Pressable>
+            <Pressable
+              style={styles.modRow}
+              onPress={async () => {
+                impact('medium');
+                if (!getToken()) { router.push('/login'); return; }
+                try {
+                  await api('/api/moderation/report', { method: 'POST', body: JSON.stringify({ targetType: 'comment', targetId: modTarget.id, reason: 'harassment' }) });
+                  Alert.alert('Reported', 'Thanks. Our moderation team will review it.');
+                  setModTarget(null);
+                } catch (e: any) {
+                  Alert.alert('Report', e.message || 'Could not send the report');
+                }
+              }}
+              accessibilityLabel="Report to Rally"
+            >
+              <Ionicons name="flag" size={22} color={LIVE_RED} />
+              <Text style={[styles.modRowText, { color: LIVE_RED }]}>Report to Rally</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      ) : null}
 
       {/* Session title watermark */}
       {session ? (
@@ -256,4 +376,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   endBtn: { alignItems: 'center', justifyContent: 'center', paddingVertical: 17, borderRadius: radii.full },
+  modOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end', zIndex: 70 },
+  modSheet: { backgroundColor: '#14121C', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10, paddingHorizontal: 20, paddingBottom: 40 },
+  modGrab: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)', marginBottom: 20 },
+  modHead: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  modAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#2A2A38', alignItems: 'center', justifyContent: 'center' },
+  modHandle: { color: '#fff', fontWeight: '900', fontSize: 19 },
+  modJoined: { color: 'rgba(255,255,255,0.6)', fontSize: 14, marginTop: 2 },
+  modQuote: { color: 'rgba(255,255,255,0.85)', fontSize: 16, marginTop: 14, marginBottom: 6 },
+  modRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 18 },
+  modRowText: { color: '#fff', fontWeight: '800', fontSize: 18 },
 });
