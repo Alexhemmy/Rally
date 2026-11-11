@@ -115,6 +115,12 @@ function RootStack() {
         <Stack.Screen name="your-data" options={{ headerShown: false }} />
         <Stack.Screen name="help-center" options={{ headerShown: false }} />
 
+        {/* Moment authoring flow (mocks 17-22) */}
+        <Stack.Screen name="edit-moment" options={{ headerShown: false }} />
+        <Stack.Screen name="post-settings" options={{ headerShown: false }} />
+        <Stack.Screen name="moment-posted" options={{ headerShown: false }} />
+        <Stack.Screen name="moment-insights" options={{ headerShown: false }} />
+
         {/* Sound page (mock 15) */}
         <Stack.Screen name="sound" options={{ headerShown: false }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />

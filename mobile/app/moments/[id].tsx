@@ -230,6 +230,17 @@ export default function MomentDetailScreen() {
               <Text style={[styles.actionLabel, { color: colors.muted }]}>Share</Text>
             </Pressable>
             <Pressable
+              onPress={() => {
+                click();
+                router.push('/moment-insights?id=' + momentId);
+              }}
+              style={styles.action}
+              accessibilityLabel="Moment insights"
+            >
+              <Ionicons name="stats-chart-outline" size={22} color={colors.muted} />
+              <Text style={[styles.actionLabel, { color: colors.muted }]}>Insights</Text>
+            </Pressable>
+            <Pressable
               onPress={() => setReportOpen(true)}
               style={styles.action}
               accessibilityLabel="Report Moment"

@@ -115,7 +115,7 @@ export default function ComposeMomentScreen() {
     impact('medium');
     try {
       await runWithAppTask(async () => {
-        await api('/api/moments', {
+        const created = await api<{ moment: { id: string } }>('/api/moments', {
           method: 'POST',
           body: JSON.stringify({
             title: title.trim(),
@@ -129,7 +129,7 @@ export default function ComposeMomentScreen() {
       });
       success();
       impact('success');
-      Alert.alert('Posted', 'Your Moment is live.', [{ text: 'OK', onPress: () => router.back() }]);
+      router.replace('/moment-posted?id=' + encodeURIComponent(created.moment.id) + '&title=' + encodeURIComponent(title.trim()));
     } catch (e: any) {
       errSound();
       impact('error');
@@ -183,6 +183,15 @@ export default function ComposeMomentScreen() {
           <Pressable onPress={() => pickVideo('camera')} disabled={uploading || publishing} style={[styles.replaceBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.replaceText, { color: colors.text }]}>Record</Text>
           </Pressable>
+          {video && (
+            <Pressable
+              onPress={() => router.push({ pathname: '/edit-moment', params: { title: title.trim(), tag, mediaUrl: video.url, seconds: String(video.seconds) } })}
+              disabled={uploading || publishing}
+              style={[styles.replaceBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            >
+              <Text style={[styles.replaceText, { color: colors.text }]}>Edit</Text>
+            </Pressable>
+          )}
           {video && (
             <Pressable onPress={() => setVideo(null)} disabled={uploading || publishing} style={styles.removeBtn}>
               <Text style={styles.removeText}>Remove</Text>
