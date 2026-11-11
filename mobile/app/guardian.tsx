@@ -4,7 +4,7 @@
  * error honestly. Skip and browse only continues without a request.
  */
 import { useState } from 'react';
-import { Text, StyleSheet, View, Pressable, TextInput, ScrollView } from 'react-native';
+import { Text, StyleSheet, View, Pressable, TextInput, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
@@ -55,9 +55,6 @@ export default function GuardianScreen() {
       errSound();
       impact('error');
       const m = e.message || 'Could not send the request.';
-      if (m.indexOf('16-17') > -1 || m.indexOf('minor') > -1) {
-        Alert.alertSafe = undefined;
-      }
       Alert.alert('Guardian request', m + ' The consent program is for 16-17 year-old accounts.');
     } finally {
       setSending(false);

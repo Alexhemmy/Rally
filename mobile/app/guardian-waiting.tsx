@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Text, StyleSheet, View, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { SwipeBack } from '@/components/SwipeBack';
