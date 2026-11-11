@@ -1,58 +1,29 @@
-/** Me tab - Rally design
- * Profile-style header (banner, avatar, stats), quick action grid,
- * account links, preferences, help and legal.
+/** Me tab (mock 01) - Rally design.
+ * Compact identity header with level chip and a chevron to the full
+ * profile, real token balance with Top up, account rows (Badges and
+ * levels, Collections, Saved, Activity, Memberships and orders),
+ * Settings / Privacy and safety, and the gold Become a Favorite row.
+ * Sounds, haptics and dark mode stay here as a preferences card.
  */
-import { useState, useCallback, useEffect } from 'react';
-import { Text, StyleSheet, View, Switch, Pressable } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Text, StyleSheet, View, Switch, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '@/components/Screen';
-import { GradientButton, GlassCard, SectionHeader, Avatar } from '@/components/ui';
+import { Avatar } from '@/components/ui';
 import { useTheme } from '@/components/ThemeProvider';
-import { spacing, radii, type as typo } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds, setSoundsEnabled, getSoundsEnabled } from '@/hooks/useSounds';
-import { clearToken, getToken, api } from '@/lib/api';
+import { spacing, radii } from '@/constants/theme';
+import { api, getToken } from '@/lib/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GOLD = '#FFA726';
 const GOLD_DEEP = '#F57C00';
-const PURPLE = '#7C4DFF';
+const TEAL = '#34D399';
 
-const QUICK_ACTIONS = [
-  { href: '/live', label: 'Live', icon: 'radio-outline' },
-  { href: '/wallet', label: 'Wallet', icon: 'wallet-outline' },
-  { href: '/subscriptions', label: 'Fan Clubs', icon: 'people-outline' },
-  { href: '/store', label: 'Store', icon: 'bag-outline' },
-  { href: '/collections', label: 'Collections', icon: 'albums-outline' },
-  { href: '/inbox', label: 'Inbox', icon: 'notifications-outline' },
-  { href: '/favorite-studio', label: 'Studio', icon: 'stats-chart-outline' },
-  { href: '/security', label: 'Security', icon: 'shield-checkmark-outline' },
-  { href: '/upgrade', label: 'Upgrade', icon: 'star-outline' },
-];
-
-const ACCOUNT_LINKS = [
-  { href: '/settings', label: 'Settings' },
-  { href: '/notifications', label: 'Notifications' },
-  { href: '/onboarding', label: 'Onboarding checklist' },
-  { href: '/search', label: 'Search' },
-  { href: '/permissions', label: 'App permissions' },
-];
-
-const HELP_LINKS = [
-  { href: '/how-to-use', label: 'How to use' },
-  { href: '/faq', label: 'FAQ' },
-  { href: '/support', label: 'Support' },
-  { href: '/about', label: 'About' },
-];
-
-const LEGAL_LINKS = [
-  { href: '/privacy', label: 'Privacy policy' },
-  { href: '/terms', label: 'Terms of use' },
-];
-
-function fmt(n: any) {
-  return Number(n || 0).toLocaleString();
+function fmt(n: number): string {
+  return Math.round(n).toLocaleString('en-US');
 }
 
 export default function YouTab() {
@@ -61,346 +32,178 @@ export default function YouTab() {
   const { impact, enabled, setEnabled } = useHaptics();
   const { click } = useSounds();
 
+  const [me, setMe] = useState<any>(null);
+  const [collectionsCount, setCollectionsCount] = useState(0);
+  const [favHandle, setFavHandle] = useState<string | null>(null);
   const [soundOn, setSoundOn] = useState(getSoundsEnabled());
   const [biometrics, setBiometrics] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [me, setMe] = useState<any>(null);
 
-  const authed = !!getToken();
-
-  const loadMe = useCallback(async () => {
-    if (!getToken()) {
-      setMe(null);
-      return;
-    }
+  const load = useCallback(async () => {
+    if (!getToken()) { setMe(null); return; }
     try {
-      const res = await api<{ user: any }>('/api/auth/me');
-      setMe(res.user);
-    } catch {
-      setMe(null);
-    }
+      const r = await api<{ user: any }>('/api/auth/me');
+      setMe(r.user || null);
+    } catch { setMe(null); }
+    try {
+      const c: any = await api('/api/collections/me');
+      setCollectionsCount((c.collections || []).length);
+    } catch { /* offline */ }
+    try {
+      const raw = await AsyncStorage.getItem('rally.myFavoriteHandle');
+      if (raw) setFavHandle(JSON.parse(raw));
+    } catch { /* local only */ }
   }, []);
 
-  useEffect(() => {
-    loadMe();
-  }, [loadMe]);
+  useEffect(() => { load(); }, [load]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    impact("selection");
-    await loadMe();
-    setRefreshing(false);
-  }, [impact, loadMe]);
+  const authed = !!getToken();
+  const balance = me && me.tokenWallet
+    ? Number(me.tokenWallet.balance || 0) + Number(me.tokenWallet.giftedBalance || 0)
+    : 0;
+  const isFavorite = !!(me && me.favoriteProfile && me.favoriteProfile.isPublished);
 
-  function LinkRow({
-    href,
-    label,
-    isLast,
-  }: {
-    href: string;
-    label: string;
-    isLast?: boolean;
-  }) {
+  function Row(props: { icon: string; label: string; value?: string; onPress: () => void; last?: boolean; gold?: boolean }) {
     return (
       <Pressable
-        onPress={() => {
-          click();
-          impact("selection");
-          router.push(href as any);
-        }}
-        style={({ pressed }) => [
-          styles.linkRow,
-          {
-            borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-            borderBottomColor: colors.border,
-            backgroundColor: pressed ? colors.surfaceHover : "transparent",
-          },
-        ]}
+        onPress={props.onPress}
+        style={[styles.row, !props.last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
+        accessibilityLabel={props.label}
       >
-        <Text style={[styles.linkText, { color: colors.text }]}>{label}</Text>
-        <Text style={{ color: colors.primary, fontSize: 18 }}>{"\u203a"}</Text>
+        <View style={[styles.rowIcon, { backgroundColor: colors.surfaceElevated || colors.bg }]}>
+          <Ionicons name={props.icon as any} size={20} color={GOLD} />
+        </View>
+        <Text style={{ flex: 1, color: colors.text, fontWeight: '800', fontSize: 17 }}>{props.label}</Text>
+        {props.value ? <Text style={{ color: colors.muted, fontWeight: '700', fontSize: 16 }}>{props.value}</Text> : null}
+        <Ionicons name={props.gold ? 'chevron-forward' : 'chevron-forward'} size={18} color={props.gold ? GOLD : colors.muted} />
       </Pressable>
     );
   }
 
-  const handle = me?.handle || "";
-  const name = me?.displayName || "Rally Fan";
-  const balance = me?.tokenWallet?.balance ?? 0;
-  const gifted = me?.tokenWallet?.giftedBalance ?? 0;
-  const supporters = me?.favoriteProfile?.supporterCount ?? null;
-
   return (
-    <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      {/* Profile header */}
-      <GlassCard padded={false} style={styles.profileCard}>
-        <LinearGradient
-          colors={[GOLD, GOLD_DEEP, PURPLE] as [string, string, string]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.banner}
-        />
-        <View style={styles.profileBody}>
-          <View style={styles.avatarWrap}>
-            <Avatar name={handle || "you"} size={72} ring uri={me?.avatarUrl || undefined} />
-          </View>
-          <View style={{ marginTop: 10 }}>
-            <View style={styles.nameRow}>
-              <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
-              {(me?.roles || []).indexOf("FAVORITE") > -1 ? (
-                <View style={styles.roleChip}>
-                  <Text style={styles.roleChipText}>FAVORITE</Text>
-                </View>
-              ) : null}
-            </View>
-            <Text style={[styles.handleText, { color: colors.muted }]}>
-              {handle ? "@" + handle : "Not signed in"}
+    <Screen>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* Identity header */}
+        <Pressable
+          onPress={() => authed && router.push('/my-profile')}
+          style={styles.headRow}
+          accessibilityLabel="Open my profile"
+        >
+          <Avatar uri={me && me.avatarUrl ? me.avatarUrl : undefined} name={me ? me.displayName : 'You'} size={64} />
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <Text style={{ color: colors.text, fontWeight: '900', fontSize: 22 }}>
+              {me ? me.displayName : 'Not signed in'}
             </Text>
-            {me?.bio ? (
-              <Text style={[styles.bio, { color: colors.muted }]}>{me.bio}</Text>
-            ) : null}
-          </View>
-
-          {/* Stats */}
-          <View style={[styles.statsRow, { borderTopColor: colors.border }]}>
-            <View style={styles.stat}>
-              <Ionicons name="flash" size={15} color={GOLD} />
-              <Text style={[styles.statValue, { color: colors.text }]}>T {fmt(balance)}</Text>
-              <Text style={[styles.statLabel, { color: colors.muted }]}>Tokens</Text>
-            </View>
-            <View style={styles.stat}>
-              <Ionicons name="gift" size={15} color={GOLD} />
-              <Text style={[styles.statValue, { color: colors.text }]}>T {fmt(gifted)}</Text>
-              <Text style={[styles.statLabel, { color: colors.muted }]}>Gifted</Text>
-            </View>
-            <View style={styles.stat}>
-              <Ionicons name="people" size={15} color={GOLD} />
-              <Text style={[styles.statValue, { color: colors.text }]}>
-                {supporters !== null ? fmt(supporters) : "\u2014"}
+            <Text style={{ color: colors.muted, fontSize: 15, marginTop: 1 }}>{me ? '@' + me.handle : 'Tap to log in'}</Text>
+            <View style={[styles.levelChip, { backgroundColor: GOLD + '22' }]}>
+              <Text style={{ color: GOLD, fontSize: 11, fontWeight: '900', letterSpacing: 0.8 }}>
+                {isFavorite ? 'FAVORITE' : 'SUPPORTER'}
               </Text>
-              <Text style={[styles.statLabel, { color: colors.muted }]}>Supporters</Text>
             </View>
           </View>
+          {authed ? <Ionicons name="chevron-forward" size={20} color={colors.muted} /> : null}
+        </Pressable>
 
-          {/* Auth actions */}
-          <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 10 }}>
-            {!authed ? (
-              <>
-                <GradientButton
-                  label="Log in"
-                  onPress={() => router.push('/login')}
-                  fullWidth
-                />
-                <GradientButton
-                  label="Create account"
-                  variant="ghost"
-                  onPress={() => router.push('/register')}
-                  fullWidth
-                />
-              </>
-            ) : (
-              <GradientButton
-                label="Log out"
-                variant="outline"
-                onPress={() => {
-                  clearToken();
-                  impact("medium");
-                  router.push('/login');
-                }}
-              />
-            )}
+        {/* Tokens card */}
+        <View style={[styles.tokensCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.tokenIcon, { backgroundColor: GOLD }]}>
+            <Text style={{ color: '#1A1206', fontWeight: '900', fontSize: 18 }}>T</Text>
+          </View>
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <Text style={{ color: colors.muted, fontSize: 15 }}>Tokens</Text>
+            <Text style={{ color: colors.text, fontWeight: '900', fontSize: 26 }}>{fmt(balance)}</Text>
+          </View>
+          <Pressable
+            onPress={() => { impact('light'); click(); router.push('/buy-tokens'); }}
+            style={[styles.topUp, { backgroundColor: GOLD }]}
+            accessibilityLabel="Top up"
+          >
+            <Text style={{ color: '#1A1206', fontWeight: '900', fontSize: 16 }}>Top up</Text>
+          </Pressable>
+        </View>
+
+        {/* Account rows */}
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Row
+            icon="trophy-outline"
+            label="Badges and levels"
+            onPress={() => { impact('light'); router.push(favHandle ? '/badges?handle=' + favHandle : '/search'); }}
+          />
+          <Row icon="folder-outline" label="Collections" value={String(collectionsCount)} onPress={() => { impact('light'); router.push('/collections'); }} />
+          <Row icon="bookmark-outline" label="Saved" onPress={() => { impact('light'); router.push('/saved'); }} />
+          <Row icon="time-outline" label="Activity" onPress={() => { impact('light'); router.push('/notifications'); }} />
+          <Row icon="ticket-outline" label="Memberships and orders" onPress={() => { impact('light'); router.push('/memberships'); }} last />
+        </View>
+
+        {/* Settings */}
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Row icon="settings-outline" label="Settings" onPress={() => { impact('light'); router.push('/settings'); }} />
+          <Row icon="shield-checkmark-outline" label="Privacy and safety" onPress={() => { impact('light'); router.push('/privacy-safety'); }} last />
+        </View>
+
+        {/* Become a Favorite */}
+        {!isFavorite ? (
+          <Pressable
+            onPress={() => { impact('light'); router.push('/apply-favorite'); }}
+            style={[styles.becomeCard, { borderColor: GOLD_DEEP, backgroundColor: colors.surface }]}
+            accessibilityLabel="Become a Favorite"
+          >
+            <Ionicons name="crown" size={26} color={GOLD_DEEP} />
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={{ color: colors.text, fontWeight: '900', fontSize: 18 }}>Become a Favorite</Text>
+              <Text style={{ color: colors.muted, fontSize: 15, marginTop: 1 }}>Share your work and earn</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={GOLD_DEEP} />
+          </Pressable>
+        ) : null}
+
+        {/* Preferences */}
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: spacing.md }]}>
+          <View style={[styles.prefRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
+            <Text style={{ flex: 1, color: colors.text, fontWeight: '700', fontSize: 15 }}>Click / type feedback</Text>
+            <Switch
+              value={soundOn}
+              onValueChange={(v) => { setSoundOn(v); setSoundsEnabled(v); if (v) click(); }}
+              trackColor={{ true: GOLD, false: colors.border }}
+              thumbColor="#fff"
+            />
+          </View>
+          <View style={[styles.prefRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
+            <Text style={{ flex: 1, color: colors.text, fontWeight: '700', fontSize: 15 }}>Vibration</Text>
+            <Switch
+              value={enabled}
+              onValueChange={(v) => { setEnabled(v); if (v) impact('success'); }}
+              trackColor={{ true: GOLD, false: colors.border }}
+              thumbColor="#fff"
+            />
+          </View>
+          <View style={[styles.prefRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
+            <Text style={{ flex: 1, color: colors.text, fontWeight: '700', fontSize: 15 }}>Biometrics lock</Text>
+            <Switch value={biometrics} onValueChange={(v) => { setBiometrics(v); impact('selection'); }} trackColor={{ true: GOLD, false: colors.border }} thumbColor="#fff" />
+          </View>
+          <View style={styles.prefRow}>
+            <Text style={{ flex: 1, color: colors.text, fontWeight: '700', fontSize: 15 }}>Dark mode</Text>
+            <Switch
+              value={isDark}
+              onValueChange={(v) => { setMode(v ? 'dark' : 'light'); impact('selection'); }}
+              trackColor={{ true: GOLD, false: colors.border }}
+              thumbColor="#fff"
+            />
           </View>
         </View>
-      </GlassCard>
-
-      {/* Quick actions grid */}
-      <View style={styles.gridWrap}>
-        {QUICK_ACTIONS.map((a) => {
-          return (
-            <Pressable
-              key={a.href}
-              onPress={() => {
-                click();
-                impact("selection");
-                router.push(a.href as any);
-              }}
-              style={({ pressed }) => [
-                styles.gridTile,
-                { backgroundColor: pressed ? colors.surfaceHover : colors.surface, borderColor: colors.border },
-              ]}
-              accessibilityLabel={a.label}
-            >
-              <Ionicons name={a.icon} size={22} color={GOLD} />
-              <Text style={[styles.gridLabel, { color: colors.text }]}>{a.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* Account */}
-      <GlassCard style={{ marginBottom: spacing.md }} padded={false}>
-        <SectionHeader title="Account" style={{ paddingHorizontal: 16, paddingTop: 14 }} />
-        {ACCOUNT_LINKS.map((l, i) => (
-          <LinkRow
-            key={l.href}
-            href={l.href}
-            label={l.label}
-            isLast={i === ACCOUNT_LINKS.length - 1}
-          />
-        ))}
-      </GlassCard>
-
-      {/* Preferences */}
-      <GlassCard style={{ marginBottom: spacing.md }}>
-        <SectionHeader title="Sounds & haptics" />
-        <View style={styles.switchRow}>
-          <Text style={[styles.label, { color: colors.text }]}>Click / type feedback</Text>
-          <Switch
-            value={soundOn}
-            onValueChange={(v) => {
-              setSoundOn(v);
-              setSoundsEnabled(v);
-              if (v) click();
-            }}
-            trackColor={{ true: colors.primary, false: colors.border }}
-            thumbColor="#fff"
-          />
-        </View>
-        <View style={[styles.switchRow, { marginTop: 14 }]}>
-          <Text style={[styles.label, { color: colors.text }]}>Vibration</Text>
-          <Switch
-            value={enabled}
-            onValueChange={(v) => {
-              setEnabled(v);
-              if (v) impact("success");
-            }}
-            trackColor={{ true: colors.primary, false: colors.border }}
-            thumbColor="#fff"
-          />
-        </View>
-        <View style={[styles.switchRow, { marginTop: 14 }]}>
-          <Text style={[styles.label, { color: colors.text }]}>Biometrics lock</Text>
-          <Switch
-            value={biometrics}
-            onValueChange={(v) => {
-              setBiometrics(v);
-              impact("selection");
-            }}
-            trackColor={{ true: colors.primary, false: colors.border }}
-            thumbColor="#fff"
-          />
-        </View>
-        <View style={[styles.switchRow, { marginTop: 14 }]}>
-          <Text style={[styles.label, { color: colors.text }]}>Dark mode</Text>
-          <Switch
-            value={isDark}
-            onValueChange={(v) => {
-              setMode(v ? 'dark' : 'light');
-              impact("selection");
-            }}
-            trackColor={{ true: colors.primary, false: colors.border }}
-            thumbColor="#fff"
-          />
-        </View>
-      </GlassCard>
-
-      {/* Help */}
-      <GlassCard style={{ marginBottom: spacing.md }} padded={false}>
-        <SectionHeader title="Help" style={{ paddingHorizontal: 16, paddingTop: 14 }} />
-        {HELP_LINKS.map((l, i) => (
-          <LinkRow
-            key={l.href}
-            href={l.href}
-            label={l.label}
-            isLast={i === HELP_LINKS.length - 1}
-          />
-        ))}
-      </GlassCard>
-
-      {/* Legal */}
-      <GlassCard padded={false}>
-        <SectionHeader title="Legal" style={{ paddingHorizontal: 16, paddingTop: 14 }} />
-        {LEGAL_LINKS.map((l, i) => (
-          <LinkRow
-            key={l.href}
-            href={l.href}
-            label={l.label}
-            isLast={i === LEGAL_LINKS.length - 1}
-          />
-        ))}
-      </GlassCard>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  profileCard: {
-    marginBottom: spacing.md,
-    overflow: "hidden",
-  },
-  banner: {
-    height: 86,
-    borderTopLeftRadius: radii.lg,
-    borderTopRightRadius: radii.lg,
-  },
-  profileBody: { alignItems: "center", paddingHorizontal: 16, paddingTop: 0 },
-  avatarWrap: { marginTop: -36 },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  name: { fontSize: 20, fontWeight: "900" },
-  roleChip: {
-    backgroundColor: GOLD,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  roleChipText: { color: "#111", fontSize: 10, fontWeight: "900" },
-  handleText: { fontSize: 13, marginTop: 3 },
-  bio: { fontSize: 13, lineHeight: 18, marginTop: 8, textAlign: "center" },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    marginTop: 14,
-    paddingTop: 14,
-    marginBottom: 14,
-  },
-  stat: { alignItems: "center", gap: 2 },
-  statValue: { fontSize: 15, fontWeight: "800" },
-  statLabel: { fontSize: 11 },
-  gridWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: spacing.md,
-  },
-  gridTile: {
-    width: "31%",
-    flexGrow: 1,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radii.md,
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 16,
-  },
-  gridLabel: { fontSize: 12, fontWeight: "700" },
-  switchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  label: {
-    flex: 1,
-    paddingRight: 12,
-    fontSize: 15,
-  },
-  linkRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  linkText: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
+  headRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: spacing.md },
+  levelChip: { borderRadius: radii.full, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8, alignSelf: 'flex-start' },
+  tokensCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: radii.lg, padding: 16, marginHorizontal: 16 },
+  tokenIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  topUp: { borderRadius: radii.full, paddingHorizontal: 20, paddingVertical: 12 },
+  card: { borderWidth: 1, borderRadius: radii.lg, marginHorizontal: 16, marginTop: spacing.md, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 14 },
+  rowIcon: { width: 42, height: 42, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' },
+  becomeCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: radii.lg, padding: 18, marginHorizontal: 16, marginTop: spacing.md },
+  prefRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14 },
 });

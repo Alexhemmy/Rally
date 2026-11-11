@@ -112,6 +112,9 @@ function RootStack() {
         <Stack.Screen name="break-prompt" options={{ headerShown: false, presentation: 'modal', animation: 'fade' }} />
         <Stack.Screen name="parent-dashboard" options={{ title: 'Parent view' }} />
         <Stack.Screen name="turning-18" options={{ headerShown: false }} />
+        <Stack.Screen name="my-profile" options={{ title: 'Profile' }} />
+        <Stack.Screen name="level-progress" options={{ title: 'Your level' }} />
+        <Stack.Screen name="saved" options={{ title: 'Saved' }} />
         <Stack.Screen name="callout-card" options={{ headerShown: false }} />
         <Stack.Screen name="compare" options={{ title: 'Compare' }} />
 

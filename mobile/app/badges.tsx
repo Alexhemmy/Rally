@@ -120,6 +120,9 @@ export default function BadgesScreen() {
               <Text style={{ color: colors.muted, fontSize: 12, marginTop: 8, lineHeight: 17 }}>
                 {data.level.progress + '% of the way. Levels are set by ' + data.favorite.displayName + ' and never affect giveaways or rankings.'}
               </Text>
+              <Pressable onPress={() => router.push('/level-progress?handle=' + params.handle)} hitSlop={6} accessibilityLabel="How points work">
+                <Text style={{ color: GOLD, fontWeight: '800', fontSize: 13, marginTop: 10 }}>How points work</Text>
+              </Pressable>
             </View>
 
             {/* Earned */}
