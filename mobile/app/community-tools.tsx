@@ -238,7 +238,7 @@ export default function CommunityToolsScreen() {
 
               <Text style={{ color: colors.muted, fontSize: 13, marginTop: 10 }}>Every action is saved in an audit log.</Text>
 
-              <Pressable onPress={() => router.push('/rankings')} style={styles.rankLink} accessibilityLabel="Rankings and score">
+              <Pressable onPress={() => router.push('/rankings/creator')} style={styles.rankLink} accessibilityLabel="Rankings and score">
                 <Ionicons name="trophy-outline" size={18} color={GOLD} />
                 <Text style={{ color: GOLD, fontWeight: '800', fontSize: 15, flex: 1 }}>See your Rally Score and rankings</Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.muted} />

@@ -78,7 +78,7 @@ function RootStack() {
 <Stack.Screen name="giveaways/new" options={{ title: 'New giveaway' }} />
 <Stack.Screen name="giveaways/results" options={{ title: 'Results' }} />
 <Stack.Screen name="community-tools" options={{ title: 'Community tools' }} />
-<Stack.Screen name="rankings" options={{ title: 'Rankings' }} />
+<Stack.Screen name="rankings/creator" options={{ title: 'Rankings' }} />
 <Stack.Screen name="rally-score" options={{ title: 'Your Rally Score' }} />
 <Stack.Screen name="content-notice" options={{ title: 'Notice' }} />
 <Stack.Screen name="held-comments" options={{ title: 'Moderation' }} />
