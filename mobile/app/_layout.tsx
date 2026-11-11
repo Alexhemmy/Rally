@@ -105,6 +105,10 @@ function RootStack() {
         <Stack.Screen name="guardian" options={{ headerShown: false }} />
         <Stack.Screen name="guardian-waiting" options={{ headerShown: false }} />
         <Stack.Screen name="safe-mode" options={{ headerShown: false }} />
+        <Stack.Screen name="higher-limit" options={{ title: 'Spending limit' }} />
+        <Stack.Screen name="break-prompt" options={{ headerShown: false, presentation: 'modal', animation: 'fade' }} />
+        <Stack.Screen name="parent-dashboard" options={{ title: 'Parent view' }} />
+        <Stack.Screen name="turning-18" options={{ headerShown: false }} />
         <Stack.Screen name="callout-card" options={{ headerShown: false }} />
         <Stack.Screen name="compare" options={{ title: 'Compare' }} />
 

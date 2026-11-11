@@ -118,6 +118,36 @@ export default function TeenProtectionsScreen() {
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
           </Pressable>
 
+          <Pressable
+            style={[styles.banner, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => { impact('light'); router.push('/parent-dashboard'); }}
+            accessibilityLabel="Parent view preview"
+          >
+            <View style={[styles.bannerIcon, { backgroundColor: colors.surfaceElevated || colors.bg }]}>
+              <Ionicons name="people-outline" size={22} color={GOLD} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text, fontWeight: '900', fontSize: 17 }}>Parent view preview</Text>
+              <Text style={{ color: colors.muted, fontSize: 14, marginTop: 2 }}>What your guardian sees. No message access.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
+
+          <Pressable
+            style={[styles.banner, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => { impact('light'); router.push('/turning-18'); }}
+            accessibilityLabel="What happens at 18"
+          >
+            <View style={[styles.bannerIcon, { backgroundColor: colors.surfaceElevated || colors.bg }]}>
+              <Ionicons name="sparkles-outline" size={22} color={GOLD} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text, fontWeight: '900', fontSize: 17 }}>What happens at 18</Text>
+              <Text style={{ color: colors.muted, fontSize: 14, marginTop: 2 }}>Safe mode, rivalry, gifting and limits.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
+
           {/* Protections list */}
           <View style={[styles.list, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
             {protections.map((p, i) => (

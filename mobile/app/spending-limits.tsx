@@ -225,6 +225,10 @@ export default function SpendingLimitsScreen() {
           />
         </View>
 
+        <Pressable onPress={() => router.push('/break-prompt')} style={{ marginTop: 12 }} accessibilityLabel="Preview the break prompt">
+          <Text style={{ color: GOLD, fontWeight: '800', fontSize: 14 }}>Preview the break prompt</Text>
+        </Pressable>
+
         {/* Pause gifting */}
         {pausedUntil ? (
           <Pressable onPress={resume} style={[styles.pauseBtn, { backgroundColor: colors.surfaceElevated }]} accessibilityLabel="Resume gifting">
