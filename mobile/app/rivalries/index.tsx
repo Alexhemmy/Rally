@@ -3,6 +3,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Text, StyleSheet, View, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { GradientButton, GlassCard, SectionHeader, EmptyState } from '@/components/ui';
@@ -80,7 +81,12 @@ export default function RivalriesScreen() {
     <SwipeBack>
       <Screen refreshing={refreshing} onRefresh={load}>
         {/* Header */}
-        <Text style={[styles.h1, { color: colors.text }]}>Rivalries</Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.h1, { color: colors.text, flex: 1 }]}>Rivalries</Text>
+          <Pressable onPress={() => { impact('light'); router.push('/rivalries/settings'); }} hitSlop={10} accessibilityLabel="Rivalry settings">
+            <Ionicons name="settings-outline" size={22} color={colors.muted} />
+          </Pressable>
+        </View>
         <Text style={[styles.subtitle, { color: colors.muted }]}>
           Opt-in, moderated energy without harm. No money wagering.
         </Text>
@@ -246,6 +252,11 @@ export default function RivalriesScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
   h1: {
     ...typo.h1,
     marginTop: spacing.sm,

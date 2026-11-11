@@ -94,6 +94,9 @@ function RootStack() {
         <Stack.Screen name="giveaways/entered" options={{ headerShown: false }} />
         <Stack.Screen name="rivalries/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="rivalries/faceoff" options={{ headerShown: false }} />
+        <Stack.Screen name="rivalries/faceoff-new" options={{ headerShown: false }} />
+        <Stack.Screen name="rivalries/invite" options={{ headerShown: false }} />
+        <Stack.Screen name="rivalries/settings" options={{ headerShown: false }} />
         <Stack.Screen name="compare" options={{ title: 'Compare' }} />
 
         {/* Profile, battle and walls (mocks 33-40) */}

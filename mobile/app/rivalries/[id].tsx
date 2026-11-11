@@ -98,7 +98,9 @@ export default function RivalryHubScreen() {
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Text style={[styles.h1, { color: colors.text }]}>Rivalry Hub</Text>
-        <View style={{ width: 26 }} />
+        <Pressable onPress={() => { impact('light'); router.push('/rivalries/settings'); }} hitSlop={10} accessibilityLabel="Rivalry settings">
+          <Ionicons name="settings-outline" size={22} color={colors.muted} />
+        </Pressable>
       </View>
 
       {loading ? <ActivityIndicator color={GOLD} style={{ marginTop: 30 }} /> : null}
@@ -139,12 +141,12 @@ export default function RivalryHubScreen() {
           </View>
 
           {/* Heat level */}
-          <View style={styles.heatHead}>
+          <Pressable style={styles.heatHead} onPress={() => { impact('light'); router.push('/beef-radar?id=' + id); }} accessibilityLabel="Open Beef Radar">
             <Text style={{ color: colors.muted, fontWeight: '900', fontSize: 15, letterSpacing: 1 }}>HEAT LEVEL</Text>
             <Text style={{ color: HEAT_COLORS[Math.max(0, Math.min(4, r.heatLevel - 1))], fontWeight: '900', fontSize: 17 }}>
               {r.heatLevel + ' \u00b7 ' + (HEAT_LABELS[r.heatLevel - 1] || '')}
             </Text>
-          </View>
+          </Pressable>
           <View style={styles.heatBar}>
             {HEAT_COLORS.map((col, i) => (
               <View key={col} style={[styles.heatSeg, { backgroundColor: i < r.heatLevel ? col : 'rgba(128,128,128,0.25)' }]} />
@@ -214,14 +216,17 @@ export default function RivalryHubScreen() {
           <Pressable
             onPress={() => {
               impact('light');
-              if (joined) { setSheet(true); return; }
+              if (joined) {
+                router.push({ pathname: '/rivalries/faceoff-new', params: { id: String(id), nameA, nameB } });
+                return;
+              }
               setSheet(true);
             }}
             style={styles.goldBtn}
             accessibilityLabel="Start Face-Off"
           >
             <Text style={{ color: '#111', fontWeight: '900', fontSize: 16 }}>
-              {joined ? 'Joined \u00b7 ' + HEATS.find((h) => h.key === joined)?.label : 'Start Face-Off'}
+              {joined ? 'New Face-Off' : 'Start Face-Off'}
             </Text>
           </Pressable>
         </View>
