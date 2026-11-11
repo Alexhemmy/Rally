@@ -101,6 +101,14 @@ function RootStack() {
         <Stack.Screen name="supporter-wall" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+
+        {/* Settings suite (mocks 41-48) */}
+        <Stack.Screen name="following" options={{ headerShown: false }} />
+        <Stack.Screen name="community-chat" options={{ headerShown: false }} />
+        <Stack.Screen name="notification-settings" options={{ headerShown: false }} />
+        <Stack.Screen name="privacy-safety" options={{ headerShown: false }} />
+        <Stack.Screen name="blocked-muted" options={{ headerShown: false }} />
+        <Stack.Screen name="language-region" options={{ headerShown: false }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}
