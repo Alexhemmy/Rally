@@ -19,6 +19,13 @@ import { api } from '@/lib/api';
 
 const GOLD = '#FFA726';
 
+type FaceOffLookup = {
+  id: string;
+  favoriteA: { name: string | null };
+  favoriteB: { name: string | null };
+  faceOffs: { id: string; votesA: number; votesB: number }[];
+};
+
 function initials(name: string): string {
   return name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 }
@@ -35,7 +42,7 @@ export default function FaceOffResultScreen() {
   const load = useCallback(async () => {
     if (!p.faceOffId) return;
     try {
-      const res = await api<{ rivalries: { id: string; favoriteA: { name: string | null }; favoriteB: { name: string | null }; faceOffs: { id: string; votesA: number; votesB: number }[] }[]>('/api/rivalries', { skipAuth: true });
+      const res = await api<{ rivalries: FaceOffLookup[] }>('/api/rivalries', { skipAuth: true });
       for (const r of res.rivalries || []) {
         const f = (r.faceOffs || []).find((x) => x.id === p.faceOffId);
         if (f) { setLive({ votesA: f.votesA, votesB: f.votesB }); return; }
