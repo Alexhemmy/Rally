@@ -114,6 +114,9 @@ function RootStack() {
         <Stack.Screen name="teen-protections" options={{ headerShown: false }} />
         <Stack.Screen name="your-data" options={{ headerShown: false }} />
         <Stack.Screen name="help-center" options={{ headerShown: false }} />
+
+        {/* Sound page (mock 15) */}
+        <Stack.Screen name="sound" options={{ headerShown: false }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}

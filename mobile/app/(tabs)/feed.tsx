@@ -4,7 +4,7 @@
  * author info, and a right action rail (react, comment, share, gift, report).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View, Pressable, FlatList, Image, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { Text, StyleSheet, View, Pressable, FlatList, Image, ActivityIndicator, useWindowDimensions, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -96,6 +96,46 @@ export default function FeedTab() {
       if (raw) setMutedAuthors(JSON.parse(raw) || {});
     }).catch(() => undefined);
   }, []);
+
+  const [hideRivalry, setHideRivalry] = useState(false);
+  const [mutedTags, setMutedTags] = useState<Record<string, boolean>>({});
+  const [mutedWords, setMutedWords] = useState<string[]>([]);
+
+  useEffect(() => {
+    AsyncStorage.getItem('rally.feedPrefs').then((raw) => {
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      if (p.hideRivalry !== undefined) setHideRivalry(p.hideRivalry);
+      if (p.mutedTags) setMutedTags(p.mutedTags);
+      if (p.mutedWords) setMutedWords(p.mutedWords);
+    }).catch(() => undefined);
+  }, []);
+
+  function saveFeedPrefs(next: { hideRivalry?: boolean; mutedTags?: Record<string, boolean>; mutedWords?: string[] }) {
+    AsyncStorage.getItem('rally.feedPrefs').then((raw) => {
+      const p = raw ? JSON.parse(raw) : {};
+      const merged = { ...p, ...next };
+      AsyncStorage.setItem('rally.feedPrefs', JSON.stringify(merged)).catch(() => undefined);
+    }).catch(() => undefined);
+  }
+
+  function toggleHideRivalry() {
+    impact('light');
+    setHideRivalry((v) => {
+      saveFeedPrefs({ hideRivalry: !v });
+      return !v;
+    });
+  }
+
+  function muteTag(tag: string) {
+    impact('light');
+    setMutedTags((prev) => {
+      const next = { ...prev, [tag]: true };
+      saveFeedPrefs({ mutedTags: next });
+      return next;
+    });
+    setToast('Muted ' + tag + ' Moments');
+  }
 
   function hidePost(id: string, message: string) {
     setHiddenIds((prev) => ({ ...prev, [id]: true }));
@@ -223,7 +263,12 @@ export default function FeedTab() {
   const visibleMoments = rawMoments.filter((m: any) => {
     if (hiddenIds[m.id]) return false;
     const h = m.favorite && m.favorite.user ? m.favorite.user.handle : '';
-    return !(h && mutedAuthors[h]);
+    if (h && mutedAuthors[h]) return false;
+    if (hideRivalry && m.categoryTag && m.categoryTag.toLowerCase().indexOf('rival') >= 0) return false;
+    if (m.categoryTag && mutedTags[m.categoryTag]) return false;
+    const text = (String(m.title || '') + ' ' + String(m.description || '')).toLowerCase();
+    if (mutedWords.some((w) => w && text.indexOf(w.toLowerCase()) >= 0)) return false;
+    return true;
   });
   const moments = tab === 'following'
     ? visibleMoments.slice().sort((a, b) =>
@@ -310,17 +355,69 @@ export default function FeedTab() {
             </View>
           ) : null}
           {tab === 'following' ? (
-            <Pressable
-              onPress={() => setWhyFor(whyFor === item.id ? null : item.id)}
-              hitSlop={8}
-              style={{ marginTop: 10, flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}
-              accessibilityLabel="Why am I seeing this"
-            >
-              <Ionicons name="sparkles-outline" size={13} color="rgba(255,255,255,0.6)" />
-              <Text style={styles.whyText}>
-                {'From a Favorite you follow'} {whyFor === item.id ? '\u00b7 Ranked by recency and engagement' : '\u00b7 Why am I seeing this?'}
-              </Text>
-            </Pressable>
+            <View style={{ marginTop: 10 }}>
+              <Pressable
+                onPress={() => setWhyFor(whyFor === item.id ? null : item.id)}
+                hitSlop={8}
+                style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}
+                accessibilityLabel="Why am I seeing this"
+              >
+                <Ionicons name="sparkles-outline" size={13} color="rgba(255,255,255,0.6)" />
+                <Text style={styles.whyText}>
+                  {'From a Favorite you follow'} {whyFor === item.id ? '\u00b7 Hide details' : '\u00b7 Why am I seeing this?'}
+                </Text>
+              </Pressable>
+              {whyFor === item.id ? (
+                <View style={styles.whyPanel}>
+                  <Text style={styles.whyReason}>You follow {displayName}</Text>
+                  {item.categoryTag ? (
+                    <Text style={styles.whyReason}>You watch a lot of {item.categoryTag} Moments</Text>
+                  ) : null}
+                  <View style={styles.whyShield}>
+                    <Ionicons name="shield-checkmark" size={14} color="#34D399" />
+                    <Text style={styles.whyShieldText}>
+                      This is not a paid boost. Spending never changes who sees a Moment.
+                    </Text>
+                  </View>
+                  <Text style={styles.whyHead}>MAKE IT YOURS</Text>
+                  <View style={styles.whyToggleRow}>
+                    <Text style={styles.whyToggleLabel}>Show newest first</Text>
+                    <Pressable
+                      onPress={() => setSortNewest((s) => !s)}
+                      style={[styles.whyToggle, sortNewest && { backgroundColor: '#34D399' }]}
+                      accessibilityRole="switch"
+                      accessibilityState={{ checked: sortNewest }}
+                    >
+                      <View style={[styles.whyKnob, sortNewest && { alignSelf: 'flex-end' }]} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.whyToggleRow}>
+                    <Text style={styles.whyToggleLabel}>Hide rivalry content</Text>
+                    <Pressable
+                      onPress={toggleHideRivalry}
+                      style={[styles.whyToggle, hideRivalry && { backgroundColor: '#34D399' }]}
+                      accessibilityRole="switch"
+                      accessibilityState={{ checked: hideRivalry }}
+                    >
+                      <View style={[styles.whyKnob, hideRivalry && { alignSelf: 'flex-end' }]} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.whyChips}>
+                    <Pressable style={styles.whyChip} onPress={() => muteAuthor(handle, displayName)} accessibilityLabel={'Mute ' + displayName}>
+                      <Text style={styles.whyChipText}>Mute {displayName.split(' ')[0]}</Text>
+                    </Pressable>
+                    {item.categoryTag ? (
+                      <Pressable style={styles.whyChip} onPress={() => muteTag(item.categoryTag)} accessibilityLabel={'Mute ' + item.categoryTag}>
+                        <Text style={styles.whyChipText}>Mute {item.categoryTag}</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable style={styles.whyChip} onPress={() => router.push('/blocked-muted')} accessibilityLabel="Mute a word">
+                      <Text style={styles.whyChipText}>Mute a word</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+            </View>
           ) : null}
         </View>
 
@@ -598,7 +695,14 @@ export default function FeedTab() {
           setOptionsFor(null);
           if (m) shareMoment(m.title, m.id);
         }}
-        onTranslated={() => undefined}
+        onTranslated={() => {
+          const m = optionsFor;
+          setOptionsFor(null);
+          Alert.alert(
+            'Translation is coming',
+            'Posts are shown in the language they were written in for now. Automatic translation from Yoruba, Hausa and Igbo arrives with the translate backend.'
+          );
+        }}
       />
       <NotInterestedSheet
         visible={notInterestedFor !== null}
@@ -791,4 +895,22 @@ const styles = StyleSheet.create({
   },
   toastText: { color: '#fff', fontSize: 13, fontWeight: '700', flex: 1 },
   undoText: { color: GOLD, fontSize: 13, fontWeight: '900' },
+  whyPanel: {
+    backgroundColor: 'rgba(20,20,24,0.9)',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 8,
+    maxWidth: 340,
+  },
+  whyReason: { color: '#fff', fontSize: 14, fontWeight: '700', lineHeight: 20 },
+  whyShield: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderWidth: 1, borderColor: 'rgba(52,211,153,0.4)', borderRadius: 12, padding: 10, marginTop: 10 },
+  whyShieldText: { color: 'rgba(255,255,255,0.75)', fontSize: 12, lineHeight: 17, flex: 1 },
+  whyHead: { color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginTop: 14, marginBottom: 4 },
+  whyToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
+  whyToggleLabel: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  whyToggle: { width: 46, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', padding: 2 },
+  whyKnob: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff' },
+  whyChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  whyChip: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radii.full, paddingHorizontal: 14, paddingVertical: 8 },
+  whyChipText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 });
