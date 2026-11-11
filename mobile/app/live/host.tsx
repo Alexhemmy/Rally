@@ -24,9 +24,9 @@ type Session = { id: string; title: string; status: string; viewerCount: number;
 type ChatMsg = { id: string; body: string; name: string };
 type BoardRow = { name: string; tokens: number };
 
-function elapsed(from: string | null): string {
+function elapsed(from: string | null, now: number): string {
   if (!from) return '0:00';
-  const secs = Math.max(0, Math.floor((Date.now() - new Date(from).getTime()) / 1000));
+  const secs = Math.max(0, Math.floor((now - new Date(from).getTime()) / 1000));
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return m + ':' + (s < 10 ? '0' : '') + s;
@@ -45,6 +45,7 @@ export default function LiveHostScreen() {
   const [board, setBoard] = useState<BoardRow[]>([]);
   const [draft, setDraft] = useState('');
   const [ending, setEnding] = useState(false);
+  const [nowTs, setNowTs] = useState(Date.now());
   const [modTarget, setModTarget] = useState<ChatMsg | null>(null);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [muted, setMuted] = useState<Record<string, number>>({});
@@ -71,6 +72,11 @@ export default function LiveHostScreen() {
     const t = setInterval(poll, 5000);
     return () => { clearInterval(t); };
   }, [poll]);
+
+  useEffect(() => {
+    const tick = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => { clearInterval(tick); };
+  }, []);
 
   useEffect(() => {
     AsyncStorage.getItem('rally.liveMod')
@@ -144,7 +150,7 @@ export default function LiveHostScreen() {
           <Ionicons name="eye-outline" size={13} color="#fff" />
           <Text style={styles.darkPillText}>{(session ? session.viewerCount : 0).toLocaleString('en-US')}</Text>
         </View>
-        <Text style={styles.timer}>{elapsed(session ? session.startedAt : null)}</Text>
+        <Text style={styles.timer}>{elapsed(session ? session.startedAt : null, nowTs)}</Text>
         <View style={[styles.darkPill, { marginLeft: 'auto' }]}>
           <Ionicons name="gift-outline" size={13} color="#fff" />
           <Text style={styles.darkPillText}>{giftsTotal.toLocaleString('en-US')}</Text>

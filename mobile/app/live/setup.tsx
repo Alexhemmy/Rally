@@ -149,9 +149,18 @@ export default function LiveSetupScreen() {
               </View>
               <Text style={[styles.rowLabel, { color: colors.text }]}>Set a Gift goal</Text>
               <Pressable
-                onPress={() => { impact('light'); click(); setGoal(String(Math.max(500, (parseInt(goal, 10) || 5000) + 500))); }}
+                onPress={() => {
+                  impact('light');
+                  click();
+                  const options: number[] = [1000, 5000, 10000, 25000];
+                  Alert.alert(
+                    'Set a Gift goal',
+                    'Fans see the goal bar while you are live.',
+                    options.map((n) => ({ text: n.toLocaleString('en-US') + ' Gifts', onPress: () => setGoal(String(n)) })).concat([{ text: 'Cancel', style: 'cancel' as const }])
+                  );
+                }}
                 hitSlop={8}
-                accessibilityLabel="Increase gift goal"
+                accessibilityLabel="Set a Gift goal"
               >
                 <Text style={{ color: colors.muted, fontSize: 16, fontWeight: '700' }}>
                   {(parseInt(goal, 10) || 0).toLocaleString('en-US') + ' Gifts'}
