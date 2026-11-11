@@ -101,6 +101,10 @@ function RootStack() {
         <Stack.Screen name="rivalries/cooldown" options={{ headerShown: false }} />
         <Stack.Screen name="rivalries/trophies" options={{ headerShown: false }} />
         <Stack.Screen name="callout" options={{ headerShown: false }} />
+        <Stack.Screen name="age-check" options={{ headerShown: false }} />
+        <Stack.Screen name="guardian" options={{ headerShown: false }} />
+        <Stack.Screen name="guardian-waiting" options={{ headerShown: false }} />
+        <Stack.Screen name="safe-mode" options={{ headerShown: false }} />
         <Stack.Screen name="callout-card" options={{ headerShown: false }} />
         <Stack.Screen name="compare" options={{ title: 'Compare' }} />
 

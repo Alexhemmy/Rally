@@ -103,6 +103,21 @@ export default function TeenProtectionsScreen() {
             </View>
           </Pressable>
 
+          <Pressable
+            style={[styles.banner, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => { impact('light'); router.push('/safe-mode'); }}
+            accessibilityLabel="Safe mode settings"
+          >
+            <View style={[styles.bannerIcon, { backgroundColor: colors.surfaceElevated || colors.bg }]}>
+              <Ionicons name="settings-outline" size={22} color={GOLD} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text, fontWeight: '900', fontSize: 17 }}>Safe mode settings</Text>
+              <Text style={{ color: colors.muted, fontSize: 14, marginTop: 2 }}>Messages, spending, breaks and content.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
+
           {/* Protections list */}
           <View style={[styles.list, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
             {protections.map((p, i) => (
