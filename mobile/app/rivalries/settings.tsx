@@ -51,7 +51,7 @@ export default function RivalrySettingsScreen() {
       .catch(() => {});
   }, []);
 
-  async function setParticipate(v: boolean) {
+  async function saveParticipate(v: boolean) {
     setParticipate(v);
     impact('medium');
     await AsyncStorage.multiSet([['rally.rivalryParticipate', v ? '1' : '0']]).catch(() => {});
@@ -96,7 +96,7 @@ export default function RivalrySettingsScreen() {
               <Ionicons name={'flame'} size={20} color={GOLD} />
             </View>
             <Text style={[styles.rowLabel, { color: colors.text }]}>Take part in Rivalry</Text>
-            <Switch value={participate} onValueChange={setParticipate} trackColor={{ false: colors.border, true: TEAL }} thumbColor={'#fff'} />
+            <Switch value={participate} onValueChange={saveParticipate} trackColor={{ false: colors.border, true: TEAL }} thumbColor={'#fff'} />
           </View>
 
           {participate ? (
