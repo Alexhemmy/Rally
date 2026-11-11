@@ -2,7 +2,9 @@
  * Free entry. Weighted by activeness, dedication, passion — never by spend.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View } from 'react-native';
+import { Text, StyleSheet, View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { GradientButton, GlassCard, SectionHeader, EmptyState } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
@@ -24,6 +26,7 @@ type Giveaway = {
 export default function GiveawaysScreen() {
   const { colors } = useTheme();
   const { impact } = useHaptics();
+  const router = useRouter();
 
   const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,6 +78,16 @@ export default function GiveawaysScreen() {
         <Text style={[styles.subtitle, { color: colors.muted }]}>
           Free entry. Weighted by activeness, dedication, passion — never by spend.
         </Text>
+
+        {/* New giveaway (creator side) */}
+        <Pressable
+          onPress={() => router.push('/giveaways/new')}
+          style={styles.newBtn}
+          accessibilityLabel="New giveaway"
+        >
+          <Ionicons name="add-circle" size={20} color={colors.primary} />
+          <Text style={[styles.newBtnText, { color: colors.primary }]}>New giveaway</Text>
+        </Pressable>
 
         {/* Feedback */}
         {msg && (
@@ -152,6 +165,16 @@ export default function GiveawaysScreen() {
                   </Text>
                 </View>
 
+                {g.status === 'drawn' || g.status === 'paid' ? (
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/giveaways/results', params: { id: g.id } })}
+                    style={styles.resultsBtn}
+                    accessibilityLabel="View results"
+                  >
+                    <Ionicons name="ribbon-outline" size={16} color={colors.primary} />
+                    <Text style={[styles.resultsBtnText, { color: colors.primary }]}>View results</Text>
+                  </Pressable>
+                ) : null}
                 <View style={{ marginTop: spacing.md }}>
                   <GradientButton
                     label="Enter for free"
@@ -201,5 +224,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radii.full,
+  },
+  newBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderRadius: radii.full,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginBottom: spacing.md,
+  },
+  newBtnText: {
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  resultsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginTop: spacing.md,
+  },
+  resultsBtnText: {
+    fontWeight: '800',
+    fontSize: 14,
   },
 });

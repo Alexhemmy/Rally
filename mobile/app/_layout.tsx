@@ -68,6 +68,16 @@ function RootStack() {
         <Stack.Screen name="statement" options={{ title: 'Statement' }} />
         <Stack.Screen name="insights" options={{ title: 'Insights' }} />
         <Stack.Screen name="supporters" options={{ title: 'Supporters' }} />
+
+        {/* Creator tools: live, requests, fan club, giveaways, community */}
+<Stack.Screen name="live/setup" options={{ title: 'Go live' }} />
+<Stack.Screen name="live/host" options={{ headerShown: false }} />
+<Stack.Screen name="live/summary" options={{ title: 'Live ended' }} />
+<Stack.Screen name="requests" options={{ title: 'Requests' }} />
+<Stack.Screen name="fan-club" options={{ title: 'Fan Club' }} />
+<Stack.Screen name="giveaways/new" options={{ title: 'New giveaway' }} />
+<Stack.Screen name="giveaways/results" options={{ title: 'Results' }} />
+<Stack.Screen name="community-tools" options={{ title: 'Community tools' }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}

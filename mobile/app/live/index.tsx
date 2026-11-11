@@ -173,6 +173,10 @@ export default function LiveScreen() {
               <Text style={styles.pulseText}>{liveNow.length}</Text>
             </View>
           </View>
+          <Pressable onPress={() => router.push('/live/setup')} style={styles.goLiveBtn} accessibilityLabel="Go live">
+            <Ionicons name="videocam" size={16} color="#111" />
+            <Text style={styles.goLiveText}>Go live</Text>
+          </Pressable>
         </LinearGradient>
 
         {/* Feedback */}
@@ -457,6 +461,22 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '800',
     fontSize: 12,
+  },
+  goLiveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: radii.full,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  goLiveText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 13,
   },
   feedback: {
     paddingVertical: 10,
