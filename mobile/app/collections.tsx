@@ -2,7 +2,7 @@
  * Curate saved Moments into private or shareable sets.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View, TextInput } from 'react-native';
+import { Text, StyleSheet, View, TextInput, Share } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { GradientButton, GlassCard, SectionHeader, EmptyState } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
@@ -77,7 +77,7 @@ export default function CollectionsScreen() {
     impact('medium');
 
     try {
-      await api(`/api/collections/${c.id}`, {
+      await api('/api/collections/' + c.id, {
         method: 'PATCH',
         body: JSON.stringify({ isPublic: !c.isPublic }),
       });
@@ -100,7 +100,7 @@ export default function CollectionsScreen() {
     impact('medium');
 
     try {
-      await api(`/api/collections/${id}`, { method: 'DELETE' });
+      await api('/api/collections/' + id, { method: 'DELETE' });
       setMsg({ type: 'success', text: 'Collection deleted' });
       impact('success');
       await load();
@@ -109,6 +109,15 @@ export default function CollectionsScreen() {
     } finally {
       setActingId(null);
     }
+  }
+
+  async function share(c: Collection) {
+    impact('light');
+    try {
+      await Share.share({
+        message: c.title + ' \u2014 a Collection on Rally' + (c.isPublic ? ' \u00b7 anyone with the link can view' : ''),
+      });
+    } catch { /* dismissed */ }
   }
 
   return (
@@ -222,6 +231,13 @@ export default function CollectionsScreen() {
                     variant="ghost"
                     onPress={() => togglePublic(c)}
                     loading={actingId === c.id}
+                    disabled={!!actingId}
+                  />
+                  <GradientButton
+                    label="Share"
+                    size="sm"
+                    variant="ghost"
+                    onPress={() => share(c)}
                     disabled={!!actingId}
                   />
                   <GradientButton

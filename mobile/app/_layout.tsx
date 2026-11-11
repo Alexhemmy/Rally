@@ -95,6 +95,12 @@ function RootStack() {
         <Stack.Screen name="rivalries/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="rivalries/faceoff" options={{ headerShown: false }} />
         <Stack.Screen name="compare" options={{ title: 'Compare' }} />
+
+        {/* Profile, battle and walls (mocks 33-40) */}
+        <Stack.Screen name="fandom-battle" options={{ headerShown: false }} />
+        <Stack.Screen name="supporter-wall" options={{ headerShown: false }} />
+        <Stack.Screen name="profile" options={{ headerShown: false }} />
+        <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}
