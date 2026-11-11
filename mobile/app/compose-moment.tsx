@@ -113,6 +113,7 @@ export default function ComposeMomentScreen() {
     if (!title.trim() || !video) return;
     setPublishing(true);
     impact('medium');
+    let createdId = '';
     try {
       await runWithAppTask(async () => {
         const created = await api<{ moment: { id: string } }>('/api/moments', {
@@ -126,10 +127,11 @@ export default function ComposeMomentScreen() {
             mediaType: 'video',
           }),
         });
+        createdId = created.moment.id;
       });
       success();
       impact('success');
-      router.replace('/moment-posted?id=' + encodeURIComponent(created.moment.id) + '&title=' + encodeURIComponent(title.trim()));
+      router.replace('/moment-posted?id=' + encodeURIComponent(createdId) + '&title=' + encodeURIComponent(title.trim()));
     } catch (e: any) {
       errSound();
       impact('error');
