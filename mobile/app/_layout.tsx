@@ -73,6 +73,9 @@ function RootStack() {
 <Stack.Screen name="live/setup" options={{ title: 'Go live' }} />
 <Stack.Screen name="live/host" options={{ headerShown: false }} />
 <Stack.Screen name="live/summary" options={{ title: 'Live ended' }} />
+<Stack.Screen name="live/waiting" options={{ headerShown: false }} />
+<Stack.Screen name="live/ended" options={{ headerShown: false }} />
+<Stack.Screen name="live/scheduled" options={{ title: 'Scheduled' }} />
 <Stack.Screen name="requests" options={{ title: 'Requests' }} />
 <Stack.Screen name="fan-club" options={{ title: 'Fan Club' }} />
 <Stack.Screen name="giveaways/new" options={{ title: 'New giveaway' }} />

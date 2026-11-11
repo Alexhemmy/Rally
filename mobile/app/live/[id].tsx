@@ -13,6 +13,7 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
+  Alert,
   Image,
   useWindowDimensions,
 } from 'react-native';
@@ -27,6 +28,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import { useShare } from '@/hooks/useShare';
 import { radii } from '@/constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, getToken } from '@/lib/api';
 
 const GOLD = '#FFA726';
@@ -47,6 +49,14 @@ function compact(n: number): string {
 
 function initials(name: string): string {
   return (name || '?').slice(0, 2).toUpperCase();
+}
+
+function elapsedStr(from: string | null, now: number): string {
+  if (!from) return '';
+  const secs = Math.max(0, Math.floor((now - new Date(from).getTime()) / 1000));
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
 }
 
 const NAME_COLORS = [GOLD, '#4FC3F7', '#F48FB1', '#A5D6A7', '#CE93D8'];
@@ -76,6 +86,8 @@ export default function LiveSessionScreen() {
   const [burst, setBurst] = useState(false);
   const [burstInfo, setBurstInfo] = useState<{ title: string; sub: string } | null>(null);
   const [trayOpen, setTrayOpen] = useState(false);
+  const [askJoin, setAskJoin] = useState(false);
+  const [nowTs, setNowTs] = useState(Date.now());
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -128,6 +140,11 @@ export default function LiveSessionScreen() {
     return () => { alive = false; if (timer) clearTimeout(timer); };
   }, [loadLive]);
 
+  useEffect(() => {
+    const t = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => { clearInterval(t); };
+  }, []);
+
   async function sendChat() {
     const body = draft.trim();
     if (!body || sending) return;
@@ -164,6 +181,12 @@ export default function LiveSessionScreen() {
       setBurst(true);
       success();
       impact('success');
+      try {
+        const raw = await AsyncStorage.getItem('rally.liveGiftsSent');
+        const map = raw ? JSON.parse(raw) : {};
+        map[String(id)] = (map[String(id)] || 0) + (quantity || 1);
+        await AsyncStorage.setItem('rally.liveGiftsSent', JSON.stringify(map));
+      } catch { /* local only */ }
       await loadLive();
     } catch (e: any) {
       errSound();
@@ -230,6 +253,9 @@ export default function LiveSessionScreen() {
               <Ionicons name="people-outline" size={13} color="#fff" />
               <Text style={styles.viewerText}>{compact(viewers)}</Text>
             </View>
+            {session && session.status === 'live' && (session as any).startedAt ? (
+              <Text style={styles.timerText}>{elapsedStr((session as any).startedAt, nowTs)}</Text>
+            ) : null}
           </View>
 
           {/* Top Gifters bar */}
@@ -279,6 +305,10 @@ export default function LiveSessionScreen() {
 
           {/* Right rail */}
           <View style={[styles.rail, { bottom: Math.max(insets.bottom, 40) + 74 }]}>
+            <Pressable style={styles.railBtn} onPress={() => { impact('light'); setAskJoin(true); }} accessibilityLabel="Ask to join">
+              <Ionicons name="people" size={28} color={GOLD} />
+              <Text style={styles.railLabel}>Join</Text>
+            </Pressable>
             <Pressable style={styles.railBtn} onPress={toggleLike} accessibilityLabel="Like">
               <Ionicons name={liked ? 'heart' : 'heart'} size={34} color={HEART_RED} />
               <Text style={styles.railLabel}>{compact(18200 + likeCount)}</Text>
@@ -296,7 +326,9 @@ export default function LiveSessionScreen() {
           {/* Composer */}
           <View style={[styles.composerRow, { bottom: Math.max(insets.bottom, 40) }]}>
             {session.status === 'ended' ? (
-              <Text style={styles.endedText}>This session has ended.</Text>
+              <Pressable onPress={() => router.push({ pathname: '/live/ended', params: { id: String(id) } })} style={styles.loginBtn} accessibilityLabel="Session ended recap">
+                <Text style={styles.loginText}>Session ended - see your recap</Text>
+              </Pressable>
             ) : !authed ? (
               <Pressable onPress={() => router.push('/login')} style={styles.loginBtn} accessibilityLabel="Log in to join">
                 <Text style={styles.loginText}>Log in to join the chat</Text>
@@ -333,6 +365,35 @@ export default function LiveSessionScreen() {
           ) : null}
         </>
       )}
+
+      {askJoin && session && session.status !== 'ended' ? (
+        <Pressable style={styles.askOverlay} onPress={() => setAskJoin(false)}>
+          <Pressable style={styles.askSheet} onPress={() => undefined}>
+            <View style={styles.grabHandle} />
+            <View style={styles.askIcon}>
+              <Ionicons name="people" size={34} color={GOLD} />
+            </View>
+            <Text style={styles.askTitle}>{'Ask to join ' + (firstName || 'the host') + ' on stage'}</Text>
+            <Text style={styles.askBody}>
+              {(firstName || 'The host') + ' will see your name and can accept. You will be on camera and mic when you join.'}
+            </Text>
+            <Pressable
+              onPress={() => {
+                impact('medium');
+                setAskJoin(false);
+                Alert.alert('Hand raised', (firstName || 'The host') + ' will see your request. Hosts cannot accept hand-raises in-app yet, so keep an eye on the chat.');
+              }}
+              style={styles.askBtn}
+              accessibilityLabel="Raise hand"
+            >
+              <Text style={styles.askBtnText}>Raise hand</Text>
+            </Pressable>
+            <Pressable onPress={() => setAskJoin(false)} style={{ alignItems: 'center', paddingVertical: 14 }} accessibilityLabel="Not now">
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontWeight: '800', fontSize: 16 }}>Not now</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      ) : null}
 
       <GiftBurst visible={burst} onDone={() => setBurst(false)} />
       <GiftTraySheet
@@ -454,4 +515,13 @@ const styles = StyleSheet.create({
   loginBtn: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: radii.full, paddingVertical: 13, alignItems: 'center' },
   loginText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   errText: { color: LIVE_RED, fontSize: 12, textAlign: 'center', position: 'absolute', bottom: 110, left: 20, right: 20 },
+  timerText: { color: 'rgba(255,255,255,0.85)', fontWeight: '900', fontSize: 14, marginLeft: 2 },
+  askOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', zIndex: 60 },
+  askSheet: { backgroundColor: '#16121F', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10, paddingHorizontal: 20, paddingBottom: 30, alignItems: 'center' },
+  grabHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)', marginBottom: 18 },
+  askIcon: { width: 76, height: 76, borderRadius: 38, backgroundColor: 'rgba(255,167,38,0.15)', alignItems: 'center', justifyContent: 'center' },
+  askTitle: { color: '#fff', fontWeight: '900', fontSize: 22, textAlign: 'center', marginTop: 16 },
+  askBody: { color: 'rgba(255,255,255,0.75)', fontSize: 15, lineHeight: 21, textAlign: 'center', marginTop: 8 },
+  askBtn: { alignSelf: 'stretch', marginTop: 20 },
+  askBtnText: { color: '#1A1206', fontWeight: '900', fontSize: 17, textAlign: 'center', backgroundColor: GOLD, borderRadius: radii.full, paddingVertical: 16, overflow: 'hidden' },
 });

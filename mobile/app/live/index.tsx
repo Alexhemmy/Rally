@@ -1,600 +1,279 @@
-/** Live Sessions - Rally design system
- * Gradient hero, LIVE status pills, host controls, gift grid
- * and a live leaderboard with gold rank badges.
+/** Live Now (mock 01) - live discovery grid.
+ * Following / Rising / Live tabs, category chips, a two-column grid
+ * of live gradient cards with viewer counts, and a STARTING SOON
+ * section with Remind me. Data is real: GET /api/live (list) plus
+ * /api/live/:id per card for the host name. Reminders persist on
+ * this device; scheduled rows open the waiting room.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View, Pressable } from 'react-native';
+import { Text, StyleSheet, View, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Screen } from '@/components/Screen';
-import { GiftBurst } from '@/components/GiftBurst';
-import { GradientButton, GlassCard, EmptyState, Avatar } from '@/components/ui';
-import { SwipeBack } from '@/components/SwipeBack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/components/ThemeProvider';
-import { api, getToken } from '@/lib/api';
-import { spacing, radii } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
+import { spacing, radii } from '@/constants/theme';
+import { api, getToken } from '@/lib/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GOLD = '#FFA726';
-const GOLD_DEEP = '#F57C00';
-const PURPLE = '#7C4DFF';
-const LIVE_RED = '#EF5350';
+const LIVE_RED = '#E9355B';
+
+const PALETTES: [string, string][] = [
+  ['#B34FD1', '#FFA726'],
+  ['#5B5BFF', '#7C4DFF'],
+  ['#E9355B', '#FF8A3D'],
+  ['#00B8A9', '#34D399'],
+];
+
+const CHIPS = ['For you', 'Gospel', 'Comedy', 'Music'];
 
 type Session = {
   id: string;
   title: string;
   kind: string;
   status: string;
-  isPaused: boolean;
   viewerCount: number;
-  favoriteId: string;
   startsAt?: string | null;
+  host?: string;
 };
 
-type CatalogItem = { id: string; name: string; tokenCost: number };
-
-type BoardRow = { name: string; handle?: string | null; tokens: number };
-
-const DONE_MSG: Record<string, string> = {
-  start: 'Session started',
-  pause: 'Gifting paused',
-  resume: 'Session resumed',
-  end: 'Session ended',
-};
-
-function whenText(iso?: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+function compact(n: number): string {
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(n);
 }
 
-export default function LiveScreen() {
-  const { colors } = useTheme();
-  const { impact } = useHaptics();
-  const router = useRouter();
+function initials(name: string): string {
+  return (name || '?').slice(0, 2).toUpperCase();
+}
 
+function whenText(iso?: string | null): string {
+  if (!iso) return 'Time to be confirmed';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'Time to be confirmed';
+  const today = new Date().toDateString() === d.toDateString();
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (today) return 'Today ' + time;
+  return d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) + ', ' + time;
+}
+
+export default function LiveNowScreen() {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const { impact } = useHaptics();
+  const insets = useSafeAreaInsets();
+
+  const [tab, setTab] = useState<'following' | 'rising' | 'live'>('live');
+  const [chip, setChip] = useState('For you');
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [myFavId, setMyFavId] = useState<string | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [board, setBoard] = useState<BoardRow[]>([]);
-  const [tab, setTab] = useState<'live' | 'upcoming'>('live');
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [actingId, setActingId] = useState<string | null>(null);
-  const [giftingId, setGiftingId] = useState<string | null>(null);
-  const [burst, setBurst] = useState(false);
+  const [reminders, setReminders] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    setRefreshing(true);
     try {
       const r = await api<{ sessions: Session[] }>('/api/live', { skipAuth: true });
-      setSessions(r.sessions || []);
-      const c = await api<{ items: CatalogItem[] }>('/api/gifts/catalog', { skipAuth: true });
-      setCatalog(c.items || []);
-      if (getToken()) {
-        const me = await api<{ user: any }>('/api/auth/me');
-        setMyFavId(me.user?.favoriteProfile?.id ?? null);
-      }
-    } catch {
-      // offline
-    } finally {
-      setRefreshing(false);
-    }
+      const list = (r.sessions || []).slice(0, 12);
+      const named = await Promise.all(
+        list.map(async (s) => {
+          try {
+            const d = await api<{ favorite?: { user?: { displayName?: string } } }>('/api/live/' + s.id, { skipAuth: true });
+            return { ...s, host: (d.favorite && d.favorite.user && d.favorite.user.displayName) || 'Favorite' };
+          } catch {
+            return { ...s, host: 'Favorite' };
+          }
+        })
+      );
+      setSessions(named);
+    } catch { /* offline */ }
+    try {
+      const raw = await AsyncStorage.getItem('rally.liveReminders');
+      if (raw) setReminders(JSON.parse(raw));
+    } catch { /* fresh */ }
+    setLoading(false);
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  async function control(id: string, action: string) {
-    setActingId(id);
-    setMsg(null);
-    impact('medium');
-    try {
-      await api('/api/live/' + id + '/' + action, { method: 'POST' });
-      setMsg({ ok: true, text: DONE_MSG[action] || 'Done' });
-      impact('success');
-      await load();
-    } catch (e: any) {
-      setMsg({ ok: false, text: e.message || 'Action failed' });
-    } finally {
-      setActingId(null);
-    }
-  }
-
-  async function openSession(s: Session) {
-    setMsg(null);
-    if (activeId === s.id) {
-      setActiveId(null);
-      return;
-    }
-    setActiveId(s.id);
-    setBoard([]);
+  function toggleReminder(s: Session) {
     impact('light');
-    try {
-      if (getToken() && s.status !== 'ended') {
-        await api('/api/live/' + s.id + '/join', { method: 'POST' });
-      }
-      const r = await api<{ leaderboard: BoardRow[] }>('/api/live/' + s.id + '/leaderboard', { skipAuth: true });
-      setBoard(r.leaderboard || []);
-    } catch (e: any) {
-      setMsg({ ok: false, text: e.message || 'Could not join session' });
-    }
+    setReminders((prev) => {
+      const next = prev.indexOf(s.id) > -1 ? prev.filter((x) => x !== s.id) : prev.concat([s.id]);
+      AsyncStorage.setItem('rally.liveReminders', JSON.stringify(next)).catch(() => undefined);
+      return next;
+    });
   }
 
-  async function sendGift(s: Session, itemId: string) {
-    setGiftingId(itemId);
-    setMsg(null);
-    impact('medium');
-    try {
-      await api('/api/live/' + s.id + '/gift', {
-        method: 'POST',
-        body: JSON.stringify({ catalogItemId: itemId }),
-      });
-      setBurst(true);
-      setMsg({ ok: true, text: 'Gift sent' });
-      impact('success');
-      const r = await api<{ leaderboard: BoardRow[] }>('/api/live/' + s.id + '/leaderboard', { skipAuth: true });
-      setBoard(r.leaderboard || []);
-    } catch (e: any) {
-      setMsg({ ok: false, text: e.message || 'Gift failed' });
-    } finally {
-      setGiftingId(null);
-    }
+  let live = sessions.filter((s) => s.status === 'live' || s.status === 'paused');
+  const scheduled = sessions.filter((s) => s.status === 'scheduled');
+  if (tab === 'rising') live = live.slice().sort((a, b) => b.viewerCount - a.viewerCount);
+  if (chip !== 'For you') {
+    const q = chip.toLowerCase();
+    live = live.filter((s) => ((s.title || '') + ' ' + (s.host || '')).toLowerCase().indexOf(q) > -1);
   }
-
-  const liveNow = sessions.filter((s) => s.status === 'live' || s.status === 'paused');
-  const upcoming = sessions.filter((s) => s.status === 'scheduled');
-  const list = tab === 'live' ? liveNow : upcoming;
 
   return (
-    <SwipeBack>
-      <Screen refreshing={refreshing} onRefresh={load}>
-        {/* Hero */}
-        <LinearGradient
-          colors={[GOLD, GOLD_DEEP, PURPLE] as [string, string, string]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
+    <View style={[styles.root, { backgroundColor: colors.bg, paddingTop: insets.top + 10 }]}>
+      {/* Tabs */}
+      <View style={styles.tabRow}>
+        {([
+          ['following', 'Following'],
+          ['rising', 'Rising'],
+          ['live', 'Live'],
+        ] as [typeof tab, string][]).map(([key, label]) => (
+          <Pressable
+            key={key}
+            onPress={() => { impact('light'); setTab(key); }}
+            style={styles.tabItem}
+            accessibilityLabel={label}
+          >
+            <Text style={[styles.tabText, { color: tab === key ? colors.text : colors.muted }]}>{label}</Text>
+            {tab === key ? <View style={styles.tabUnderline} /> : null}
+          </Pressable>
+        ))}
+        <Pressable
+          onPress={() => { impact('light'); router.push('/live/setup'); }}
+          style={{ marginLeft: 'auto', paddingHorizontal: 10 }}
+          accessibilityLabel="Go live"
         >
-          <View style={styles.heroRow}>
-            <View style={styles.heroIcon}>
-              <Ionicons name={'radio'} size={22} color={'#fff'} />
-            </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.heroTitle}>LIVE SESSIONS</Text>
-              <Text style={styles.heroSub}>Real-time gifts and leaderboards</Text>
-            </View>
-            <View style={styles.pulseWrap}>
-              <View style={styles.pulseDot} />
-              <Text style={styles.pulseText}>{liveNow.length}</Text>
-            </View>
-          </View>
-          <Pressable onPress={() => router.push('/live/setup')} style={styles.goLiveBtn} accessibilityLabel="Go live">
-            <Ionicons name="videocam" size={16} color="#111" />
-            <Text style={styles.goLiveText}>Go live</Text>
-          </Pressable>
-        </LinearGradient>
+          <Ionicons name="videocam" size={22} color={GOLD} />
+        </Pressable>
+      </View>
 
-        {/* Feedback */}
-        {msg && (
-          <View
-            style={[
-              styles.feedback,
-              { backgroundColor: msg.ok ? colors.success + '18' : colors.danger + '18' },
-            ]}
-          >
-            <Text style={{ color: msg.ok ? colors.success : colors.danger, fontWeight: '700', fontSize: 13 }}>
-              {msg.text}
-            </Text>
-          </View>
-        )}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        {tab === 'following' ? (
+          <Text style={{ color: colors.muted, fontSize: 12, paddingHorizontal: 16, marginBottom: 10 }}>
+            Showing all lives. Follow filtering is not on the live list yet.
+          </Text>
+        ) : null}
 
-        {/* Tabs */}
-        <View style={styles.tabs}>
-          <Pressable
-            onPress={() => {
-              impact('light');
-              setTab('live');
-            }}
-            style={[
-              styles.tab,
-              tab === 'live' ? styles.tabActive : { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-            accessibilityLabel={'Live now'}
-          >
-            <Ionicons name={'radio-outline'} size={14} color={tab === 'live' ? '#111' : colors.muted} />
-            <Text style={[styles.tabText, { color: tab === 'live' ? '#111' : colors.muted }]}>Live now</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              impact('light');
-              setTab('upcoming');
-            }}
-            style={[
-              styles.tab,
-              tab === 'upcoming' ? styles.tabActive : { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-            accessibilityLabel={'Upcoming sessions'}
-          >
-            <Ionicons name={'time-outline'} size={14} color={tab === 'upcoming' ? '#111' : colors.muted} />
-            <Text style={[styles.tabText, { color: tab === 'upcoming' ? '#111' : colors.muted }]}>Upcoming</Text>
-          </Pressable>
+        {/* Category chips */}
+        <View style={styles.chipRow}>
+          {CHIPS.map((c) => {
+            const on = chip === c;
+            return (
+              <Pressable
+                key={c}
+                onPress={() => { impact('light'); setChip(c); }}
+                style={[styles.chip, { borderColor: on ? GOLD : colors.border, backgroundColor: on ? GOLD + '1a' : colors.surface }]}
+                accessibilityLabel={c}
+              >
+                <Text style={{ color: on ? GOLD : colors.text, fontWeight: '800', fontSize: 15 }}>{c}</Text>
+              </Pressable>
+            );
+          })}
         </View>
 
-        {/* Sessions */}
-        {list.length === 0 && !refreshing ? (
-          <EmptyState
-            icon={tab === 'live' ? 'radio-outline' : 'time-outline'}
-            title={tab === 'live' ? 'Nothing is live right now' : 'No sessions scheduled'}
-            body={
-              tab === 'live'
-                ? 'When a Favorite goes live it appears here. Pull to refresh.'
-                : 'Scheduled sessions show up here with their start time.'
-            }
-          />
+        {/* Live grid */}
+        {loading ? (
+          <Text style={{ color: colors.muted, textAlign: 'center', marginTop: 40 }}>Loading lives...</Text>
+        ) : live.length === 0 ? (
+          <View style={{ alignItems: 'center', marginTop: 48, paddingHorizontal: 30, gap: 8 }}>
+            <Ionicons name="radio-outline" size={36} color={GOLD} />
+            <Text style={{ color: colors.text, fontWeight: '900', fontSize: 18 }}>Nothing live here</Text>
+            <Text style={{ color: colors.muted, fontSize: 14, textAlign: 'center' }}>
+              When a Favorite goes live it appears here. Pull down to refresh.
+            </Text>
+          </View>
         ) : (
-          <View style={{ gap: 14, marginBottom: spacing.lg }}>
-            {list.map((s) => {
-              const isMine = !!myFavId && myFavId === s.favoriteId;
-              const isActive = activeId === s.id;
-              const isLive = s.status === 'live';
-              const pillBg = isLive
-                ? LIVE_RED + '22'
-                : s.status === 'paused'
-                ? GOLD + '22'
-                : colors.primaryMuted;
-              const pillColor = isLive ? LIVE_RED : s.status === 'paused' ? GOLD_DEEP : colors.primary;
-              const pillLabel = isLive ? (s.isPaused ? 'PAUSED' : 'LIVE') : s.status === 'paused' ? 'PAUSED' : 'SCHEDULED';
+          <View style={styles.grid}>
+            {live.map((s, i) => {
+              const pal = PALETTES[i % PALETTES.length];
               return (
-                <GlassCard key={s.id} padded={false}>
-                  <Pressable onPress={() => openSession(s)} style={styles.cardTop}>
-                    <View
-                      style={[
-                        styles.kindBadge,
-                        { backgroundColor: s.kind === 'video' ? PURPLE + '22' : GOLD + '22' },
-                      ]}
-                    >
-                      <Ionicons
-                        name={s.kind === 'video' ? 'videocam' : 'mic'}
-                        size={17}
-                        color={s.kind === 'video' ? PURPLE : GOLD}
-                      />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text numberOfLines={1} style={[styles.cardTitle, { color: colors.text }]}>
-                        {s.title}
-                      </Text>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
-                        {s.kind === 'video' ? 'Video' : 'Audio'} {'\u00b7'} {s.viewerCount} watching
-                        {s.startsAt && !isLive ? ' \u00b7 ' + whenText(s.startsAt) : ''}
-                      </Text>
-                    </View>
-                    <View style={[styles.pill, { backgroundColor: pillBg }]}>
-                      {isLive && !s.isPaused && <View style={styles.liveDot} />}
-                      <Text style={[styles.pillText, { color: pillColor }]}>{pillLabel}</Text>
-                    </View>
-                  </Pressable>
-
-                  {/* Host controls */}
-                  {isMine && s.status !== 'ended' && (
-                    <View style={[styles.actions, { paddingHorizontal: 14, paddingTop: 12 }]}>
-                      {s.status === 'scheduled' && (
-                        <GradientButton
-                          label={'Start'}
-                          icon={'play'}
-                          size={'sm'}
-                          onPress={() => control(s.id, 'start')}
-                          loading={actingId === s.id}
-                          disabled={!!actingId}
-                        />
-                      )}
-                      {s.status === 'live' && (
-                        <GradientButton
-                          label={'Pause gifting'}
-                          icon={'pause'}
-                          size={'sm'}
-                          variant={'ghost'}
-                          onPress={() => control(s.id, 'pause')}
-                          loading={actingId === s.id}
-                          disabled={!!actingId}
-                        />
-                      )}
-                      {s.status === 'paused' && (
-                        <GradientButton
-                          label={'Resume'}
-                          icon={'play'}
-                          size={'sm'}
-                          onPress={() => control(s.id, 'resume')}
-                          loading={actingId === s.id}
-                          disabled={!!actingId}
-                        />
-                      )}
-                      <GradientButton
-                        label={'End'}
-                        icon={'stop'}
-                        size={'sm'}
-                        variant={'outline'}
-                        onPress={() => control(s.id, 'end')}
-                        loading={actingId === s.id}
-                        disabled={!!actingId}
-                      />
-                    </View>
-                  )}
-
-                  {/* Expanded: leaderboard + gifts */}
-                  {isActive && (
-                    <View style={styles.expanded}>
-                      <View style={{ marginBottom: 12 }}>
-                        <GradientButton
-                          label={'Open session'}
-                          icon={'chevron-forward'}
-                          size={'sm'}
-                          onPress={() => router.push(('/live/' + s.id) as any)}
-                        />
+                <Pressable
+                  key={s.id}
+                  onPress={() => { impact('light'); router.push({ pathname: '/live/[id]', params: { id: s.id } }); }}
+                  style={[styles.card, { backgroundColor: colors.surface }]}
+                  accessibilityLabel={s.title}
+                >
+                  <LinearGradient colors={pal} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardBg}>
+                    <View style={styles.cardTopRow}>
+                      <View style={styles.livePill}>
+                        <Text style={styles.livePillText}>LIVE</Text>
                       </View>
-                      {board.length > 0 ? (
-                        <Text style={[styles.sectionLabel, { color: colors.muted }]}>LIVE LEADERBOARD</Text>
-                      ) : (
-                        <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 10 }}>
-                          No gifts yet. Be the first to support this session.
-                        </Text>
-                      )}
-                      <View style={{ gap: 8, marginBottom: 14 }}>
-                        {board.map((b, i) => (
-                          <View key={b.name + '-' + i} style={[styles.boardRow, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-                            <View style={[styles.rankBadge, i < 3 && { backgroundColor: GOLD }]}>
-                              <Text style={{ color: i < 3 ? '#111' : colors.muted, fontWeight: '800', fontSize: 12 }}>
-                                {i + 1}
-                              </Text>
-                            </View>
-                            <Avatar name={b.name} size={30} ring={i < 3} uri={null} />
-                            <View style={{ flex: 1, marginLeft: 10 }}>
-                              <Text numberOfLines={1} style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>
-                                {b.name}
-                              </Text>
-                              {b.handle ? (
-                                <Text style={{ color: colors.muted, fontSize: 12 }}>{'@' + b.handle}</Text>
-                              ) : null}
-                            </View>
-                            <View style={styles.tokenBadge}>
-                              <Text style={styles.tokenBadgeText}>{b.tokens} T</Text>
-                            </View>
-                          </View>
-                        ))}
+                      <View style={styles.viewerPill}>
+                        <Text style={styles.viewerText}>{compact(s.viewerCount)}</Text>
                       </View>
-
-                      {isLive && !s.isPaused ? (
-                        getToken() ? (
-                          <>
-                            <Text style={[styles.sectionLabel, { color: colors.muted }]}>SEND A GIFT</Text>
-                            <View style={styles.giftRow}>
-                              {catalog.slice(0, 6).map((item) => (
-                                <Pressable
-                                  key={item.id}
-                                  onPress={() => sendGift(s, item.id)}
-                                  disabled={!!giftingId}
-                                  style={({ pressed }) => [
-                                    styles.giftBtn,
-                                    { backgroundColor: colors.surfaceElevated, borderColor: colors.border, opacity: pressed ? 0.75 : 1 },
-                                  ]}
-                                >
-                                  <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13 }} numberOfLines={1}>
-                                    {item.name}
-                                  </Text>
-                                  <Text style={{ color: GOLD, fontSize: 12, marginTop: 2, fontWeight: '700' }}>
-                                    {item.tokenCost} T
-                                  </Text>
-                                </Pressable>
-                              ))}
-                            </View>
-                          </>
-                        ) : (
-                          <Text style={{ color: colors.muted, fontSize: 13 }}>Log in to send gifts during this session.</Text>
-                        )
-                      ) : (
-                        <Text style={{ color: GOLD, fontSize: 13, fontWeight: '700' }}>
-                          {s.isPaused ? 'Gifting is paused by the host.' : 'Gifts open when the session goes live.'}
-                        </Text>
-                      )}
                     </View>
-                  )}
-                </GlassCard>
+                    <View style={{ marginTop: 'auto' }}>
+                      <Text style={styles.cardTitle}>{s.title}</Text>
+                      <Text style={styles.cardHost}>{s.host}</Text>
+                    </View>
+                  </LinearGradient>
+                </Pressable>
               );
             })}
           </View>
         )}
-        <GiftBurst visible={burst} onDone={() => setBurst(false)} />
-      </Screen>
-    </SwipeBack>
+
+        {/* Starting soon */}
+        {scheduled.length > 0 ? (
+          <View style={{ marginTop: spacing.lg }}>
+            <View style={styles.soonHeader}>
+              <Text style={[styles.soonLabel, { color: colors.muted }]}>STARTING SOON</Text>
+              <Pressable onPress={() => { impact('light'); router.push('/live/scheduled'); }} accessibilityLabel="See all scheduled">
+                <Text style={{ color: GOLD, fontWeight: '800', fontSize: 13 }}>See all</Text>
+              </Pressable>
+            </View>
+            {scheduled.slice(0, 3).map((s) => {
+              const on = reminders.indexOf(s.id) > -1;
+              return (
+                <Pressable
+                  key={s.id}
+                  onPress={() => { impact('light'); router.push({ pathname: '/live/waiting', params: { id: s.id, title: s.title, host: s.host || '', startsAt: s.startsAt || '', viewers: String(s.viewerCount) } }); }}
+                  style={[styles.soonRow, { borderBottomColor: colors.border }]}
+                  accessibilityLabel={s.title}
+                >
+                  <View style={[styles.soonAvatar, { backgroundColor: LIVE_RED }]}>
+                    <Text style={styles.soonAvatarText}>{initials(s.host)}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text numberOfLines={1} style={{ color: colors.text, fontWeight: '900', fontSize: 17 }}>
+                      {(s.host || 'Favorite') + ' \u00b7 ' + s.title}
+                    </Text>
+                    <Text style={{ color: colors.muted, fontSize: 15, marginTop: 2 }}>{whenText(s.startsAt)}</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => toggleReminder(s)}
+                    style={[styles.remindChip, { backgroundColor: on ? colors.surface : GOLD }]}
+                    accessibilityLabel={on ? 'Reminder on' : 'Remind me'}
+                  >
+                    <Text style={{ color: on ? colors.text : '#1A1206', fontWeight: '900', fontSize: 14 }}>
+                      {on ? 'Reminder on' : 'Remind me'}
+                    </Text>
+                  </Pressable>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: {
-    borderRadius: radii.lg,
-    padding: 16,
-    marginBottom: spacing.md,
-  },
-  heroRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  heroIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroTitle: {
-    color: '#fff',
-    fontWeight: '900',
-    fontSize: 20,
-    letterSpacing: 0.4,
-  },
-  heroSub: {
-    color: 'rgba(255,255,255,0.88)',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  pulseWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: radii.full,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#fff',
-  },
-  pulseText: {
-    color: '#fff',
-    fontWeight: '800',
-    fontSize: 12,
-  },
-  goLiveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    marginTop: 12,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: radii.full,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  goLiveText: {
-    color: '#fff',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  feedback: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: radii.md,
-    marginBottom: spacing.md,
-  },
-  tabs: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: spacing.md,
-  },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: radii.full,
-    borderWidth: 1,
-  },
-  tabActive: {
-    backgroundColor: GOLD,
-    borderColor: 'transparent',
-  },
-  tabText: {
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-  },
-  kindBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardTitle: {
-    fontWeight: '800',
-    fontSize: 16,
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radii.full,
-  },
-  liveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: LIVE_RED,
-  },
-  pillText: {
-    fontWeight: '800',
-    fontSize: 11,
-    letterSpacing: 0.4,
-  },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  expanded: {
-    paddingHorizontal: 14,
-    paddingBottom: 14,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 10,
-  },
-  boardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: radii.md,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  rankBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-    backgroundColor: 'rgba(128,128,128,0.18)',
-  },
-  tokenBadge: {
-    backgroundColor: GOLD + '22',
-    borderRadius: radii.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  tokenBadgeText: {
-    color: GOLD_DEEP,
-    fontWeight: '800',
-    fontSize: 12,
-  },
-  giftRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  giftBtn: {
-    borderWidth: 1,
-    borderRadius: radii.md,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    minWidth: 92,
-    alignItems: 'center',
-  },
+  root: { flex: 1 },
+  tabRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 26, paddingHorizontal: 16, marginBottom: 14 },
+  tabItem: { alignItems: 'center' },
+  tabText: { fontWeight: '900', fontSize: 19 },
+  tabUnderline: { width: 26, height: 3, borderRadius: 2, backgroundColor: GOLD, marginTop: 5 },
+  chipRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 16, flexWrap: 'wrap' },
+  chip: { borderWidth: 1.5, borderRadius: radii.full, paddingHorizontal: 18, paddingVertical: 10 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16 },
+  card: { width: '47.5%', flexGrow: 1, borderRadius: 20, overflow: 'hidden' },
+  cardBg: { height: 230, borderRadius: 20, padding: 12 },
+  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  livePill: { backgroundColor: LIVE_RED, borderRadius: radii.full, paddingHorizontal: 10, paddingVertical: 5 },
+  livePillText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  viewerPill: { backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: radii.full, paddingHorizontal: 10, paddingVertical: 4 },
+  viewerText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  cardTitle: { color: '#fff', fontWeight: '900', fontSize: 17, lineHeight: 22 },
+  cardHost: { color: 'rgba(255,255,255,0.9)', fontSize: 14, marginTop: 3 },
+  soonHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 6 },
+  soonLabel: { fontSize: 13, fontWeight: '900', letterSpacing: 0.8 },
+  soonRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
+  soonAvatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  soonAvatarText: { color: '#fff', fontWeight: '900', fontSize: 15 },
+  remindChip: { borderRadius: radii.full, paddingHorizontal: 14, paddingVertical: 10 },
 });
