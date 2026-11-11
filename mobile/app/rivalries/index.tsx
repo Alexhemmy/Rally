@@ -2,7 +2,8 @@
  * Opt-in, moderated energy without harm. No money wagering.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, View } from 'react-native';
+import { Text, StyleSheet, View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { GradientButton, GlassCard, SectionHeader, EmptyState } from '@/components/ui';
 import { SwipeBack } from '@/components/SwipeBack';
@@ -61,7 +62,7 @@ export default function RivalriesScreen() {
     impact('medium');
 
     try {
-      await api(`/api/rivalries/faceoffs/${faceOffId}/vote`, {
+      await api('/api/rivalries/faceoffs/' + faceOffId + '/vote', {
         method: 'POST',
         body: JSON.stringify({ side }),
       });
@@ -124,12 +125,17 @@ export default function RivalriesScreen() {
 
               return (
                 <GlassCard key={r.id}>
-                  {/* Rivalry header */}
+                  {/* Rivalry header -> hub (mock 28) */}
+                  <Pressable
+                    onPress={() => { impact('light'); router.push({ pathname: '/rivalries/' + r.id }); }}
+                    accessibilityLabel="Open Rivalry Hub"
+                  >
                   <Text style={[styles.vsTitle, { color: colors.text }]}>
                     {nameA}{' '}
                     <Text style={{ color: colors.muted, fontWeight: '600' }}>vs</Text>{' '}
                     {nameB}
                   </Text>
+                  </Pressable>
 
                   <View style={styles.metaRow}>
                     <View
@@ -187,7 +193,7 @@ export default function RivalriesScreen() {
                             style={[
                               styles.barFillA,
                               {
-                                width: `${pctA}%`,
+                                width: pctA + '%',
                                 backgroundColor: colors.primary,
                               },
                             ]}
@@ -196,7 +202,7 @@ export default function RivalriesScreen() {
                             style={[
                               styles.barFillB,
                               {
-                                width: `${pctB}%`,
+                                width: pctB + '%',
                                 backgroundColor: colors.accent,
                               },
                             ]}
@@ -209,7 +215,7 @@ export default function RivalriesScreen() {
 
                         <View style={styles.actions}>
                           <GradientButton
-                            label={`Vote ${nameA}`}
+                            label={'Vote ' + nameA}
                             size="sm"
                             onPress={() => vote(f.id, 'A')}
                             loading={votingId === f.id}
@@ -217,7 +223,7 @@ export default function RivalriesScreen() {
                             style={{ flex: 1 }}
                           />
                           <GradientButton
-                            label={`Vote ${nameB}`}
+                            label={'Vote ' + nameB}
                             size="sm"
                             variant="ghost"
                             onPress={() => vote(f.id, 'B')}

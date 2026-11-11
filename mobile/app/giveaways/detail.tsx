@@ -85,10 +85,10 @@ export default function GiveawayDetailScreen() {
     setEntering(true);
     impact('medium');
     try {
-      await api('/api/giveaways/' + g.id + '/enter', { method: 'POST' });
+      const er = await api<{ entry: { id: string } }>('/api/giveaways/' + g.id + '/enter', { method: 'POST' });
       success();
       impact('success');
-      setEntered(true);
+      router.replace({ pathname: '/giveaways/entered', params: { id: g.id, entryId: er.entry.id } });
     } catch (e: any) {
       Alert.alert('Enter giveaway', e.message || 'Could not enter right now');
     } finally {

@@ -91,6 +91,10 @@ function RootStack() {
         <Stack.Screen name="receipt" options={{ title: 'Receipt' }} />
         <Stack.Screen name="refund" options={{ title: 'Refund' }} />
         <Stack.Screen name="giveaways/detail" options={{ headerShown: false }} />
+        <Stack.Screen name="giveaways/entered" options={{ headerShown: false }} />
+        <Stack.Screen name="rivalries/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="rivalries/faceoff" options={{ headerShown: false }} />
+        <Stack.Screen name="compare" options={{ title: 'Compare' }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}
