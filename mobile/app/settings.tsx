@@ -179,7 +179,7 @@ export default function SettingsScreen() {
             {link('ban-outline', 'Privacy and safety', null, '/privacy-safety')}
             {link('notifications-outline', 'Notifications', null, '/notification-settings')}
             {link('shield-outline', 'Security', null, '/security')}
-            {link('help-circle-outline', 'Help and support', null, '/support')}
+            {link('help-circle-outline', 'Help and support', null, '/help-center')}
             {link('information-circle-outline', 'About Rally', null, '/about')}
           </View>
         </ScrollView>

@@ -109,6 +109,11 @@ function RootStack() {
         <Stack.Screen name="privacy-safety" options={{ headerShown: false }} />
         <Stack.Screen name="blocked-muted" options={{ headerShown: false }} />
         <Stack.Screen name="language-region" options={{ headerShown: false }} />
+
+        {/* Data, teen protections and help (mocks 49-51) */}
+        <Stack.Screen name="teen-protections" options={{ headerShown: false }} />
+        <Stack.Screen name="your-data" options={{ headerShown: false }} />
+        <Stack.Screen name="help-center" options={{ headerShown: false }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}
