@@ -16,6 +16,9 @@ import { SaveToCollectionSheet } from '@/components/SaveToCollectionSheet';
 import { GiftTraySheet } from '@/components/GiftTraySheet';
 import { FavoriteQuickView } from '@/components/FavoriteQuickView';
 import { GiftBurst } from '@/components/GiftBurst';
+import { PostOptionsSheet } from '@/components/PostOptionsSheet';
+import { NotInterestedSheet } from '@/components/NotInterestedSheet';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/components/ThemeProvider';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
@@ -77,10 +80,48 @@ export default function FeedTab() {
   const [burst, setBurst] = useState(false);
   const [burstInfo, setBurstInfo] = useState<{ title: string; sub: string } | null>(null);
   const [giftEvents, setGiftEvents] = useState<{ id: string; name: string; gift: string; qty: number }[]>([]);
+  const [optionsFor, setOptionsFor] = useState<any | null>(null);
+  const [notInterestedFor, setNotInterestedFor] = useState<any | null>(null);
+  const [hiddenIds, setHiddenIds] = useState<Record<string, boolean>>({});
+  const [mutedAuthors, setMutedAuthors] = useState<Record<string, boolean>>({});
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     getApiUrl().then((b) => setBase(b || '')).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    AsyncStorage.getItem('rally.mutedAuthors').then((raw) => {
+      if (raw) setMutedAuthors(JSON.parse(raw) || {});
+    }).catch(() => undefined);
+  }, []);
+
+  function hidePost(id: string, message: string) {
+    setHiddenIds((prev) => ({ ...prev, [id]: true }));
+    setToast(message);
+  }
+
+  function undoHide(handle?: string) {
+    setToast(null);
+    setHiddenIds((prev) => {
+      const next = { ...prev };
+      if (handle) {
+        for (const k of Object.keys(next)) next[k] = false;
+      }
+      return next;
+    });
+  }
+
+  async function muteAuthor(handle: string, displayName: string) {
+    setMutedAuthors((prev) => {
+      const next = { ...prev, [handle]: true };
+      AsyncStorage.setItem('rally.mutedAuthors', JSON.stringify(next)).catch(() => undefined);
+      return next;
+    });
+    if (optionsFor) setHiddenIds((prev) => ({ ...prev, [optionsFor.id]: true }));
+    setOptionsFor(null);
+    setToast('Muted ' + displayName + ' \u00b7 their Moments are hidden');
+  }
 
   const load = useCallback(async (which: string) => {
     setLoading(true);
@@ -178,14 +219,19 @@ export default function FeedTab() {
   }
 
   const rawMoments = dataByTab[tab] || [];
+  const visibleMoments = rawMoments.filter((m: any) => {
+    if (hiddenIds[m.id]) return false;
+    const h = m.favorite && m.favorite.user ? m.favorite.user.handle : '';
+    return !(h && mutedAuthors[h]);
+  });
   const moments = tab === 'following'
-    ? rawMoments.slice().sort((a, b) =>
+    ? visibleMoments.slice().sort((a, b) =>
         sortNewest
           ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           : (b.reactionCount * 2 + b.supportCount * 3 + b.commentCount) - (a.reactionCount * 2 + a.supportCount * 3 + a.commentCount)
       )
     : rawMoments;
-  const milestoneTotal = rawMoments.reduce((s, m) => s + (m.supportCount || 0) + (m.reactionCount || 0), 0);
+  const milestoneTotal = visibleMoments.reduce((s, m) => s + (m.supportCount || 0) + (m.reactionCount || 0), 0);
   const milestoneTarget = 5000;
   const h = height;
 
@@ -293,6 +339,16 @@ export default function FeedTab() {
 
         {/* Right action rail */}
         <View style={[styles.rail, { bottom: Math.max(insets.bottom, 96) }]}>
+          <Pressable
+            style={styles.railBtn}
+            onPress={() => {
+              click();
+              setOptionsFor(item);
+            }}
+            accessibilityLabel="Post options"
+          >
+            <Ionicons name="ellipsis-horizontal" size={26} color="#fff" />
+          </Pressable>
           <Pressable style={styles.railBtn} onPress={() => toggleFollow(handle)} accessibilityLabel={isFollowing ? 'Following' : 'Follow'}>
             <View style={styles.followWrap}>
               <Avatar name={handle} size={44} ring uri={author?.avatarUrl || undefined} />
@@ -509,6 +565,65 @@ export default function FeedTab() {
           setGiftFor(m);
         }}
       />
+      <PostOptionsSheet
+        visible={optionsFor !== null}
+        onClose={() => setOptionsFor(null)}
+        postId={optionsFor ? optionsFor.id : ''}
+        authorHandle={optionsFor && optionsFor.favorite && optionsFor.favorite.user ? optionsFor.favorite.user.handle : ''}
+        authorName={optionsFor && optionsFor.favorite && optionsFor.favorite.user ? optionsFor.favorite.user.displayName || '' : ''}
+        postBody={optionsFor ? String(optionsFor.title || '') : ''}
+        onNotInterested={() => {
+          const m = optionsFor;
+          setOptionsFor(null);
+          setNotInterestedFor(m);
+        }}
+        onMute={() => {
+          const m = optionsFor;
+          if (m && m.favorite && m.favorite.user) muteAuthor(m.favorite.user.handle, m.favorite.user.displayName || 'them');
+          else setOptionsFor(null);
+        }}
+        onReport={() => {
+          const m = optionsFor;
+          setOptionsFor(null);
+          setReportFor(m);
+        }}
+        onSaveToCollection={() => {
+          const m = optionsFor;
+          setOptionsFor(null);
+          if (m) setSaveFor(m.id);
+        }}
+        onShare={() => {
+          const m = optionsFor;
+          setOptionsFor(null);
+          if (m) shareMoment(m.title, m.id);
+        }}
+        onTranslated={() => undefined}
+      />
+      <NotInterestedSheet
+        visible={notInterestedFor !== null}
+        onClose={() => setNotInterestedFor(null)}
+        authorName={notInterestedFor && notInterestedFor.favorite && notInterestedFor.favorite.user ? notInterestedFor.favorite.user.displayName || '' : ''}
+        onDone={(reason, muteFor30Days) => {
+          const m = notInterestedFor;
+          setNotInterestedFor(null);
+          if (!m) return;
+          if (muteFor30Days && m.favorite && m.favorite.user) {
+            muteAuthor(m.favorite.user.handle, m.favorite.user.displayName || 'them');
+          } else {
+            hidePost(m.id, 'Post hidden \u00b7 ' + reason);
+          }
+        }}
+      />
+      {toast ? (
+        <View style={[styles.toastWrap, { bottom: Math.max(96, 96) }]} pointerEvents="box-none">
+          <View style={styles.toast}>
+            <Text style={styles.toastText}>{toast}</Text>
+            <Pressable onPress={() => undoHide()} hitSlop={8} accessibilityLabel="Undo">
+              <Text style={styles.undoText}>Undo</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
       <GiftBurst
         visible={burst}
         title={burstInfo ? burstInfo.title : undefined}
@@ -663,4 +778,16 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   giftChipText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  toastWrap: { position: 'absolute', left: 16, right: 16, zIndex: 30, alignItems: 'center' },
+  toast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: 'rgba(20,20,24,0.92)',
+    borderRadius: radii.full,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+  },
+  toastText: { color: '#fff', fontSize: 13, fontWeight: '700', flex: 1 },
+  undoText: { color: GOLD, fontSize: 13, fontWeight: '900' },
 });
