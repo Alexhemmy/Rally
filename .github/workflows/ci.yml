@@ -76,7 +76,7 @@ jobs:
         if: steps.token.outputs.available == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas init --account rally-dev --non-interactive
+        run: eas init --account rally-devs --non-interactive
 
       - name: Build Native Android APK
         if: steps.token.outputs.available == 'true'
