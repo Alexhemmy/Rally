@@ -138,6 +138,8 @@ function RootStack() {
         <Stack.Screen name="teen-protections" options={{ headerShown: false }} />
         <Stack.Screen name="your-data" options={{ headerShown: false }} />
         <Stack.Screen name="help-center" options={{ headerShown: false }} />
+        <Stack.Screen name="devices" options={{ headerShown: false }} />
+        <Stack.Screen name="logout" options={{ headerShown: false, presentation: 'modal', animation: 'fade' }} />
 
         {/* Moment authoring flow (mocks 17-22) */}
         <Stack.Screen name="edit-moment" options={{ headerShown: false }} />

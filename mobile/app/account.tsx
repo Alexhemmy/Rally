@@ -139,7 +139,7 @@ export default function AccountScreen() {
         <Text style={[styles.section, { color: colors.muted }]}>SECURITY</Text>
         <View style={[styles.group, { borderColor: colors.border }]}>
           {row('shield-checkmark-outline', 'Two-step verification', twoFa == null ? null : twoFa ? 'On' : 'Off', () => router.push('/security'))}
-          {row('phone-portrait-outline', 'Devices', 'Manage', () => router.push('/security'))}
+          {row('phone-portrait-outline', 'Devices', 'Manage', () => router.push('/devices'))}
           {row('warning-outline', 'Login alerts', null, () => toggleAlerts(!loginAlerts), { toggle: true, toggleValue: loginAlerts, onToggle: toggleAlerts })}
         </View>
 

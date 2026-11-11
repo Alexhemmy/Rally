@@ -212,6 +212,8 @@ export default function SettingsScreen() {
             {link('notifications-outline', 'Notifications', null, '/notification-settings')}
             {link('person-circle-outline', 'Account and security', null, '/account')}
             {link('shield-outline', 'Security', null, '/security')}
+            {link('phone-portrait-outline', 'Devices', null, '/devices')}
+            {link('log-out-outline', 'Log out', null, '/logout')}
             {link('help-circle-outline', 'Help and support', null, '/help-center')}
             {link('information-circle-outline', 'About Rally', null, '/about')}
           </View>
