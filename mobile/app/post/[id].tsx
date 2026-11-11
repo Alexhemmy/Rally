@@ -61,6 +61,23 @@ function Caption({ text, color }: { text: string; color: string }) {
   );
 }
 
+/** Deterministic client-side poll shares - the backend has no vote
+ * store yet, so result bars are a local preview until tallies land. */
+function pollShares(postId: string, n: number): number[] {
+  const w: number[] = [];
+  for (let i = 0; i < n; i++) {
+    let h = 7;
+    const s = postId + ':' + i;
+    for (let k = 0; k < s.length; k++) h = (h * 31 + s.charCodeAt(k)) % 100003;
+    w.push(20 + (h % 80));
+  }
+  const total = w.reduce((a, b) => a + b, 0);
+  const pct = w.map((x) => Math.round((x / total) * 100));
+  const sum = pct.reduce((a, b) => a + b, 0);
+  pct[0] += 100 - sum;
+  return pct;
+}
+
 export default function PostDetail() {
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -230,26 +247,35 @@ export default function PostDetail() {
           <Caption text={post.body} color={colors.text} />
           {post.poll!.options.map((opt, i) => {
             const chosen = vote === i;
+            if (vote === null) {
+              return (
+                <Pressable
+                  key={i}
+                  onPress={() => {
+                    impact('medium');
+                    setVote(i);
+                  }}
+                  style={[
+                    styles.pollOption,
+                    { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Vote ' + opt}
+                >
+                  <Text style={[styles.pollOptionText, { color: colors.text }]}>{opt}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+                </Pressable>
+              );
+            }
+            const pct = pollShares(post.id, post.poll!.options.length)[i];
             return (
-              <Pressable
-                key={i}
-                onPress={() => {
-                  if (vote !== null) return;
-                  impact('medium');
-                  setVote(i);
-                }}
-                style={[
-                  styles.pollOption,
-                  { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-                  chosen && { borderColor: GOLD, backgroundColor: GOLD + '1f' },
-                ]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: chosen }}
-                accessibilityLabel={'Vote ' + opt}
-              >
-                <Text style={[styles.pollOptionText, { color: chosen ? GOLD : colors.text }]}>{opt}</Text>
-                {chosen ? <Ionicons name="checkmark-circle" size={18} color={GOLD} /> : null}
-              </Pressable>
+              <View key={i} style={[styles.pollResult, { backgroundColor: colors.surfaceElevated }]}>
+                <View style={[styles.pollFill, { width: pct + '%' }, chosen ? null : { opacity: 0.4 }]} />
+                <View style={styles.pollResultInner} pointerEvents="none">
+                  <Text style={[styles.pollOptionText, { color: colors.text }]}>{opt}</Text>
+                  <Text style={[styles.pollOptionText, { color: colors.text }]}>{pct + '%'}</Text>
+                </View>
+              </View>
             );
           })}
           <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>
@@ -257,6 +283,51 @@ export default function PostDetail() {
               ? 'You voted ' + post.poll!.options[vote] + ' \u00b7 ' + hoursLeft + ' hours left'
               : 'Tap an option to vote \u00b7 ' + hoursLeft + ' hours left'}
           </Text>
+          {vote !== null ? (
+            <Text style={{ color: colors.muted, fontSize: 12 }}>
+              Live tallies arrive with the votes backend - these bars are a local preview.
+            </Text>
+          ) : null}
+
+          {/* Action row - mock 15 shows it under the poll too */}
+          <View style={styles.actionRow}>
+            <Pressable onPress={() => setCommentsOpen(true)} style={styles.actionBtn} accessibilityLabel="Comments">
+              <Ionicons name="chatbubble-outline" size={20} color={colors.muted} />
+              {commentCount > 0 && <Text style={[styles.actionCount, { color: colors.muted }]}>{commentCount}</Text>}
+            </Pressable>
+            <Pressable onPress={toggleReact} style={styles.actionBtn} accessibilityLabel="React">
+              <Ionicons name={reacted ? 'heart' : 'heart-outline'} size={20} color={reacted ? HEART_RED : colors.muted} />
+              {post.reactionCount > 0 && <Text style={[styles.actionCount, { color: reacted ? HEART_RED : colors.muted }]}>{post.reactionCount}</Text>}
+            </Pressable>
+            <Pressable onPress={() => setGiftOpen(true)} style={styles.actionBtn} accessibilityLabel="Send a gift">
+              <Ionicons name="gift-outline" size={20} color={GOLD} />
+            </Pressable>
+            <Pressable style={styles.actionBtn} accessibilityLabel="Save to Collection">
+              <Ionicons name="bookmark-outline" size={20} color={colors.muted} />
+            </Pressable>
+            <Pressable onPress={() => setShareOpen(true)} style={styles.actionBtn} accessibilityLabel="Share">
+              <Ionicons name="share-social-outline" size={20} color={colors.muted} />
+            </Pressable>
+          </View>
+
+          {/* Replies - mock 15 */}
+          {post.comments && post.comments.length > 0 ? (
+            <View style={{ marginTop: spacing.md, gap: 14 }}>
+              <Text style={{ color: colors.muted, fontSize: 13, fontWeight: '900', letterSpacing: 0.8 }}>REPLIES</Text>
+              {post.comments.slice(0, 6).map((c) => (
+                <View key={c.id} style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                  <Avatar name={c.author && c.author.handle ? c.author.handle : 'rally'} size={34} uri={c.author && c.author.avatarUrl ? c.author.avatarUrl : undefined} />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={{ color: colors.text, fontSize: 14, fontWeight: '800' }}>
+                      {(c.author && c.author.displayName) || 'Fan'}{' '}
+                      <Text style={{ color: colors.muted, fontWeight: '400', fontSize: 12 }}>{timeAgo(c.createdAt)}</Text>
+                    </Text>
+                    <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }}>{c.body}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       ) : (
         <>
@@ -385,6 +456,26 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   pollOptionText: { fontSize: 16, fontWeight: '800' },
+  pollResult: {
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    minHeight: 54,
+    justifyContent: 'center',
+  },
+  pollFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: GOLD,
+  },
+  pollResultInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+  },
   pageBadge: {
     position: 'absolute',
     top: 12,

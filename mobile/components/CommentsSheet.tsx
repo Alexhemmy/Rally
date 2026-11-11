@@ -85,6 +85,8 @@ export function CommentsSheet({
   const [liked, setLiked] = useState<Record<string, boolean>>({});
   const [translated, setTranslated] = useState<Record<string, boolean>>({});
   const [reportTarget, setReportTarget] = useState<CommentRow | null>(null);
+  const [blockedHandles, setBlockedHandles] = useState<Record<string, boolean>>({});
+  const [mutedHandles, setMutedHandles] = useState<Record<string, boolean>>({});
   const target = postId ? '/api/posts/' + postId : '/api/moments/' + momentId;
 
   useEffect(() => {
@@ -144,7 +146,7 @@ export function CommentsSheet({
   }
 
   const sorted = useMemo(() => {
-    let list = comments.slice();
+    let list = comments.slice().filter((c) => !(c.author && c.author.handle && (blockedHandles[c.author.handle] || mutedHandles[c.author.handle])));
     if (sort === 'newest') {
       list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } else if (sort === 'top') {
@@ -159,7 +161,7 @@ export function CommentsSheet({
       );
     }
     return list;
-  }, [comments, sort, liked, favoriteHandle]);
+  }, [comments, sort, liked, favoriteHandle, blockedHandles, mutedHandles]);
 
   const renderItem = ({ item }: { item: CommentRow }) => {
     const handle = item.author?.handle || "rally";
@@ -210,6 +212,9 @@ export function CommentsSheet({
                 <Text style={[styles.actionText, { color: TEAL }]}>
                   {isTranslated ? 'Show original' : 'Translate \u00b7 Yor\u00f9b\u00e1'}
                 </Text>
+              </Pressable>
+              <Pressable onPress={() => setReportTarget(item)} hitSlop={6} accessibilityLabel="Report comment">
+                <Text style={[styles.actionText, { color: colors.muted }]}>Report</Text>
               </Pressable>
             </View>
           </View>
@@ -354,7 +359,19 @@ export function CommentsSheet({
         onClose={() => setReportTarget(null)}
         targetType="comment"
         targetId={reportTarget ? reportTarget.id : ""}
-        subjectLabel={reportTarget ? "Comment: " + reportTarget.body.slice(0, 40) : ""}
+        subjectLabel={
+          reportTarget
+            ? "@" + (reportTarget.author && reportTarget.author.handle ? reportTarget.author.handle : "fan") + ": \u201c" + reportTarget.body.slice(0, 90) + (reportTarget.body.length > 90 ? "\u2026" : "") + "\u201d"
+            : ""
+        }
+        onBlock={() => {
+          const h = reportTarget && reportTarget.author ? reportTarget.author.handle : null;
+          if (h) setBlockedHandles((prev) => ({ ...prev, [h]: true }));
+        }}
+        onMute={() => {
+          const h = reportTarget && reportTarget.author ? reportTarget.author.handle : null;
+          if (h) setMutedHandles((prev) => ({ ...prev, [h]: true }));
+        }}
       />
     </Modal>
   );

@@ -17,6 +17,14 @@ const TEAL = '#34D399';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
+const REASONS_COMMENT: { value: string; label: string; icon: IconName }[] = [
+  { value: 'harassment', label: 'Harassment or threats', icon: 'flag-outline' },
+  { value: 'hate', label: 'Hate speech', icon: 'warning-outline' },
+  { value: 'doxxing', label: 'Doxxing or personal information', icon: 'eye-off-outline' },
+  { value: 'scam', label: 'Scam or selling favors for Gifts', icon: 'cash-outline' },
+  { value: 'impersonation', label: 'Impersonation', icon: 'person-circle-outline' },
+];
+
 const REASONS: { value: string; label: string; icon: IconName }[] = [
   { value: 'harassment', label: 'Harassment or bullying', icon: 'flag-outline' },
   { value: 'hate', label: 'Hate speech', icon: 'warning-outline' },
@@ -100,15 +108,20 @@ export function ReportSheet({
               <Ionicons name="flag" size={18} color="#111" />
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={[styles.title, { color: colors.text }]}>Report</Text>
-              <Text numberOfLines={1} style={[styles.subtitle, { color: colors.muted }]}>
-                {subjectLabel}
+              <Text style={[styles.title, { color: colors.text }]}>
+                {targetType === 'comment' ? 'Report this comment' : 'Report'}
               </Text>
             </View>
             <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Close report sheet">
               <Ionicons name="close" size={22} color={colors.muted} />
             </Pressable>
           </View>
+
+          {subjectLabel ? (
+            <View style={[styles.quoteBox, { borderColor: colors.border }]}>
+              <Text style={[styles.quoteText, { color: colors.muted }]}>{subjectLabel}</Text>
+            </View>
+          ) : null}
 
           {done ? (
             <View style={styles.doneWrap}>
@@ -123,7 +136,7 @@ export function ReportSheet({
           ) : (
             <>
               <ScrollView style={{ flexGrow: 0, maxHeight: 320 }} contentContainerStyle={{ gap: 8 }}>
-                {REASONS.map((r) => {
+                {(targetType === 'comment' ? REASONS_COMMENT : REASONS).map((r) => {
                   const active = reason === r.value;
                   return (
                     <Pressable
@@ -155,13 +168,14 @@ export function ReportSheet({
               <View style={[styles.detailsWrap, { borderColor: colors.border }]}>
                 <TextInput
                   style={[styles.detailsInput, { color: colors.text }]}
-                  placeholder="Anything else we should know? (optional)"
+                  placeholder="Add evidence or a note (optional)"
                   placeholderTextColor={colors.muted}
                   value={details}
                   onChangeText={(t) => setDetails(t.slice(0, 500))}
                   maxLength={500}
                   multiline
                 />
+                <Ionicons name="image-outline" size={18} color={colors.muted} />
               </View>
 
               {error ? <Text style={[styles.error, { color: "#ef5350" }]}>{error}</Text> : null}
@@ -191,7 +205,7 @@ export function ReportSheet({
                   style={[styles.submitBtn, (!reason || sending) && { opacity: 0.4 }]}
                 >
                   <Text style={styles.submitText}>
-                    {sending ? 'Sending\u2026' : 'Submit report'}
+                    {sending ? 'Sending\u2026' : 'Send report'}
                   </Text>
                 </LinearGradient>
               </Pressable>
@@ -238,13 +252,23 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   detailsWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderRadius: radii.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginTop: 12,
   },
-  detailsInput: { fontSize: 14, minHeight: 44, padding: 0 },
+  detailsInput: { flex: 1, fontSize: 14, minHeight: 44, padding: 0 },
+  quoteBox: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  quoteText: { fontSize: 14, lineHeight: 21 },
   error: { marginTop: 8, fontSize: 13, fontWeight: "600" },
   actionsRow: { flexDirection: "row", gap: 10, marginTop: 14 },
   secondaryBtn: {
