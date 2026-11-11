@@ -222,6 +222,16 @@ export default function FavoriteScreen() {
   const fav = profile.favorite;
   const tags: string[] = Array.isArray(fav.specialties) ? fav.specialties : [];
 
+  // Top supporters this week (mock 03): first unique senders from the recent wall,
+  // shown with rank badges. True weekly top-fan ordering needs a backend lane.
+  const seenHandles = new Set<string>();
+  const topSupporters: { handle: string; avatarUrl?: string }[] = [];
+  for (const g of profile.supporterWall?.recent || []) {
+    const h = g.sender && g.sender.handle;
+    if (h && !seenHandles.has(h)) { seenHandles.add(h); topSupporters.push(g.sender); }
+    if (topSupporters.length >= 3) break;
+  }
+
   return (
     <SwipeBack pullDown edgeSwipe>
       <SafeAreaView
@@ -402,6 +412,26 @@ export default function FavoriteScreen() {
                   <Ionicons name="notifications-outline" size={18} color={colors.text} />
                 </Pressable>
               </View>
+
+              {/* Top supporters this week */}
+              {topSupporters.length > 0 && (
+                <View style={[styles.topRow, { paddingHorizontal: horizontalPad }]}>
+                  <Text style={[styles.sectionLabel, { color: colors.muted, marginBottom: 0, width: 64 }]}>TOP THIS{'\n'}WEEK</Text>
+                  <View style={styles.topAvatars}>
+                    {topSupporters.map((s, i) => (
+                      <View key={s.handle} style={styles.topAvatarWrap}>
+                        <Avatar name={s.handle} size={46} uri={s.avatarUrl || undefined} ring />
+                        <View style={styles.rankBadge}>
+                          <Text style={styles.rankBadgeText}>{i + 1}</Text>
+                        </View>
+                      </View>
+                    ))}
+                    <View style={[styles.qTile, { backgroundColor: colors.surfaceElevated }]}>
+                      <Text style={{ color: colors.muted, fontWeight: '900', fontSize: 16 }}>?</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
 
               {/* Gift Tray bottom sheet */}
               <GiftTraySheet
@@ -615,6 +645,46 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1,
     marginBottom: 8,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  topAvatars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  topAvatarWrap: {
+    position: 'relative',
+  },
+  rankBadge: {
+    position: 'absolute',
+    right: -4,
+    bottom: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: GOLD,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.6)',
+  },
+  rankBadgeText: {
+    color: '#111',
+    fontWeight: '900',
+    fontSize: 10,
+  },
+  qTile: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   hint: {
     fontSize: 12,

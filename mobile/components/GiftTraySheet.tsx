@@ -3,6 +3,9 @@
  * tabs, circular gift grid with T + naira costs, quantity stepper,
  * weekly spend-limit bar, message with counter, anonymity toggle,
  * and a gold Send button. Dual pricing: 1 Token = 10 naira.
+ * Mock 07: tapping Send opens a Confirm step - gift icon, Price,
+ * Balance after, Monthly limit left, anonymity switch, and the
+ * "Gifts do not change anyone's rank" reassurance before sending.
  */
 import { useEffect, useState } from 'react';
 import {
@@ -62,12 +65,15 @@ export function GiftTraySheet({
   name,
   onSend,
   sending,
+  context,
 }: {
   visible: boolean;
   onClose: () => void;
   name: string;
   onSend: (giftId: string, message: string, anonymous: boolean, quantity: number, giftName?: string) => void;
   sending: boolean;
+  /** Optional caption under the confirm title, e.g. the post or Moment title. */
+  context?: string;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -81,9 +87,12 @@ export function GiftTraySheet({
   const [anonymous, setAnonymous] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [week, setWeek] = useState<{ cap: number | null; spent: number } | null>(null);
+  const [month, setMonth] = useState<{ cap: number | null; spent: number } | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
+    setConfirming(false);
     setSelected(null);
     setQty(1);
     setMessage('');
@@ -106,12 +115,14 @@ export function GiftTraySheet({
       api<any>('/api/limits')
         .then((d) => {
           setWeek({ cap: d.weeklySpendCap == null ? null : Number(d.weeklySpendCap), spent: Number(d.spentThisWeek || 0) });
+          setMonth({ cap: d.monthlySpendCap == null ? null : Number(d.monthlySpendCap), spent: Number(d.spentThisMonth || 0) });
           if (d.anonymityDefault) setAnonymous(true);
         })
         .catch(() => setWeek(null));
     } else {
       setBalance(null);
       setWeek(null);
+      setMonth(null);
     }
   }, [visible]);
 
@@ -127,6 +138,8 @@ export function GiftTraySheet({
   const weekOver = !!(week && week.cap != null && week.spent > week.cap);
   const capReached = !!(week && week.cap != null && week.spent >= week.cap);
   const buyMode = !capReached && balance !== null && !!selectedItem && totalCost > balance;
+  const monthLeft = month && month.cap != null ? Math.max(0, month.cap - month.spent) : null;
+  const selectedVisual = selectedItem ? giftVisual(selectedItem.slug) : null;
 
   return (
     <Modal
@@ -198,6 +211,100 @@ export function GiftTraySheet({
             </View>
           )}
 
+          {/* Confirm step (mock 07) */}
+          {confirming && selectedItem && selectedVisual ? (
+            <View>
+              <Pressable
+                onPress={() => setConfirming(false)}
+                style={styles.backBtn}
+                hitSlop={8}
+                accessibilityLabel="Back to gifts"
+              >
+                <Ionicons name="chevron-back" size={18} color={colors.muted} />
+                <Text style={{ color: colors.muted, fontSize: 13, fontWeight: '700' }}>Back to gifts</Text>
+              </Pressable>
+
+              <View style={styles.confirmHead}>
+                <View style={[styles.confirmBubble, { backgroundColor: selectedVisual.color }]}>
+                  <Ionicons name={selectedVisual.icon} size={26} color="#fff" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={[styles.confirmTitle, { color: colors.text }]}>
+                    {'Send ' + selectedItem.name + ' to ' + name}
+                  </Text>
+                  {context ? (
+                    <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }} numberOfLines={1}>
+                      {'During ' + context}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+
+              <View style={styles.confirmCard}>
+                <View style={[styles.confirmRow, { borderBottomColor: colors.border }]}>
+                  <Text style={{ color: colors.muted, fontSize: 15 }}>Price</Text>
+                  <Text style={{ color: colors.text, fontWeight: '900', fontSize: 15 }}>
+                    {totalCost.toLocaleString('en-US') + ' Tokens \u00b7 ' + naira(totalCost)}
+                  </Text>
+                </View>
+                <View style={[styles.confirmRow, { borderBottomColor: colors.border }]}>
+                  <Text style={{ color: colors.muted, fontSize: 15 }}>Balance after</Text>
+                  <Text style={{ color: colors.text, fontWeight: '900', fontSize: 15 }}>
+                    {balance === null
+                      ? '\u2014'
+                      : Math.max(0, balance - totalCost).toLocaleString('en-US') + ' Tokens'}
+                  </Text>
+                </View>
+                <View style={styles.confirmRow}>
+                  <Text style={{ color: colors.muted, fontSize: 15 }}>Monthly limit left</Text>
+                  <Text style={{ color: colors.text, fontWeight: '900', fontSize: 15 }}>
+                    {monthLeft === null ? '\u2014' : naira(monthLeft)}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.toggleRow}>
+                <View style={[styles.anonIcon, { backgroundColor: colors.surfaceElevated }]}>
+                  <Ionicons name="eye-outline" size={16} color={GOLD} />
+                </View>
+                <Text style={{ color: colors.text, fontSize: 14, flex: 1, marginLeft: 10 }}>Send anonymously</Text>
+                <Switch
+                  value={anonymous}
+                  onValueChange={setAnonymous}
+                  trackColor={{ false: colors.border, true: GOLD }}
+                  thumbColor="#fff"
+                />
+              </View>
+
+              <Pressable
+                onPress={() => {
+                  if (!sending) {
+                    const gid = selected;
+                    const giftName = selectedItem.name;
+                    setConfirming(false);
+                    onSend(gid as string, message, anonymous, qty, giftName);
+                  }
+                }}
+                disabled={sending}
+                accessibilityLabel="Send gift"
+              >
+                <LinearGradient
+                  colors={[GOLD, GOLD_DEEP] as [string, string]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.sendBtn, sending && { opacity: 0.6 }]}
+                >
+                  <Text style={styles.sendText}>
+                    {sending ? 'Sending\u2026' : 'Send Gift \u00b7 ' + totalCost.toLocaleString('en-US') + ' Tokens'}
+                  </Text>
+                </LinearGradient>
+              </Pressable>
+              <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: 10 }}>
+                Gifts do not change anyone's rank.
+              </Text>
+            </View>
+          ) : (
+            <>
           {/* Category tabs */}
           <ScrollView
             horizontal
@@ -332,11 +439,11 @@ export function GiftTraySheet({
                 onClose();
                 router.push('/wallet');
               } else if (selected) {
-                onSend(selected, message, anonymous, qty, selectedItem ? selectedItem.name : undefined);
+                setConfirming(true);
               }
             }}
             disabled={!selected || sending || capReached || (!canAfford && !buyMode)}
-            accessibilityLabel={buyMode ? 'Buy Tokens' : 'Send gift'}
+            accessibilityLabel={buyMode ? 'Buy Tokens' : 'Confirm gift'}
           >
             <LinearGradient
               colors={[GOLD, GOLD_DEEP] as [string, string]}
@@ -362,6 +469,8 @@ export function GiftTraySheet({
               Your weekly limit resets at the start of next week.
             </Text>
           ) : null}
+            </>
+          )}
         </View>
       </Pressable>
     </Modal>
@@ -562,6 +671,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
+  },
+  anonIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+  },
+  confirmHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  confirmBubble: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmTitle: {
+    fontSize: 19,
+    fontWeight: '900',
+    lineHeight: 25,
+  },
+  confirmCard: {
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    marginBottom: 14,
+  },
+  confirmRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
   },
   sendBtn: {
     borderRadius: radii.full,
