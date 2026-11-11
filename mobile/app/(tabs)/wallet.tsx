@@ -44,6 +44,7 @@ export default function WalletTab() {
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [wallet, setWallet] = useState<{ balance: number; giftedBalance: number } | null>(null);
   const [earnings, setEarnings] = useState<{ available: number; pending: number } | null>(null);
+  const [week, setWeek] = useState<{ cap: number | null; spent: number } | null>(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -62,9 +63,15 @@ export default function WalletTab() {
           available: Number(e.balance?.available ?? 0),
           pending: Number(e.balance?.pending ?? 0),
         });
+        const l = await api<any>('/api/limits');
+        setWeek({
+          cap: l.weeklySpendCap == null ? null : Number(l.weeklySpendCap),
+          spent: Number(l.spentThisWeek || 0),
+        });
       } else {
         setWallet(null);
         setEarnings(null);
+        setWeek(null);
       }
     } catch {
       // offline
@@ -140,6 +147,16 @@ export default function WalletTab() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={load}>
+      {/* Header: title + spending limits */}
+      <View style={styles.headRow}>
+        <Text style={[styles.headTitle, { color: colors.text }]}>Wallet</Text>
+        <Pressable
+          onPress={() => { impact('light'); router.push('/spending-limits'); }}
+          accessibilityLabel="Spending limits"
+        >
+          <Ionicons name="options-outline" size={22} color={colors.text} />
+        </Pressable>
+      </View>
       {/* Dual cards: Tokens + Earnings */}
       <View style={styles.cardRow}>
         <LinearGradient
@@ -164,6 +181,7 @@ export default function WalletTab() {
           )}
           <Pressable
             style={({ pressed }) => [styles.cardBtn, pressed && { opacity: 0.7 }]}
+            onPress={() => { impact('light'); router.push('/buy-tokens'); }}
             accessibilityLabel="Buy Tokens"
           >
             <Text style={styles.cardBtnText}>Buy Tokens</Text>
@@ -264,6 +282,26 @@ export default function WalletTab() {
           })}
         </View>
       )}
+
+      {/* Weekly limit bar */}
+      {week && week.cap != null ? (
+        <View style={styles.weekBarWrap}>
+          <Text style={{ color: colors.muted, fontSize: 13 }}>Weekly limit</Text>
+          <View style={styles.weekBarTrack}>
+            <View
+              style={{
+                width: week && week.cap ? Math.min(100, Math.round((week.spent / week.cap) * 100)) : 0 + '%',
+                height: '100%',
+                borderRadius: 3,
+                backgroundColor: TEAL,
+              }}
+            />
+          </View>
+          <Text style={{ color: colors.muted, fontSize: 13 }}>
+            {fmt(week.spent)} / {week.cap == null ? '—' : fmt(week.cap)}
+          </Text>
+        </View>
+      ) : null}
     </Screen>
   );
 }
@@ -372,5 +410,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '800',
     fontSize: 15,
+  },
+  headRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  headTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  weekBarWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: spacing.sm,
+  },
+  weekBarTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(128,128,128,0.25)',
+    overflow: 'hidden',
   },
 });

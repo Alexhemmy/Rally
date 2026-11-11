@@ -82,6 +82,10 @@ function RootStack() {
 <Stack.Screen name="rally-score" options={{ title: 'Your Rally Score' }} />
 <Stack.Screen name="content-notice" options={{ title: 'Notice' }} />
 <Stack.Screen name="held-comments" options={{ title: 'Moderation' }} />
+        <Stack.Screen name="buy-tokens" options={{ title: 'Buy Tokens' }} />
+        <Stack.Screen name="pay" options={{ title: 'Pay' }} />
+        <Stack.Screen name="spending-limits" options={{ title: 'Spending limits' }} />
+        <Stack.Screen name="fan-club-join" options={{ headerShown: false }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}

@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/components/ThemeProvider';
 import { radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
@@ -89,10 +90,17 @@ export function GiftTraySheet({
   const [week, setWeek] = useState<{ cap: number | null; spent: number } | null>(null);
   const [month, setMonth] = useState<{ cap: number | null; spent: number } | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [pausedUntil, setPausedUntil] = useState<number | null>(null);
 
   useEffect(() => {
     if (!visible) return;
     setConfirming(false);
+    AsyncStorage.getItem('rally.giftingPausedUntil')
+      .then((v) => {
+        const n = v ? Number(v) : 0;
+        setPausedUntil(n && n > Date.now() ? n : null);
+      })
+      .catch(() => setPausedUntil(null));
     setSelected(null);
     setQty(1);
     setMessage('');
@@ -156,6 +164,22 @@ export function GiftTraySheet({
           ]}
         >
           <View style={styles.grabHandle} />
+
+
+          {pausedUntil != null && pausedUntil > Date.now() ? (
+            <Pressable
+              onPress={() => router.push('/spending-limits')}
+              style={[styles.weekWrap, { borderColor: '#ef5350', marginBottom: 12 }]}
+              accessibilityLabel="Gifting paused"
+            >
+              <View style={styles.weekLabels}>
+                <Text style={{ color: '#ef5350', fontSize: 12, fontWeight: '800', flex: 1 }}>
+                  {'Gifting is paused until ' + new Date(pausedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                <Text style={{ color: GOLD, fontSize: 12, fontWeight: '800' }}>Resume</Text>
+              </View>
+            </Pressable>
+          ) : null}
 
           {/* Header: recipient + balance */}
           <View style={styles.header}>
@@ -278,7 +302,9 @@ export function GiftTraySheet({
 
               <Pressable
                 onPress={() => {
-                  if (!sending) {
+                  if (pausedUntil != null && pausedUntil > Date.now()) {
+                    router.push('/spending-limits');
+                  } else if (!sending) {
                     const gid = selected;
                     const giftName = selectedItem.name;
                     setConfirming(false);
@@ -435,7 +461,9 @@ export function GiftTraySheet({
           {/* Send */}
           <Pressable
             onPress={() => {
-              if (buyMode) {
+              if (pausedUntil != null && pausedUntil > Date.now()) {
+                router.push('/spending-limits');
+              } else if (buyMode) {
                 onClose();
                 router.push('/wallet');
               } else if (selected) {

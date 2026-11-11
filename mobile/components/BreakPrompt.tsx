@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/components/ThemeProvider';
 import { radii } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -27,6 +28,17 @@ export function BreakPrompt() {
   const { impact } = useHaptics();
   const [visible, setVisible] = useState(false);
   const [remindersOn, setRemindersOn] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.getItem('rally.breakPrefs')
+      .then((v) => {
+        if (v) {
+          const p = JSON.parse(v);
+          setRemindersOn(p.reminders !== false);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     breakListener = () => setVisible(true);

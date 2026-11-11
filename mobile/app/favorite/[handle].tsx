@@ -413,6 +413,23 @@ export default function FavoriteScreen() {
                 </Pressable>
               </View>
 
+              {/* Join the fan club (mock 16) */}
+              <Pressable
+                onPress={() => {
+                  impact('light');
+                  router.push({ pathname: '/fan-club-join', params: { handle } });
+                }}
+                style={({ pressed }) => [
+                  styles.joinClubBtn,
+                  { borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: horizontalPad, opacity: pressed ? 0.7 : 1 },
+                ]}
+                accessibilityLabel="Join the fan club"
+              >
+                <Ionicons name="people-outline" size={16} color={GOLD} />
+                <Text style={[styles.joinClubText, { color: colors.text }]}>Join the fan club</Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+              </Pressable>
+
               {/* Top supporters this week */}
               {topSupporters.length > 0 && (
                 <View style={[styles.topRow, { paddingHorizontal: horizontalPad }]}>
@@ -631,6 +648,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     minHeight: 46,
     justifyContent: 'center',
+  },
+  joinClubBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: radii.full,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  joinClubText: {
+    flex: 1,
+    fontWeight: '700',
+    fontSize: 14,
   },
   iconBtn: {
     width: 46,
