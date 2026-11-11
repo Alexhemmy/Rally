@@ -54,6 +54,12 @@ function RootStack() {
         <Stack.Screen name="all-set" options={{ headerShown: false }} />
         <Stack.Screen name="post/[id]" options={{ title: 'Post' }} />
         <Stack.Screen name="feed-settings" options={{ title: 'Feed and playback' }} />
+
+        {/* Favorite onboarding + studio */}
+        <Stack.Screen name="setup-specialty" options={{ title: 'Favorite setup' }} />
+        <Stack.Screen name="verify-identity" options={{ title: 'Verification' }} />
+        <Stack.Screen name="edit-page" options={{ title: 'Edit page' }} />
+        <Stack.Screen name="favorite-studio" options={{ headerShown: false }} />
         <Stack.Screen name="favorite-ready" options={{ title: 'Your page is live' }} />
 
         {/* Core */}

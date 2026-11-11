@@ -26,7 +26,7 @@ const QUICK_ACTIONS = [
   { href: '/store', label: 'Store', icon: 'bag-outline' },
   { href: '/collections', label: 'Collections', icon: 'albums-outline' },
   { href: '/inbox', label: 'Inbox', icon: 'notifications-outline' },
-  { href: '/dashboard', label: 'Dashboard', icon: 'stats-chart-outline' },
+  { href: '/favorite-studio', label: 'Studio', icon: 'stats-chart-outline' },
   { href: '/security', label: 'Security', icon: 'shield-checkmark-outline' },
   { href: '/upgrade', label: 'Upgrade', icon: 'star-outline' },
 ];
