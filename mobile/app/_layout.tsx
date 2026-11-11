@@ -115,6 +115,8 @@ function RootStack() {
         <Stack.Screen name="my-profile" options={{ title: 'Profile' }} />
         <Stack.Screen name="level-progress" options={{ title: 'Your level' }} />
         <Stack.Screen name="saved" options={{ title: 'Saved' }} />
+        <Stack.Screen name="activity" options={{ title: 'Activity' }} />
+        <Stack.Screen name="account" options={{ title: 'Account' }} />
         <Stack.Screen name="callout-card" options={{ headerShown: false }} />
         <Stack.Screen name="compare" options={{ title: 'Compare' }} />
 

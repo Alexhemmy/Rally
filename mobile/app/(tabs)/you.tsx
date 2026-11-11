@@ -130,7 +130,7 @@ export default function YouTab() {
           />
           <Row icon="folder-outline" label="Collections" value={String(collectionsCount)} onPress={() => { impact('light'); router.push('/collections'); }} />
           <Row icon="bookmark-outline" label="Saved" onPress={() => { impact('light'); router.push('/saved'); }} />
-          <Row icon="time-outline" label="Activity" onPress={() => { impact('light'); router.push('/notifications'); }} />
+          <Row icon="time-outline" label="Activity" onPress={() => { impact('light'); router.push('/activity'); }} />
           <Row icon="ticket-outline" label="Memberships and orders" onPress={() => { impact('light'); router.push('/memberships'); }} last />
         </View>
 

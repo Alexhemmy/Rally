@@ -44,6 +44,7 @@ export default function SettingsScreen() {
   const [balance, setBalance] = useState(0);
   const [blockedCount, setBlockedCount] = useState(0);
   const [inSearch, setInSearch] = useState(true);
+  const [slurs, setSlurs] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -53,6 +54,7 @@ export default function SettingsScreen() {
       if (prefs) {
         const p = JSON.parse(prefs);
         if (p.inSearch !== undefined) setInSearch(p.inSearch);
+        if (p.slurs !== undefined) setSlurs(p.slurs);
       }
     } catch { /* local only */ }
     if (getToken()) {
@@ -83,8 +85,26 @@ export default function SettingsScreen() {
 
   function toggleSearch(v: boolean) {
     setInSearch(v);
-    AsyncStorage.setItem('rally.privacyPrefs', JSON.stringify({ inSearch: v })).catch(() => undefined);
+    AsyncStorage.getItem('rally.privacyPrefs')
+      .then((raw) => {
+        const p = raw ? JSON.parse(raw) : {};
+        p.inSearch = v;
+        return AsyncStorage.setItem('rally.privacyPrefs', JSON.stringify(p));
+      })
+      .catch(() => undefined);
     impact('light');
+  }
+
+  function toggleSlurs(v: boolean) {
+    setSlurs(v);
+    impact('light');
+    AsyncStorage.getItem('rally.privacyPrefs')
+      .then((raw) => {
+        const p = raw ? JSON.parse(raw) : {};
+        p.slurs = v;
+        return AsyncStorage.setItem('rally.privacyPrefs', JSON.stringify(p));
+      })
+      .catch(() => undefined);
   }
 
   function link(icon: string, label: string, value: string | null, href: string, accent?: string) {
@@ -166,6 +186,18 @@ export default function SettingsScreen() {
             {link('lock-closed-outline', 'Blocked and muted', blockedCount > 0 ? String(blockedCount) : null, '/blocked-muted')}
             <View style={styles.row}>
               <View style={[styles.iconBubble, { backgroundColor: colors.surfaceElevated }]}>
+                <Ionicons name="chatbox-outline" size={19} color={GOLD} />
+              </View>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>Slurs and blocked words</Text>
+              <Switch
+                value={slurs}
+                onValueChange={toggleSlurs}
+                trackColor={{ true: TEAL, false: colors.border }}
+                thumbColor="#fff"
+              />
+            </View>
+            <View style={styles.row}>
+              <View style={[styles.iconBubble, { backgroundColor: colors.surfaceElevated }]}>
                 <Ionicons name="search-outline" size={19} color={GOLD} />
               </View>
               <Text style={[styles.rowLabel, { color: colors.text }]}>Show me in search results</Text>
@@ -178,6 +210,7 @@ export default function SettingsScreen() {
             </View>
             {link('ban-outline', 'Privacy and safety', null, '/privacy-safety')}
             {link('notifications-outline', 'Notifications', null, '/notification-settings')}
+            {link('person-circle-outline', 'Account and security', null, '/account')}
             {link('shield-outline', 'Security', null, '/security')}
             {link('help-circle-outline', 'Help and support', null, '/help-center')}
             {link('information-circle-outline', 'About Rally', null, '/about')}

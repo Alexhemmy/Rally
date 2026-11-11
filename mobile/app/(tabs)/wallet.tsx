@@ -45,6 +45,7 @@ export default function WalletTab() {
   const [wallet, setWallet] = useState<{ balance: number; giftedBalance: number } | null>(null);
   const [earnings, setEarnings] = useState<{ available: number; pending: number } | null>(null);
   const [week, setWeek] = useState<{ cap: number | null; spent: number } | null>(null);
+  const [payWith, setPayWith] = useState('card');
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -206,16 +207,27 @@ export default function WalletTab() {
           )}
           <Pressable
             style={({ pressed }) => [styles.cardBtn, pressed && { opacity: 0.7 }]}
-            onPress={() => { impact('light'); router.push('/earnings'); }}
-            accessibilityLabel="Earnings"
+            onPress={() => { impact('light'); router.push('/cash-out'); }}
+            accessibilityLabel="Cash out"
           >
-            <Text style={styles.cardBtnText}>Earnings</Text>
+            <Text style={styles.cardBtnText}>Cash out</Text>
           </Pressable>
         </LinearGradient>
       </View>
 
+      {/* Separation note */}
+      <View style={styles.sepNote}>
+        <Ionicons name="shield-checkmark-outline" size={16} color={TEAL} />
+        <Text style={[styles.sepNoteText, { color: colors.muted }]}>
+          Tokens and earnings are separate. Gift Points never turn into Tokens, and Tokens cannot be withdrawn.
+        </Text>
+      </View>
+
       {/* Token packages */}
-      <Text style={[styles.sectionLabel, { color: colors.muted }]}>TOKEN PACKAGES</Text>
+      <View style={styles.buyHeadRow}>
+        <Text style={[styles.sectionLabel, { color: colors.muted, marginBottom: 0 }]}>BUY TOKENS</Text>
+        <Text style={{ color: TEAL, fontWeight: '900', fontSize: 14 }}>{'\u20A615 per Token'}</Text>
+      </View>
 
       {packs.length === 0 && !refreshing ? (
         <EmptyState
@@ -233,6 +245,11 @@ export default function WalletTab() {
                 key={pack.id}
                 style={[styles.packCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
               >
+                {pack.tokens === 500 ? (
+                  <View style={styles.popPill}>
+                    <Text style={styles.popText}>MOST POPULAR</Text>
+                  </View>
+                ) : null}
                 <View style={styles.packHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.packName, { color: colors.text }]}>
@@ -282,6 +299,30 @@ export default function WalletTab() {
           })}
         </View>
       )}
+
+      {/* Pay with */}
+      <Text style={[styles.sectionLabel, { color: colors.muted }]}>PAY WITH</Text>
+      <View style={styles.payRow}>
+        {([
+          ['card', 'Card', 'card-outline'],
+          ['transfer', 'Transfer', 'business-outline'],
+          ['mobile', 'Mobile money', 'phone-portrait-outline'],
+        ] as [string, string, string][]).map(([key, label, icon]) => (
+          <Pressable
+            key={key}
+            onPress={() => {
+              impact('light');
+              if (key === 'card') { setPayWith('card'); return; }
+              Alert.alert('Payment methods', 'Card checkout is live. Transfer and mobile money arrive with the providers update.');
+            }}
+            style={[styles.payChip, { borderColor: payWith === key ? GOLD : colors.border }]}
+            accessibilityLabel={label}
+          >
+            <Ionicons name={icon as any} size={22} color={payWith === key ? GOLD : colors.muted} />
+            <Text style={{ color: payWith === key ? GOLD : colors.text, fontWeight: '800', fontSize: 14, marginTop: 6 }}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
 
       {/* Weekly limit bar */}
       {week && week.cap != null ? (
@@ -434,4 +475,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(128,128,128,0.25)',
     overflow: 'hidden',
   },
+  sepNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: spacing.lg },
+  sepNoteText: { flex: 1, fontSize: 13, lineHeight: 19 },
+  buyHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  popPill: { position: 'absolute', top: -10, right: 14, zIndex: 2, backgroundColor: TEAL, borderRadius: radii.full, paddingHorizontal: 10, paddingVertical: 4 },
+  popText: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
+  payRow: { flexDirection: 'row', gap: 10, marginBottom: spacing.lg },
+  payChip: { flex: 1, borderWidth: 1.5, borderRadius: radii.lg, alignItems: 'center', paddingVertical: 16 },
 });

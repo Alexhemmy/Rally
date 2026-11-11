@@ -31,6 +31,7 @@ export default function PrivacySafetyScreen() {
   const [onWalls, setOnWalls] = useState(true);
   const [blockedCount, setBlockedCount] = useState(0);
   const [rivalry, setRivalry] = useState('Opted out');
+  const [safeMode, setSafeMode] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -44,6 +45,8 @@ export default function PrivacySafetyScreen() {
       if (blocked) setBlockedCount((JSON.parse(blocked) || []).length);
       const heat = await AsyncStorage.getItem('rally.rivalryHeat');
       setRivalry(heat ? 'Heat: ' + heat : 'Opted out');
+      const sm = await AsyncStorage.getItem('rally.safeMode');
+      if (sm) setSafeMode(JSON.parse(sm));
     } catch { /* local only */ }
     if (getToken()) {
       try {
@@ -157,7 +160,7 @@ export default function PrivacySafetyScreen() {
           </View>
 
           <Text style={[styles.section, { color: colors.muted }]}>SAFETY</Text>
-          {row('shield-checkmark-outline', 'Safe mode', 'Off', () => router.push('/safe-mode-welcome'))}
+          {row('shield-checkmark-outline', 'Safe mode', safeMode ? 'On' : 'Off', () => router.push('/safe-mode'))}
           {row('ban-outline', 'Blocked and muted', blockedCount > 0 ? String(blockedCount) : null, () => router.push('/blocked-muted'))}
           {row('flame-outline', 'Rivalry', rivalry, () => router.push('/rivalries'))}
 
