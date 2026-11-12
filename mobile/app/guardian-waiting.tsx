@@ -41,7 +41,7 @@ export default function GuardianWaitingScreen() {
       async function check() {
         if (!getToken() || !p.appId) return;
         try {
-          const r = await api<{ application: { id: string; status: string } | null }>('/api/junior/me');
+          const r = await api<{ application: JuniorApp }>('/api/junior/me');
           if (live && r.application && r.application.id === p.appId) {
             const s = r.application.status;
             setStatus(s === 'consented' ? 'Confirmed' : s === 'approved' ? 'Approved' : s.charAt(0).toUpperCase() + s.slice(1));
