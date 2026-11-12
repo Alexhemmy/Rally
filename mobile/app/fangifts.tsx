@@ -97,7 +97,7 @@ export default function FanGiftsScreen() {
     impact('medium');
 
     try {
-      await api(`/api/fangifts/${id}/${action}`, { method: 'POST' });
+      await api('/api/fangifts/' + id + '/' + action, { method: 'POST' });
       setMsg({
         type: 'success',
         text: action === 'accept' ? 'Gift accepted' : 'Gift declined',
@@ -220,7 +220,7 @@ export default function FanGiftsScreen() {
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: colors.text, fontWeight: '600' }}>
-                      {g.kind === 'tokens' ? `${g.tokens} Tokens` : 'Cosmetic'}
+                      {g.kind === 'tokens' ? g.tokens + ' Tokens' : 'Cosmetic'}
                     </Text>
                     <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>
                       {g.status.charAt(0).toUpperCase() + g.status.slice(1)}
@@ -265,7 +265,7 @@ export default function FanGiftsScreen() {
               {sent.map((g) => (
                 <View key={g.id} style={styles.sentRow}>
                   <Text style={{ color: colors.text, fontWeight: '500' }}>
-                    {g.kind === 'tokens' ? `${g.tokens} Tokens` : 'Cosmetic'}
+                    {g.kind === 'tokens' ? g.tokens + ' Tokens' : 'Cosmetic'}
                   </Text>
                   <Text style={{ color: colors.muted, fontSize: 13 }}>
                     {g.status.charAt(0).toUpperCase() + g.status.slice(1)}
