@@ -54,7 +54,7 @@ export default function CommunityToolsScreen() {
       const fid = u.favoriteProfile && u.favoriteProfile.id;
       setFavoriteId(fid || null);
       const jobs: Promise<void>[] = [
-        api<Moment[]>('/api/fanmoments/queue').then((r) => setMoments(Array.isArray(r) ? r : [])).catch(() => {}),
+        api<{ moments: Moment[] }>('/api/fanmoments/queue').then((res) => setMoments((res && res.moments) || [])).catch(() => {}),
       ];
       if (fid) {
         jobs.push(
