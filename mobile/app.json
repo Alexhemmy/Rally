@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#070B14"
+      "backgroundColor": "#0D0D0D"
     },
     "ios": {
       "supportsTablet": true,
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#0B1D3A"
+        "backgroundColor": "#0D0D0D"
       },
       "package": "app.rally.mobile",
       "intentFilters": [
