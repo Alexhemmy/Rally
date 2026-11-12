@@ -73,7 +73,7 @@ export default function RivalrySettingsScreen() {
     await AsyncStorage.setItem('rally.rivalryHeat', k).catch(() => {});
   }
 
-  async function setAlerts(v: boolean) {
+  async function saveAlerts(v: boolean) {
     setAlerts(v);
     impact('light');
     await AsyncStorage.setItem('rally.rivalryAlerts', v ? '1' : '0').catch(() => {});
@@ -121,7 +121,7 @@ export default function RivalrySettingsScreen() {
               <Ionicons name={'notifications-outline'} size={20} color={GOLD} />
             </View>
             <Text style={[styles.rowLabel, { color: colors.text }]}>Rivalry alerts</Text>
-            <Switch value={alerts} onValueChange={setAlerts} trackColor={{ false: colors.border, true: TEAL }} thumbColor={'#fff'} />
+            <Switch value={alerts} onValueChange={saveAlerts} trackColor={{ false: colors.border, true: TEAL }} thumbColor={'#fff'} />
           </View>
 
           <View style={[styles.row, { borderBottomColor: colors.border }]}>
