@@ -69,7 +69,7 @@ export default function JuniorScreen() {
 
       let successText = 'Application submitted. Guardian consent is next.';
       if (r.devConsentCode) {
-        successText = `Application submitted. Dev consent code: ${r.devConsentCode}`;
+        successText = 'Application submitted. Dev consent code: ' + r.devConsentCode;
       }
 
       setMsg({ type: 'success', text: successText });
@@ -92,7 +92,7 @@ export default function JuniorScreen() {
     impact('medium');
 
     try {
-      await api(`/api/junior/${app.id}/verify`, {
+      await api('/api/junior/' + app.id + '/verify', {
         method: 'POST',
         body: JSON.stringify({ code }),
       });
