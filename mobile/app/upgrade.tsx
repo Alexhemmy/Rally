@@ -135,7 +135,7 @@ export default function BecomeFavoriteScreen() {
         {progress ? (
           <GlassCard style={{ marginBottom: spacing.md }}>
             <SectionHeader
-              title={`Progress  ·  ${progress.passed}/${progress.total}`}
+              title={'Progress  ·  ' + progress.passed + '/' + progress.total}
             />
 
             <View style={{ gap: 10, marginTop: 4 }}>
