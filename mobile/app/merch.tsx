@@ -53,7 +53,7 @@ export default function MerchScreen() {
     impact('medium');
 
     try {
-      await api(`/api/merch/orders/${id}/${action}`, { method: 'POST' });
+      await api('/api/merch/orders/' + id + '/' + action, { method: 'POST' });
       setMsg({
         type: 'success',
         text: action === 'deliver' ? 'Delivery confirmed' : 'Refund requested',
