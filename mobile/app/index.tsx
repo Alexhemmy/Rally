@@ -3,7 +3,7 @@
  * Signed-in users go straight to the tabs.
  */
 import { useEffect } from 'react';
-import { Text, StyleSheet, View } from 'react-native';
+import { Text, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -14,6 +14,13 @@ import { spacing, type as typo } from '@/constants/theme';
 export default function Splash() {
   const router = useRouter();
   const hasToken = !!getToken();
+  const { width } = useWindowDimensions();
+
+  // Proportional scale: 1x on a 390pt phone, clamped for small phones and tablets
+  const s = Math.min(Math.max(width / 390, 0.85), 1.3);
+  const logoSize = Math.round(76 * s);
+  const logoRadius = Math.round(logoSize * 0.29);
+  const iconSize = Math.round(logoSize * 0.58);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -29,11 +36,11 @@ export default function Splash() {
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.center}>
-        <View style={styles.logo}>
-          <Ionicons name={'arrow-redo'} size={44} color={'#fff'} />
+        <View style={[styles.logo, { width: logoSize, height: logoSize, borderRadius: logoRadius }]}>
+          <Ionicons name={'arrow-redo'} size={iconSize} color={'#fff'} />
         </View>
-        <Text style={styles.word}>rally</Text>
-        <Text style={styles.tag}>Show up for the people you love</Text>
+        <Text style={[styles.word, { fontSize: Math.round(40 * s), marginTop: Math.round(18 * s) }]}>rally</Text>
+        <Text style={[styles.tag, { fontSize: Math.round(15 * s), marginTop: Math.round(8 * s) }]}>Show up for the people you love</Text>
       </View>
       <Text style={styles.version}>Version 1.0</Text>
     </Screen>
@@ -42,7 +49,7 @@ export default function Splash() {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center', flex: 1 },
-  logo: { width: 76, height: 76, borderRadius: 22, backgroundColor: '#FFA726', alignItems: 'center', justifyContent: 'center' },
+  logo: { backgroundColor: '#FFA726', alignItems: 'center', justifyContent: 'center' },
   word: { ...typo.h1, color: '#fff', fontSize: 40, fontWeight: '900', marginTop: 18 },
   tag: { color: '#fff', opacity: 0.85, fontSize: 15, marginTop: 8, textAlign: 'center' },
   version: { color: '#9E9E9E', fontSize: 12, textAlign: 'center', paddingBottom: spacing.lg },

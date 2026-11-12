@@ -3,7 +3,7 @@
  * Skip jumps straight to Welcome. Last page says Get started.
  */
 import { useRef, useState } from 'react';
-import { Text, StyleSheet, View, Pressable, ScrollView, useWindowDimensions } from 'react-native';
+import { Text, StyleSheet, View, Pressable, ScrollView, Dimensions, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -17,6 +17,9 @@ const GOLD = '#FFA726';
 const PURPLE = '#7C4DFF';
 const GREEN = '#34D399';
 
+// Proportional scale: 1x on a 390pt phone, clamped for small phones and tablets
+const S = Math.min(Math.max(Dimensions.get('window').width / 390, 0.85), 1.3);
+
 function MomentsPage() {
   return (
     <View style={pageStyles.wrap}>
@@ -25,7 +28,7 @@ function MomentsPage() {
       <View style={pageStyles.stage}>
         <View style={pageStyles.phoneFrame}>
           <LinearGradient colors={[PURPLE, GOLD] as [string, string]} style={pageStyles.phone}>
-            <View style={pageStyles.play}><Ionicons name={'play'} size={30} color={'#fff'} /></View>
+            <View style={pageStyles.play}><Ionicons name={'play'} size={Math.round(30 * S)} color={'#fff'} /></View>
           </LinearGradient>
           <View style={pageStyles.videoLabel}>
             <Ionicons name={'mic'} size={13} color={'#111'} />
@@ -62,7 +65,7 @@ function GiftsPage() {
               </View>
             ))}
           </View>
-          <Ionicons name={'gift'} size={64} color={'#fff'} />
+          <Ionicons name={'gift'} size={Math.round(64 * S)} color={'#fff'} />
           <Text style={pageStyles.giftSent}>+ {'\u20a6'}500 sent</Text>
         </LinearGradient>
       </View>
@@ -110,7 +113,7 @@ function FairPage() {
   return (
     <View style={pageStyles.wrap}>
       <View style={pageStyles.shield}>
-        <Ionicons name={'shield-checkmark'} size={40} color={'#fff'} />
+        <Ionicons name={'shield-checkmark'} size={Math.round(40 * S)} color={'#fff'} />
       </View>
       <View style={{ gap: 12, alignSelf: 'stretch', marginBottom: spacing.lg }}>
         {bars.map((b) => (
@@ -197,25 +200,25 @@ const styles = StyleSheet.create({
 
 const pageStyles = StyleSheet.create({
   wrap: { flex: 1, justifyContent: 'center', gap: 14 },
-  h1: { ...typo.h1, color: '#fff', fontSize: 26, lineHeight: 34 },
-  h1Bottom: { ...typo.h1, color: '#fff', fontSize: 26, lineHeight: 34, textAlign: 'center' },
+  h1: { ...typo.h1, color: '#fff', fontSize: Math.round(26 * S), lineHeight: Math.round(34 * S) },
+  h1Bottom: { ...typo.h1, color: '#fff', fontSize: Math.round(26 * S), lineHeight: Math.round(34 * S), textAlign: 'center' },
   body: { color: '#BDBDBD', fontSize: 14, lineHeight: 21, textAlign: 'center' },
   stage: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   phoneFrame: { alignItems: 'center' },
-  phone: { width: 170, height: 300, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  play: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
+  phone: { width: Math.round(170 * S), height: Math.round(300 * S), borderRadius: Math.round(24 * S), alignItems: 'center', justifyContent: 'center' },
+  play: { width: Math.round(60 * S), height: Math.round(60 * S), borderRadius: Math.round(30 * S), backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
   videoLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: GOLD, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radii.full, marginTop: 12 },
   videoText: { color: '#111', fontWeight: '800', fontSize: 12 },
   sideIcons: { marginLeft: 14, gap: 22 },
   giftCard: { alignSelf: 'stretch', borderRadius: radii.lg, overflow: 'hidden', marginBottom: 6 },
-  giftGradient: { alignItems: 'center', paddingVertical: 26, gap: 14 },
+  giftGradient: { alignItems: 'center', paddingVertical: Math.round(26 * S), gap: Math.round(14 * S) },
   giftRow: { flexDirection: 'row', gap: 18 },
   giftChip: { alignItems: 'center', gap: 4 },
   giftChipText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   giftSent: { color: '#fff', fontWeight: '900', fontSize: 16 },
   chatCard: { alignSelf: 'stretch', borderRadius: radii.lg, overflow: 'hidden', marginBottom: 6 },
-  chatGradient: { padding: 18, gap: 10, minHeight: 240, justifyContent: 'flex-end' },
-  bubble: { alignSelf: 'flex-end', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: radii.lg, borderTopRightRadius: 4, paddingHorizontal: 14, paddingVertical: 10, maxWidth: 240 },
+  chatGradient: { padding: Math.round(18 * S), gap: 10, minHeight: Math.round(240 * S), justifyContent: 'flex-end' },
+  bubble: { alignSelf: 'flex-end', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: radii.lg, borderTopRightRadius: 4, paddingHorizontal: 14, paddingVertical: 10, maxWidth: Math.round(240 * S) },
   bubbleLeft: { alignSelf: 'flex-start', borderTopLeftRadius: 4, borderTopRightRadius: radii.lg },
   bubbleMine: { backgroundColor: GOLD },
   bubbleName: { color: '#616161', fontSize: 10, fontWeight: '800', marginBottom: 2 },
@@ -223,7 +226,7 @@ const pageStyles = StyleSheet.create({
   bubbleMineText: { color: '#111', fontSize: 13, lineHeight: 18, fontWeight: '600' },
   roomPill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, backgroundColor: 'rgba(124,77,255,0.9)', paddingHorizontal: 14, paddingVertical: 7, borderRadius: radii.full, marginTop: 6 },
   roomText: { color: '#fff', fontWeight: '800', fontSize: 12 },
-  shield: { width: 84, height: 84, borderRadius: 42, backgroundColor: GREEN, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 4 },
+  shield: { width: Math.round(84 * S), height: Math.round(84 * S), borderRadius: Math.round(42 * S), backgroundColor: GREEN, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 4 },
   barLabel: { color: '#fff', fontWeight: '800', fontSize: 13, marginBottom: 6 },
   barTrack: { flexDirection: 'row', height: 10, borderRadius: 5, backgroundColor: 'rgba(52,211,153,0.18)', overflow: 'hidden' },
   barFill: { backgroundColor: GREEN },
