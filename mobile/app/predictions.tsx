@@ -56,7 +56,7 @@ export default function PredictionsScreen() {
     impact('medium');
 
     try {
-      await api(`/api/predictions/${id}/enter`, {
+      await api('/api/predictions/' + id + '/enter', {
         method: 'POST',
         body: JSON.stringify({ choice }),
       });
@@ -145,7 +145,7 @@ export default function PredictionsScreen() {
 
                 <View style={styles.actions}>
                   <GradientButton
-                    label={`Pick ${p.favoriteAName}`}
+                    label={'Pick ' + p.favoriteAName}
                     size="sm"
                     onPress={() => enter(p.id, 'a')}
                     loading={enteringId === p.id}
@@ -153,7 +153,7 @@ export default function PredictionsScreen() {
                     style={{ flex: 1 }}
                   />
                   <GradientButton
-                    label={`Pick ${p.favoriteBName}`}
+                    label={'Pick ' + p.favoriteBName}
                     size="sm"
                     variant="ghost"
                     onPress={() => enter(p.id, 'b')}
