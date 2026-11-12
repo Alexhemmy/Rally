@@ -18,6 +18,8 @@ import { api, getToken } from '@/lib/api';
 const GOLD = '#FFA726';
 const TEAL = '#34D399';
 
+type SecEvent = { id: string; type: string; createdAt: string };
+
 function relTime(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   if (days <= 0) return 'Active now';
@@ -40,7 +42,7 @@ export default function DevicesScreen() {
   const load = useCallback(async () => {
     if (!getToken()) return;
     try {
-      const r = await api<{ events: { id: string; type: string; createdAt: string }[] }>('/api/security/me');
+      const r = await api<{ events: SecEvent[] }>('/api/security/me');
       setEvents((r.events || []).filter((e) => e.type === 'login' || e.type === 'login_2fa').slice(0, 6));
     } catch { /* offline */ }
   }, []);
