@@ -15,13 +15,13 @@ import { useSounds } from '@/hooks/useSounds';
 import { spacing, radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 
-const GOLD = '#FFA726';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const TEAL = '#33D6B5';
 
 type Msg = { id: string; body: string; name: string; createdAt: string };
 
 const NAME_COLORS = [GOLD, '#4FC3F7', '#F48FB1', '#A5D6A7', '#CE93D8'];
-const AVATAR_COLORS = ['#F4511E', '#00BCD4', '#7C4DFF', '#5C6BC0', '#AB47BC'];
+const AVATAR_COLORS = ['#F4511E', '#00BCD4', '#8B7BFF', '#5C6BC0', '#AB47BC'];
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);

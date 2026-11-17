@@ -24,12 +24,12 @@ type Collection = {
 };
 
 const PAIRS: [string, string][] = [
-  ['#E9355B', '#7C4DFF'],
-  ['#F57C00', '#FFA726'],
-  ['#34D399', '#E9355B'],
-  ['#FFA726', '#34D399'],
-  ['#7C4DFF', '#F57C00'],
-  ['#E9355B', '#FFA726'],
+  ['#E9355B', '#8B7BFF'],
+  ['#FF8A1F', '#FFB429'],
+  ['#33D6B5', '#E9355B'],
+  ['#FFB429', '#33D6B5'],
+  ['#8B7BFF', '#FF8A1F'],
+  ['#E9355B', '#FFB429'],
 ];
 
 function Thumb({ seed }: { seed: number }) {

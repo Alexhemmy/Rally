@@ -15,8 +15,8 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useHaptics } from '@/hooks/useHaptics';
 import { spacing, radii } from '@/constants/theme';
 
-const GOLD = '#FFA726';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const TEAL = '#33D6B5';
 const RED = '#E9355B';
 
 export default function ContentNoticeScreen() {

@@ -16,8 +16,8 @@ import { spacing, radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const GOLD = '#FFA726';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const TEAL = '#33D6B5';
 const RED = '#E9355B';
 
 type Moment = { id: string; title: string | null; description: string | null; author?: { displayName?: string; handle?: string } };
@@ -165,7 +165,7 @@ export default function CommunityToolsScreen() {
                     </View>
                   </View>
                   <View style={styles.actionRow}>
-                    <Pressable onPress={() => act(m, 'approve')} style={[styles.actionBtn, { backgroundColor: 'rgba(52,211,153,0.16)' }]} accessibilityLabel="Approve">
+                    <Pressable onPress={() => act(m, 'approve')} style={[styles.actionBtn, { backgroundColor: 'rgba(51,214,181,0.16)' }]} accessibilityLabel="Approve">
                       <Text style={{ color: TEAL, fontWeight: '900', fontSize: 16 }}>Approve</Text>
                     </Pressable>
                     <Pressable onPress={() => act(m, 'feature')} style={[styles.actionBtn, { backgroundColor: colors.surfaceElevated }]} accessibilityLabel="Feature">
@@ -211,7 +211,7 @@ export default function CommunityToolsScreen() {
                   <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700', flex: 1 }} numberOfLines={1}>
                     {(mem.user.displayName || mem.user.handle) + ' \u00b7 ' + (mem.role === 'manager' ? 'Manager' : 'Moderator')}
                   </Text>
-                  <View style={[styles.permPill, { backgroundColor: mem.role === 'manager' ? 'rgba(52,211,153,0.16)' : 'rgba(255,167,38,0.16)' }]}>
+                  <View style={[styles.permPill, { backgroundColor: mem.role === 'manager' ? 'rgba(51,214,181,0.16)' : 'rgba(255,180,41,0.16)' }]}>
                     <Text style={{ color: mem.role === 'manager' ? TEAL : GOLD, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>
                       {mem.role === 'manager' ? 'FULL ACCESS' : 'COMMENTS ONLY'}
                     </Text>

@@ -18,8 +18,8 @@ import { useSounds } from '@/hooks/useSounds';
 import { spacing, radii, type as typo } from '@/constants/theme';
 import { api } from '@/lib/api';
 
-const GOLD = '#FFA726';
-const GREEN = '#34D399';
+const GOLD = '#FFB429';
+const GREEN = '#33D6B5';
 
 function Bar() {
   return (
@@ -76,7 +76,7 @@ export default function CreateProfileScreen() {
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.xl }}>
           <View style={styles.avatarWrap}>
-            <LinearGradient colors={['#ef5350', '#FFA726'] as [string, string]} style={styles.avatar}>
+            <LinearGradient colors={['#ef5350', '#FFB429'] as [string, string]} style={styles.avatar}>
               <Text style={styles.initials}>{initials}</Text>
             </LinearGradient>
             <Pressable onPress={() => impact('light')} style={styles.addPhoto}>

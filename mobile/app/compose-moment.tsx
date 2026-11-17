@@ -21,8 +21,8 @@ import { runWithAppTask } from '@/components/BiometricGate';
 import { api } from '@/lib/api';
 import { getApiUrl } from '@/lib/config';
 
-const GOLD = '#FFA726';
-const PURPLE = '#7C4DFF';
+const GOLD = '#FFB429';
+const PURPLE = '#8B7BFF';
 const MAX_BASE64 = 25 * 1024 * 1024;
 
 const TAGS = ['Release', 'Behind the scenes', 'Milestone', 'Announcement'];

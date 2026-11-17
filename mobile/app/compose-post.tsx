@@ -19,7 +19,7 @@ import { runWithAppTask } from '@/components/BiometricGate';
 import { api } from '@/lib/api';
 import { getApiUrl } from '@/lib/config';
 
-const GOLD = '#FFA726';
+const GOLD = '#FFB429';
 const MAX_BASE64 = 25 * 1024 * 1024;
 const MAX_MEDIA = 4;
 

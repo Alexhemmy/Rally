@@ -17,10 +17,10 @@ import { spacing, radii } from '@/constants/theme';
 import { api } from '@/lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const GOLD = '#FFA726';
-const GOLD_DEEP = '#F57C00';
+const GOLD = '#FFB429';
+const GOLD_DEEP = '#FF8A1F';
 const TEAL = '#00897B';
-const GREEN = '#34D399';
+const GREEN = '#33D6B5';
 const RED = '#ef5350';
 const MIN_CASHOUT = 1000;
 
@@ -324,5 +324,5 @@ const styles = StyleSheet.create({
   sendBtn: { borderRadius: radii.full, marginTop: spacing.md, overflow: 'hidden' },
   sendGradient: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16 },
   sendText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  hint: { color: '#8A8A9E', fontSize: 12, textAlign: 'center', marginTop: 8 },
+  hint: { color: '#9CA1B4', fontSize: 12, textAlign: 'center', marginTop: 8 },
 });
