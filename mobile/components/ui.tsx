@@ -11,7 +11,6 @@ import {
   Image,
   ViewStyle,
   TextStyle,
-  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,8 +47,8 @@ export function GradientButton({
   const { colors } = useTheme();
   const { impact } = useHaptics();
 
-  const height = size === 'sm' ? 40 : size === 'lg' ? 56 : 50;
-  const radius = size === 'sm' ? radii.md : radii.lg;
+  const height = size === 'sm' ? 44 : size === 'lg' ? 56 : 54;
+  const radius = size === 'sm' ? radii.md : 18;
   const horizontalPad = size === 'sm' ? 14 : 20;
   const iconSize = size === 'sm' ? 15 : 18;
 
@@ -58,7 +57,11 @@ export function GradientButton({
   const isDanger = variant === 'danger';
   const isOutline = variant === 'outline';
 
-  const textColor = isPrimary || isDanger ? '#fff' : isGhost || isOutline ? colors.primary : colors.text;
+  const inactive = disabled || loading;
+  const textColor = isPrimary
+    ? inactive ? colors.dim : colors.onPrimary
+    : isDanger ? '#fff'
+    : colors.text;
   const iconColor = textColor;
 
   return (
@@ -78,7 +81,6 @@ export function GradientButton({
           paddingHorizontal: horizontalPad,
           alignSelf: fullWidth ? 'stretch' : 'auto',
         },
-        isPrimary && styles.primaryShadow,
         isGhost && {
           backgroundColor: colors.surface,
           borderWidth: 1,
@@ -90,12 +92,12 @@ export function GradientButton({
           borderColor: colors.primary,
         },
         isDanger && { backgroundColor: colors.danger },
-        (disabled || loading) && { opacity: 0.45 },
+        inactive && { backgroundColor: colors.surfaceElevated }, 
         pressed && !disabled && !loading && { transform: [{ scale: 0.975 }], opacity: 0.92 },
         style,
       ]}
     >
-      {isPrimary && (
+      {isPrimary && !inactive && (
         <LinearGradient
           colors={[...colors.gradient] as [string, string]}
           start={{ x: 0, y: 0 }}
@@ -105,7 +107,7 @@ export function GradientButton({
       )}
 
       {loading ? (
-        <ActivityIndicator color={isPrimary || isDanger ? '#fff' : colors.primary} />
+        <ActivityIndicator color={isPrimary && !inactive ? colors.onPrimary : isDanger ? '#fff' : colors.primary} />
       ) : (
         <View style={styles.row}>
           {icon && (
@@ -290,35 +292,26 @@ export function Chip({ label, active = false, onPress, icon }: ChipProps) {
       style={({ pressed }) => [
         styles.chip,
         {
-          backgroundColor: active ? 'transparent' : colors.surface,
-          borderColor: active ? 'transparent' : colors.border,
+          backgroundColor: active ? colors.surfaceElevated : colors.surface,
+          borderColor: active ? colors.primary : colors.border,
         },
         pressed && onPress && { opacity: 0.85, transform: [{ scale: 0.97 }] },
       ]}
     >
-      {active && (
-        <LinearGradient
-          colors={[...colors.gradient] as [string, string]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[StyleSheet.absoluteFillObject, { borderRadius: radii.full }]}
-        />
-      )}
-
       <View style={styles.row}>
         {icon && (
           <Ionicons
             name={icon}
             size={13}
-            color={active ? '#fff' : colors.muted}
+            color={active ? colors.primary : colors.muted}
             style={{ marginRight: 5 }}
           />
         )}
         <Text
           style={{
-            color: active ? '#fff' : colors.muted,
-            fontWeight: '700',
-            fontSize: 12,
+            color: active ? colors.text : colors.muted,
+            fontWeight: '600',
+            fontSize: 12.5,
             letterSpacing: 0.2,
           }}
         >
@@ -490,26 +483,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  primaryShadow: {
-    ...Platform.select({
-      ios: {
-        shadowColor: '#7C5CFC',
-        shadowOpacity: 0.35,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   chip: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     paddingVertical: 7,
     borderRadius: radii.full,
     borderWidth: 1,
