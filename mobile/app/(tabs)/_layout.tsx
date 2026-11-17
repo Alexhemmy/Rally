@@ -13,8 +13,7 @@ import { radii } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { BreakPrompt } from '@/components/BreakPrompt';
 
-const GOLD = '#FFA726';
-const GOLD_DEEP = '#F57C00';
+
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -61,36 +60,33 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
-        headerTintColor: GOLD,
+        headerTintColor: colors.primary,
         headerTitleStyle: {
           color: colors.text,
-          fontWeight: '800',
-          fontSize: 18,
-          letterSpacing: -0.3,
+          fontWeight: '700',
+          fontSize: 16,
+          letterSpacing: 0,
         },
         headerShadowVisible: false,
         tabBarStyle: {
           position: 'absolute',
-          left: 12,
-          right: 12,
-          bottom: Platform.OS === 'ios' ? 20 : 12,
-          height: Platform.OS === 'ios' ? 66 : 60,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 86,
+          paddingTop: 8,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
           paddingHorizontal: 6,
-          backgroundColor: colors.surface,
+          backgroundColor: isDark ? 'rgba(12, 13, 18, 0.92)' : 'rgba(246, 244, 239, 0.92)',
           borderTopWidth: 1,
           borderColor: colors.border,
-          borderRadius: radii.full,
-          shadowColor: '#000',
-          shadowOpacity: isDark ? 0.45 : 0.14,
-          shadowRadius: 16,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: 14,
+          borderRadius: 0,
         },
-        tabBarActiveTintColor: GOLD,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.tabInactive,
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '700',
+          fontSize: 11,
+          fontWeight: '600',
           marginTop: 2,
         },
         sceneStyle: { backgroundColor: colors.bg },
@@ -135,7 +131,7 @@ export default function TabsLayout() {
                 hitSlop={10}
                 accessibilityLabel="Toggle theme"
               >
-                <Ionicons name={isDark ? 'sunny' : 'moon'} size={20} color={GOLD} />
+                <Ionicons name={isDark ? 'sunny' : 'moon'} size={20} color={colors.primary} />
               </Pressable>
             </View>
           ),
@@ -172,12 +168,12 @@ export default function TabsLayout() {
               ]}
             >
               <LinearGradient
-                colors={[GOLD, GOLD_DEEP] as [string, string]}
+                colors={[colors.primary, colors.primaryHover] as [string, string]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.createBtn}
               >
-                <Ionicons name="add" size={26} color="#fff" />
+                <Ionicons name="add" size={24} color="#2A1700" />
               </LinearGradient>
             </Pressable>
           ),
@@ -267,7 +263,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#EF5350',
+    backgroundColor: '#FF5468',
   },
   headerActions: {
     flexDirection: 'row',
@@ -279,11 +275,6 @@ const styles = StyleSheet.create({
     marginTop: -6,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#F57C00',
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 8,
   },
   createBtn: {
     width: 46,

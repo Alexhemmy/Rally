@@ -82,14 +82,12 @@ export function GradientButton({
           alignSelf: fullWidth ? 'stretch' : 'auto',
         },
         isGhost && {
-          backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.border,
+          backgroundColor: colors.surfaceElevated,
         },
         isOutline && {
           backgroundColor: 'transparent',
           borderWidth: 1.5,
-          borderColor: colors.primary,
+          borderColor: colors.border,
         },
         isDanger && { backgroundColor: colors.danger },
         inactive && { backgroundColor: colors.surfaceElevated }, 
@@ -362,7 +360,7 @@ export function StatTile({
       <View style={[styles.tileIcon, { backgroundColor: tint + '20' }]}>
         {icon && <Ionicons name={icon} size={15} color={tint} />}
       </View>
-      <Text style={[typo.stat, { color: colors.text }]} numberOfLines={1}>
+      <Text style={[typo.h1, { color: colors.text }]} numberOfLines={1}>
         {value}
       </Text>
       <Text
