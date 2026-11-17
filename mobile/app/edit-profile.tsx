@@ -139,7 +139,7 @@ export default function EditProfileScreen() {
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
           {msg ? (
-            <Text style={{ color: msg.type === 'success' ? TEAL : '#EF5350', fontSize: 13, fontWeight: '700', marginBottom: spacing.sm }}>
+            <Text style={{ color: msg.type === 'success' ? TEAL : '#FF5468', fontSize: 13, fontWeight: '700', marginBottom: spacing.sm }}>
               {msg.text}
             </Text>
           ) : null}

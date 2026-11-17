@@ -76,7 +76,7 @@ export default function CreateProfileScreen() {
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.xl }}>
           <View style={styles.avatarWrap}>
-            <LinearGradient colors={['#ef5350', '#FFB429'] as [string, string]} style={styles.avatar}>
+            <LinearGradient colors={['#FF5468', '#FFB429'] as [string, string]} style={styles.avatar}>
               <Text style={styles.initials}>{initials}</Text>
             </LinearGradient>
             <Pressable onPress={() => impact('light')} style={styles.addPhoto}>

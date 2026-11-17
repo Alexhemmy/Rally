@@ -156,7 +156,7 @@ export default function EditPageScreen() {
           {/* Avatar */}
           <View style={styles.avatarWrap}>
             <LinearGradient
-              colors={[GOLD, '#ef5350'] as [string, string]}
+              colors={[GOLD, '#FF5468'] as [string, string]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.avatar}
