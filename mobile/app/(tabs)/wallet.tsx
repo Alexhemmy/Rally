@@ -14,8 +14,8 @@ import { api, getToken } from '@/lib/api';
 import { spacing, radii, type as typo } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
 
-const GOLD = '#FFA726';
-const GOLD_DEEP = '#F57C00';
+const GOLD = '#FFB429';
+const GOLD_DEEP = '#FF8A1F';
 const TEAL = '#00897B';
 const TEAL_DEEP = '#00695C';
 

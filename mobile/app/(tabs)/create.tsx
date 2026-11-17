@@ -26,7 +26,7 @@ export default function CreateChooser() {
       <Text style={[styles.h1, { color: colors.text }]}>Create</Text>
       <Text style={[styles.sub, { color: colors.muted }]}>Posts and Moments are different. Posts are updates for your feed. Moments are short videos.</Text>
       <Pressable onPress={() => go('/compose-post')} style={({ pressed }) => [styles.tile, pressed && { transform: [{ scale: 0.98 }] }]} accessibilityLabel={'New post'}>
-        <LinearGradient colors={['#FFA726', '#F57C00'] as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.tileGrad}>
+        <LinearGradient colors={['#FFB429', '#FF8A1F'] as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.tileGrad}>
           <View style={styles.tileIcon}>
             <Ionicons name={'newspaper-outline'} size={24} color={'#111'} />
           </View>
@@ -38,7 +38,7 @@ export default function CreateChooser() {
         </LinearGradient>
       </Pressable>
       <Pressable onPress={() => go('/compose-moment')} style={({ pressed }) => [styles.tile, pressed && { transform: [{ scale: 0.98 }] }]} accessibilityLabel={'New Moment'}>
-        <LinearGradient colors={['#7C4DFF', '#FFA726'] as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.tileGrad}>
+        <LinearGradient colors={['#8B7BFF', '#FFB429'] as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.tileGrad}>
           <View style={styles.tileIcon}>
             <Ionicons name={'play-circle-outline'} size={24} color={'#111'} />
           </View>

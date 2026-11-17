@@ -28,10 +28,10 @@ import { spacing, radii } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useShare } from '@/hooks/useShare';
 
-const GOLD = '#FFA726';
-const GOLD_DEEP = '#F57C00';
-const HEART_RED = '#EF5350';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const GOLD_DEEP = '#FF8A1F';
+const HEART_RED = '#FF5468';
+const TEAL = '#33D6B5';
 
 type Scope = 'for-you' | 'following' | 'rising' | 'live';
 
@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
   retryText: { fontSize: 14, fontWeight: '800' },
   storyTile: { alignItems: 'center', width: 64 },
   youRing: { width: 56, height: 56, borderRadius: 28, padding: 2 },
-  youInner: { flex: 1, borderRadius: 26, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center' },
+  youInner: { flex: 1, borderRadius: 26, backgroundColor: '#1E212C', alignItems: 'center', justifyContent: 'center' },
   storyName: { fontSize: 11, fontWeight: '700', marginTop: 4 },
   postCard: { borderWidth: 1, borderRadius: radii.lg, padding: 14 },
   postHead: { flexDirection: 'row', alignItems: 'center' },
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
   findBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
   risingLink: { fontSize: 15, fontWeight: '700', marginTop: 16 },
   liveBadge: {
-    backgroundColor: '#EF5350',
+    backgroundColor: '#FF5468',
     borderRadius: radii.full,
     paddingHorizontal: 8,
     paddingVertical: 3,

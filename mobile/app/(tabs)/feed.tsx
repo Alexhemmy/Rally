@@ -27,8 +27,8 @@ import { api, getToken } from '@/lib/api';
 import { getApiUrl } from '@/lib/config';
 import { radii } from '@/constants/theme';
 
-const GOLD = '#FFA726';
-const GOLD_DEEP = '#F57C00';
+const GOLD = '#FFB429';
+const GOLD_DEEP = '#FF8A1F';
 const LIVE_RED = '#ff4d4f';
 
 const TABS = [
@@ -384,7 +384,7 @@ export default function FeedTab() {
                     <Text style={styles.whyToggleLabel}>Show newest first</Text>
                     <Pressable
                       onPress={() => setSortNewest((s) => !s)}
-                      style={[styles.whyToggle, sortNewest && { backgroundColor: '#34D399' }]}
+                      style={[styles.whyToggle, sortNewest && { backgroundColor: '#33D6B5' }]}
                       accessibilityRole="switch"
                       accessibilityState={{ checked: sortNewest }}
                     >
@@ -395,7 +395,7 @@ export default function FeedTab() {
                     <Text style={styles.whyToggleLabel}>Hide rivalry content</Text>
                     <Pressable
                       onPress={toggleHideRivalry}
-                      style={[styles.whyToggle, hideRivalry && { backgroundColor: '#34D399' }]}
+                      style={[styles.whyToggle, hideRivalry && { backgroundColor: '#33D6B5' }]}
                       accessibilityRole="switch"
                       accessibilityState={{ checked: hideRivalry }}
                     >

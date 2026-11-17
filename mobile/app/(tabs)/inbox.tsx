@@ -12,7 +12,7 @@ import { spacing, radii } from '@/constants/theme';
 import { useHaptics } from '@/hooks/useHaptics';
 import { api, getToken } from '@/lib/api';
 
-const GOLD = '#FFA726';
+const GOLD = '#FFB429';
 type IconName = keyof typeof Ionicons.glyphMap;
 type Filter = 'all' | 'fan' | 'favorite';
 
@@ -28,7 +28,7 @@ function iconFor(type: string): { name: IconName; color: string } {
   if (type === 'reaction' || type === 'comment') return { name: 'heart', color: '#E91E63' };
   if (type.indexOf('payout') === 0 || type.indexOf('earning') === 0) return { name: 'cash', color: '#00897B' };
   if (type.indexOf('purchase') >= 0 || type.indexOf('token') >= 0) return { name: 'card', color: '#00897B' };
-  return { name: 'notifications', color: '#9E9E9E' };
+  return { name: 'notifications', color: '#6B7086' };
 }
 
 function timeAgo(iso: string): string {
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FFA726',
+    backgroundColor: '#FFB429',
   },
   time: {
     fontSize: 12,

@@ -24,8 +24,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import { api, getToken } from '@/lib/api';
 
-const GOLD = '#FFA726';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const TEAL = '#33D6B5';
 const GRADIENTS: [string, string][] = [
   ['#FF5E00', '#FF0066'],
   ['#0066FF', '#00CCFF'],

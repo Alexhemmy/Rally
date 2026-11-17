@@ -18,9 +18,9 @@ import { spacing, radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const GOLD = '#FFA726';
-const GOLD_DEEP = '#F57C00';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const GOLD_DEEP = '#FF8A1F';
+const TEAL = '#33D6B5';
 
 function fmt(n: number): string {
   return Math.round(n).toLocaleString('en-US');
