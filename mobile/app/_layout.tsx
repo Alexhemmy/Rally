@@ -8,6 +8,14 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '@/components/ThemeProvider';
 import { SessionProvider } from '@/components/SessionProvider';
 import { BiometricGate } from '@/components/BiometricGate';
+import { useFonts } from 'expo-font';
+import {
+  Inter_400Regular,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+  Inter_900Black,
+} from '@expo-google-fonts/inter';
 
 function RootStack() {
   const { colors, isDark } = useTheme();
@@ -232,6 +240,15 @@ function RootStack() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+    Inter_900Black,
+  });
+  if (!fontsLoaded) return null;
+
   return (
     <ThemeProvider>
       <SessionProvider>

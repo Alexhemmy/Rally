@@ -82,16 +82,16 @@ export const colors: ThemeColors = palettes.dark;
 /*  Typography – Inter; tabular numerals for balances, prices, timers  */
 /* ------------------------------------------------------------------ */
 export const type = {
-  display: { fontSize: 30, fontWeight: '800' as const, letterSpacing: -0.75, lineHeight: 34 },
-  h1:      { fontSize: 25, fontWeight: '800' as const, letterSpacing: -0.5, lineHeight: 30 },
-  h2:      { fontSize: 21, fontWeight: '800' as const, letterSpacing: -0.2, lineHeight: 26 },
-  h3:      { fontSize: 17, fontWeight: '700' as const, letterSpacing: -0.1, lineHeight: 22 },
-  body:    { fontSize: 15.5, fontWeight: '600' as const, lineHeight: 22 },
-  bodyBold:{ fontSize: 15.5, fontWeight: '700' as const, lineHeight: 22 },
-  caption: { fontSize: 12.5, fontWeight: '600' as const, lineHeight: 17 },
-  micro:   { fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.55, lineHeight: 14 },
-  stat:    { fontSize: 54, fontWeight: '900' as const, letterSpacing: -1.1, lineHeight: 58 },
-  button:  { fontSize: 16, fontWeight: '700' as const, letterSpacing: 0 },
+  display: { fontSize: 30, fontWeight: '800' as const, letterSpacing: -0.75, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
+  h1:      { fontSize: 25, fontWeight: '800' as const, letterSpacing: -0.5, lineHeight: 30, fontFamily: 'Inter_800ExtraBold' },
+  h2:      { fontSize: 21, fontWeight: '800' as const, letterSpacing: -0.2, lineHeight: 26, fontFamily: 'Inter_800ExtraBold' },
+  h3:      { fontSize: 17, fontWeight: '700' as const, letterSpacing: -0.1, lineHeight: 22, fontFamily: 'Inter_700Bold' },
+  body:    { fontSize: 15.5, fontWeight: '600' as const, lineHeight: 22, fontFamily: 'Inter_600SemiBold' },
+  bodyBold:{ fontSize: 15.5, fontWeight: '700' as const, lineHeight: 22, fontFamily: 'Inter_700Bold' },
+  caption: { fontSize: 12.5, fontWeight: '600' as const, lineHeight: 17, fontFamily: 'Inter_600SemiBold' },
+  micro:   { fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.55, lineHeight: 14, fontFamily: 'Inter_700Bold' },
+  stat:    { fontSize: 54, fontWeight: '900' as const, letterSpacing: -1.1, lineHeight: 58, fontFamily: 'Inter_900Black' },
+  button:  { fontSize: 16, fontWeight: '700' as const, letterSpacing: 0, fontFamily: 'Inter_700Bold' },
 } as const;
 
 /* ------------------------------------------------------------------ */
