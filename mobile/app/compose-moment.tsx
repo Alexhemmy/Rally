@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   replaceBtn: { borderWidth: 1, borderRadius: radii.full, paddingHorizontal: 16, paddingVertical: 8 },
   replaceText: { fontWeight: '700', fontSize: 13 },
   removeBtn: { paddingHorizontal: 6, paddingVertical: 8 },
-  removeText: { color: '#EF5350', fontWeight: '700', fontSize: 13 },
+  removeText: { color: '#FF5468', fontWeight: '700', fontSize: 13 },
   label: { fontSize: 12, fontWeight: '800', letterSpacing: 0.4, marginBottom: 8 },
   input: { borderWidth: 1, borderRadius: radii.md, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, marginBottom: spacing.lg, minHeight: 50 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.lg },

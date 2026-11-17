@@ -21,7 +21,7 @@ const GOLD = '#FFB429';
 const GOLD_DEEP = '#FF8A1F';
 const TEAL = '#00897B';
 const GREEN = '#33D6B5';
-const RED = '#ef5350';
+const RED = '#FF5468';
 const MIN_CASHOUT = 1000;
 
 function fmt(n: number): string {
