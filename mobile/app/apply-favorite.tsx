@@ -19,7 +19,7 @@ import { api, getToken } from '@/lib/api';
 const GOLD = '#FFB429';
 const GOLD_DEEP = '#FF8A1F';
 const GREEN = '#33D6B5';
-const RED = '#ef5350';
+const RED = '#FF5468';
 
 type Progress = {
   isAdult: boolean;

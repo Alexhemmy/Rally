@@ -18,7 +18,7 @@ import { api, getToken } from '@/lib/api';
 const GOLD = '#FFB429';
 const GOLD_DEEP = '#FF8A1F';
 const PURPLE = '#7C3AED';
-const RED = '#ef5350';
+const RED = '#FF5468';
 const GREEN = '#33D6B5';
 const MAX = 140;
 

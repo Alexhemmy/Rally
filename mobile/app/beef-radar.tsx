@@ -16,7 +16,7 @@ import { spacing, radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 
 const GOLD = '#FFB429';
-const RED = '#ef5350';
+const RED = '#FF5468';
 const GREEN = '#33D6B5';
 const PURPLE = '#A78BFA';
 const HEAT_COLORS = ['#22D3EE', '#33D6B5', '#FBBF24', '#F59E0B', '#EF4444'];
