@@ -19,8 +19,8 @@ import { spacing, radii } from '@/constants/theme';
 import { api } from '@/lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const GOLD = '#FFA726';
-const GOLD_DEEP = '#F57C00';
+const GOLD = '#FFB429';
+const GOLD_DEEP = '#FF8A1F';
 const MAX_BASE64 = 10 * 1024 * 1024;
 
 type Me = { displayName: string; bio?: string | null; avatarUrl?: string | null; handle?: string };

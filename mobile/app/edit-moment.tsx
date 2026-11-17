@@ -15,8 +15,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import { spacing, radii } from '@/constants/theme';
 
-const GOLD = '#FFA726';
-const PURPLE = '#7C4DFF';
+const GOLD = '#FFB429';
+const PURPLE = '#8B7BFF';
 
 const TOOLS: { icon: string; label: string; note: string }[] = [
   { icon: 'chatbox-outline', label: 'Captions', note: 'Burned-in captions arrive with the video editing backend.' },

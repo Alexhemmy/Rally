@@ -16,7 +16,7 @@ import { useSounds } from '@/hooks/useSounds';
 import { spacing, radii, type as typo } from '@/constants/theme';
 import { api } from '@/lib/api';
 
-const GOLD = '#FFA726';
+const GOLD = '#FFB429';
 
 const FALLBACK = [
   { group: 'Gospel', people: [
@@ -102,7 +102,7 @@ export default function FollowFavoritesScreen() {
               <Text style={[styles.group, { color: colors.muted }]}>{g.group.toUpperCase()}</Text>
               {g.people.map((p: any) => (
                 <View key={p.handle} style={[styles.row, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                  <View style={[styles.mini, { backgroundColor: 'rgba(255,167,38,0.2)' }]}>
+                  <View style={[styles.mini, { backgroundColor: 'rgba(255,180,41,0.2)' }]}>
                     <Text style={{ color: GOLD, fontWeight: '900', fontSize: 13 }}>{initials(p.name)}</Text>
                   </View>
                   <View style={{ flex: 1 }}>

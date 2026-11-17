@@ -14,8 +14,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { spacing, radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 
-const GOLD = '#FFA726';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const TEAL = '#33D6B5';
 
 type UserRow = {
   handle: string;
@@ -28,7 +28,7 @@ type UserRow = {
 const FILTERS = ['All', 'Following', 'Not following'] as const;
 type Filter = (typeof FILTERS)[number];
 
-const AVATAR_COLORS = ['#F4511E', '#00BCD4', '#7C4DFF', '#5C6BC0', '#AB47BC', '#66BB6A'];
+const AVATAR_COLORS = ['#F4511E', '#00BCD4', '#8B7BFF', '#5C6BC0', '#AB47BC', '#66BB6A'];
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);

@@ -13,8 +13,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import { spacing, radii, type as typo } from '@/constants/theme';
 
-const GOLD = '#FFA726';
-const GREEN = '#34D399';
+const GOLD = '#FFB429';
+const GREEN = '#33D6B5';
 
 export default function FavoriteReadyScreen() {
   const { colors } = useTheme();

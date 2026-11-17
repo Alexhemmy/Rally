@@ -15,9 +15,9 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { spacing, radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 
-const GOLD = '#FFA726';
-const GOLD_DEEP = '#F57C00';
-const GREEN = '#34D399';
+const GOLD = '#FFB429';
+const GOLD_DEEP = '#FF8A1F';
+const GREEN = '#33D6B5';
 
 type Signal = { id: string; label: string; done: boolean; current: number | null; target: number | null; hint: string | null };
 type Progress = { signals: Signal[]; met: number; total: number; allMet: boolean; isFavorite: boolean; note: string };
@@ -82,7 +82,7 @@ export default function FavoriteProgressScreen() {
                   key={s.id}
                   style={[styles.signalRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 >
-                  <Ionicons name={s.done ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={s.done ? GREEN : '#8A8A9E'} />
+                  <Ionicons name={s.done ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={s.done ? GREEN : '#9CA1B4'} />
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>{s.label}</Text>
                     <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>

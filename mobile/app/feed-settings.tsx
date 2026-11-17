@@ -20,8 +20,8 @@ import {
   type FeedPrefs,
 } from '@/lib/feedPrefs';
 
-const GOLD = '#FFA726';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const TEAL = '#33D6B5';
 
 const AUTOPLAY_LABELS: Record<FeedPrefs['autoplay'], string> = {
   wifi: 'Wi-Fi only',
