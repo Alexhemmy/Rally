@@ -13,7 +13,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { getToken } from '@/lib/api';
 import { spacing, radii, type as typo } from '@/constants/theme';
 
-const GOLD = '#FFA726';
+const GOLD = '#FFB429';
 
 export default function HowUseRallyScreen() {
   const { colors } = useTheme();
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   h1: { ...typo.h1, marginBottom: 4 },
   sub: { fontSize: 13, lineHeight: 19, marginBottom: spacing.lg },
   option: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 2, borderRadius: radii.lg, padding: 16, marginBottom: 12 },
-  optionOn: { borderColor: GOLD, backgroundColor: 'rgba(255,167,38,0.08)' },
+  optionOn: { borderColor: GOLD, backgroundColor: 'rgba(255,180,41,0.08)' },
   optionTitle: { fontWeight: '800', fontSize: 16, marginBottom: 2 },
   optionSub: { fontSize: 13, lineHeight: 18 },
   radio: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },

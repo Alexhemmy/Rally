@@ -13,9 +13,9 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useHaptics } from '@/hooks/useHaptics';
 import { spacing, radii, type as typo } from '@/constants/theme';
 
-const GOLD = '#FFA726';
-const PURPLE = '#7C4DFF';
-const GREEN = '#34D399';
+const GOLD = '#FFB429';
+const PURPLE = '#8B7BFF';
+const GREEN = '#33D6B5';
 
 // Proportional scale: 1x on a 390pt phone, clamped for small phones and tablets
 const S = Math.min(Math.max(Dimensions.get('window').width / 390, 0.85), 1.3);
@@ -36,10 +36,10 @@ function MomentsPage() {
           </View>
         </View>
         <View style={pageStyles.sideIcons}>
-          <Ionicons name={'heart'} size={22} color={'#BDBDBD'} />
-          <Ionicons name={'chatbubbles'} size={22} color={'#BDBDBD'} />
-          <Ionicons name={'gift'} size={22} color={'#BDBDBD'} />
-          <Ionicons name={'cloud-upload-outline'} size={22} color={'#BDBDBD'} />
+          <Ionicons name={'heart'} size={22} color={'#9CA1B4'} />
+          <Ionicons name={'chatbubbles'} size={22} color={'#9CA1B4'} />
+          <Ionicons name={'gift'} size={22} color={'#9CA1B4'} />
+          <Ionicons name={'cloud-upload-outline'} size={22} color={'#9CA1B4'} />
         </View>
       </View>
     </View>
@@ -56,7 +56,7 @@ function GiftsPage() {
   return (
     <View style={pageStyles.wrap}>
       <View style={pageStyles.giftCard}>
-        <LinearGradient colors={['#F57C00', '#E64A19'] as [string, string]} style={pageStyles.giftGradient}>
+        <LinearGradient colors={['#FF8A1F', '#E5740B'] as [string, string]} style={pageStyles.giftGradient}>
           <View style={pageStyles.giftRow}>
             {gifts.map((g) => (
               <View key={g.label} style={pageStyles.giftChip}>
@@ -202,7 +202,7 @@ const pageStyles = StyleSheet.create({
   wrap: { flex: 1, justifyContent: 'center', gap: 14 },
   h1: { ...typo.h1, color: '#fff', fontSize: Math.round(26 * S), lineHeight: Math.round(34 * S) },
   h1Bottom: { ...typo.h1, color: '#fff', fontSize: Math.round(26 * S), lineHeight: Math.round(34 * S), textAlign: 'center' },
-  body: { color: '#BDBDBD', fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  body: { color: '#9CA1B4', fontSize: 14, lineHeight: 21, textAlign: 'center' },
   stage: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   phoneFrame: { alignItems: 'center' },
   phone: { width: Math.round(170 * S), height: Math.round(300 * S), borderRadius: Math.round(24 * S), alignItems: 'center', justifyContent: 'center' },
@@ -221,15 +221,15 @@ const pageStyles = StyleSheet.create({
   bubble: { alignSelf: 'flex-end', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: radii.lg, borderTopRightRadius: 4, paddingHorizontal: 14, paddingVertical: 10, maxWidth: Math.round(240 * S) },
   bubbleLeft: { alignSelf: 'flex-start', borderTopLeftRadius: 4, borderTopRightRadius: radii.lg },
   bubbleMine: { backgroundColor: GOLD },
-  bubbleName: { color: '#616161', fontSize: 10, fontWeight: '800', marginBottom: 2 },
-  bubbleText: { color: '#212121', fontSize: 13, lineHeight: 18 },
+  bubbleName: { color: '#666B7E', fontSize: 10, fontWeight: '800', marginBottom: 2 },
+  bubbleText: { color: '#15151B', fontSize: 13, lineHeight: 18 },
   bubbleMineText: { color: '#111', fontSize: 13, lineHeight: 18, fontWeight: '600' },
-  roomPill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, backgroundColor: 'rgba(124,77,255,0.9)', paddingHorizontal: 14, paddingVertical: 7, borderRadius: radii.full, marginTop: 6 },
+  roomPill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, backgroundColor: 'rgba(139,123,255,0.9)', paddingHorizontal: 14, paddingVertical: 7, borderRadius: radii.full, marginTop: 6 },
   roomText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   shield: { width: Math.round(84 * S), height: Math.round(84 * S), borderRadius: Math.round(42 * S), backgroundColor: GREEN, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 4 },
   barLabel: { color: '#fff', fontWeight: '800', fontSize: 13, marginBottom: 6 },
-  barTrack: { flexDirection: 'row', height: 10, borderRadius: 5, backgroundColor: 'rgba(52,211,153,0.18)', overflow: 'hidden' },
+  barTrack: { flexDirection: 'row', height: 10, borderRadius: 5, backgroundColor: 'rgba(51,214,181,0.18)', overflow: 'hidden' },
   barFill: { backgroundColor: GREEN },
-  rankPill: { alignSelf: 'center', backgroundColor: 'rgba(52,211,153,0.18)', paddingHorizontal: 14, paddingVertical: 7, borderRadius: radii.full, marginBottom: 4 },
+  rankPill: { alignSelf: 'center', backgroundColor: 'rgba(51,214,181,0.18)', paddingHorizontal: 14, paddingVertical: 7, borderRadius: radii.full, marginBottom: 4 },
   rankText: { color: GREEN, fontWeight: '800', fontSize: 12 },
 });

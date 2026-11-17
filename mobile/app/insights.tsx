@@ -17,7 +17,7 @@ import { spacing, radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const GOLD = '#FFA726';
+const GOLD = '#FFB429';
 
 type Day = { day: string; total: number; gifts: number };
 type MomentRow = { id: string; title: string; total: number; gifts: number };
@@ -142,7 +142,7 @@ export default function InsightsScreen() {
                     <View key={d.day} style={styles.barCol}>
                       {isPeak ? <Text style={styles.peak}>{fmt(d.total)}</Text> : <View style={styles.peakSpacer} />}
                       <LinearGradient
-                        colors={[GOLD, '#F57C00'] as [string, string]}
+                        colors={[GOLD, '#FF8A1F'] as [string, string]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 0, y: 1 }}
                         style={[styles.bar, { height: h, opacity: isPeak ? 1 : 0.75 }]}

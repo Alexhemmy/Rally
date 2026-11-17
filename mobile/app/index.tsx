@@ -32,7 +32,7 @@ export default function Splash() {
   return (
     <Screen>
       <LinearGradient
-        colors={['rgba(20,12,4,1)', 'rgba(60,30,6,0.9)', 'rgba(255,167,38,0.22)'] as [string, string, string]}
+        colors={['rgba(20,12,4,1)', 'rgba(60,30,6,0.9)', 'rgba(255,180,41,0.22)'] as [string, string, string]}
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.center}>
@@ -49,8 +49,8 @@ export default function Splash() {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center', flex: 1 },
-  logo: { backgroundColor: '#FFA726', alignItems: 'center', justifyContent: 'center' },
+  logo: { backgroundColor: '#FFB429', alignItems: 'center', justifyContent: 'center' },
   word: { ...typo.h1, color: '#fff', fontSize: 40, fontWeight: '900', marginTop: 18 },
   tag: { color: '#fff', opacity: 0.85, fontSize: 15, marginTop: 8, textAlign: 'center' },
-  version: { color: '#9E9E9E', fontSize: 12, textAlign: 'center', paddingBottom: spacing.lg },
+  version: { color: '#9CA1B4', fontSize: 12, textAlign: 'center', paddingBottom: spacing.lg },
 });

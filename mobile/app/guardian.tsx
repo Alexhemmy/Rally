@@ -15,8 +15,8 @@ import { useSounds } from '@/hooks/useSounds';
 import { api, getToken } from '@/lib/api';
 import { spacing, radii } from '@/constants/theme';
 
-const GOLD = '#FFA726';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const TEAL = '#33D6B5';
 
 export default function GuardianScreen() {
   const { colors } = useTheme();

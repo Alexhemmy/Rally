@@ -16,7 +16,7 @@ import { SoundTextInput } from '@/components/SoundTextInput';
 import { spacing, radii, type as typo } from '@/constants/theme';
 import { api, setToken } from '@/lib/api';
 
-const GOLD = '#FFA726';
+const GOLD = '#FFB429';
 
 export default function LoginScreen() {
   const router = useRouter();

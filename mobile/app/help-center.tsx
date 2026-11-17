@@ -12,7 +12,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useHaptics } from '@/hooks/useHaptics';
 import { spacing, radii } from '@/constants/theme';
 
-const GOLD = '#FFA726';
+const GOLD = '#FFB429';
 
 const ARTICLES: { icon: string; title: string; body: string }[] = [
   {
