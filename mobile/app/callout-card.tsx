@@ -18,8 +18,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import { spacing, radii } from '@/constants/theme';
 
-const GOLD = '#FFA726';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const TEAL = '#33D6B5';
 const AMBER = '#FBBF24';
 
 const KINDS = ['Challenge', 'Question', 'Cover request'];

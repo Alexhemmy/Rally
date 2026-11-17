@@ -15,8 +15,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { spacing, radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 
-const GOLD = '#FFA726';
-const GREEN = '#34D399';
+const GOLD = '#FFB429';
+const GREEN = '#33D6B5';
 const PURPLE = '#A78BFA';
 const RED = '#F87171';
 const BLUE = '#60A5FA';

@@ -12,7 +12,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import { spacing, radii, type as typo } from '@/constants/theme';
 
-const GREEN = '#34D399';
+const GREEN = '#33D6B5';
 
 const CARDS = [
   { icon: 'play', label: 'Watch a Moment', value: 'Swipe up' },
@@ -43,8 +43,8 @@ export default function AllSetScreen() {
 
         {CARDS.map((c) => (
           <View key={c.label} style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-            <View style={[styles.cardIcon, { backgroundColor: 'rgba(255,167,38,0.15)' }]}>
-              <Ionicons name={c.icon as any} size={22} color={'#FFA726'} />
+            <View style={[styles.cardIcon, { backgroundColor: 'rgba(255,180,41,0.15)' }]}>
+              <Ionicons name={c.icon as any} size={22} color={'#FFB429'} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }}>{c.label}</Text>

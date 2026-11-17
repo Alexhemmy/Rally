@@ -15,8 +15,8 @@ import { spacing, radii } from '@/constants/theme';
 import { api } from '@/lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const GOLD = '#FFA726';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const TEAL = '#33D6B5';
 
 type Entry = { handle: string; kind: 'blocked' | 'muted'; when: string };
 

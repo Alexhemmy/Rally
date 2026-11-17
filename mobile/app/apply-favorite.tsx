@@ -16,9 +16,9 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { spacing, radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 
-const GOLD = '#FFA726';
-const GOLD_DEEP = '#F57C00';
-const GREEN = '#34D399';
+const GOLD = '#FFB429';
+const GOLD_DEEP = '#FF8A1F';
+const GREEN = '#33D6B5';
 const RED = '#ef5350';
 
 type Progress = {
@@ -249,9 +249,9 @@ const styles = StyleSheet.create({
   h1: { fontSize: 24, fontWeight: '900' },
   sub: { fontSize: 13, marginTop: 4, marginBottom: spacing.md },
   routeCard: { borderWidth: 1.5, borderRadius: radii.lg, padding: 16, marginBottom: 12 },
-  routeOn: { backgroundColor: 'rgba(255,167,38,0.06)' },
+  routeOn: { backgroundColor: 'rgba(255,180,41,0.06)' },
   routeHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#8A8A9E' },
+  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#9CA1B4' },
   radioOn: { borderColor: GOLD, backgroundColor: GOLD },
   section: { fontSize: 11, fontWeight: '800', letterSpacing: 1, marginTop: spacing.md, marginBottom: 8 },
   checkCard: { borderWidth: 1, borderRadius: radii.lg },
@@ -269,5 +269,5 @@ const styles = StyleSheet.create({
   submitBtn: { borderRadius: radii.full, marginTop: 16, overflow: 'hidden' },
   submitGradient: { alignItems: 'center', justifyContent: 'center', paddingVertical: 15 },
   submitText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  hint: { color: '#8A8A9E', fontSize: 12, textAlign: 'center', marginTop: 8, lineHeight: 17 },
+  hint: { color: '#9CA1B4', fontSize: 12, textAlign: 'center', marginTop: 8, lineHeight: 17 },
 });

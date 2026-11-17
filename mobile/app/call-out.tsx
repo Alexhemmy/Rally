@@ -15,11 +15,11 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { spacing, radii } from '@/constants/theme';
 import { api, getToken } from '@/lib/api';
 
-const GOLD = '#FFA726';
-const GOLD_DEEP = '#F57C00';
+const GOLD = '#FFB429';
+const GOLD_DEEP = '#FF8A1F';
 const PURPLE = '#7C3AED';
 const RED = '#ef5350';
-const GREEN = '#34D399';
+const GREEN = '#33D6B5';
 const MAX = 140;
 
 const KINDS: { id: 'challenge' | 'question' | 'cover_request'; label: string }[] = [

@@ -17,8 +17,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { spacing, radii } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const GOLD = '#FFA726';
-const TEAL = '#34D399';
+const GOLD = '#FFB429';
+const TEAL = '#33D6B5';
 
 const GRADS: [string, string][] = [
   ['#D95F02', '#F59E0B'],
