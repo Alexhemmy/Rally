@@ -10,15 +10,14 @@ import { useMemo } from 'react';
 /*  Brand tokens                                                       */
 /* ------------------------------------------------------------------ */
 const BRAND = {
-  primary: '#FFB429',          // gold – primary action, Gifts, highlights
-  primaryHover: '#FF8A1F',     // gold2 – second gradient stop
-  primaryPressed: '#E5740B',
+  primary: '#FFB429',          // --gold – the rally accent
+  primaryHover: '#FF8A1F',     // --gold2 – second gradient stop
+  primaryPressed: '#E5740B',   // pressed: darken 8%
   gradient: ['#FFB429', '#FF8A1F'] as const,   // 135° gold → gold2
   gradientHot: ['#FFB429', '#8B7BFF'] as const, // gold → violet (special moments)
-  accent: '#8B7BFF',           // violet – Diamond tier, informational
-  accent2: '#33D6B5',
+  accent: '#8B7BFF',           // --violet
+  accent2: '#33D6B5',          // --teal
   warning: '#FBBF24',
-  buttonLabel: '#2A1700',      // label on gold, passes contrast in both modes
 } as const;
 
 /* ------------------------------------------------------------------ */
@@ -30,52 +29,47 @@ export const palettes = {
     primaryMuted: 'rgba(255, 180, 41, 0.14)',
     secondary: '#15171F',
     galactic: '#1E212C',
-    bg: '#0C0D12',             // --ink
-    surface: '#15171F',        // --panel
-    surfaceElevated: '#1E212C',// --panel2
-    surfaceHover: '#2A2E3C',
-    text: '#F4F2EE',           // --text
-    textSecondary: '#9CA1B4',  // --mute
-    muted: '#9CA1B4',          // --mute
-    dim: '#6B7086',            // --dim – placeholders and decoration only
-    border: '#2A2E3C',         // --line
-    borderSubtle: '#232634',
-    success: '#33D6B5',        // --teal
-    danger: '#FF5468',         // --coral
-    tabInactive: '#9CA1B4',
-    onPrimary: '#2A1700',
-    overlay: 'rgba(0, 0, 0, 0.5)',   // 50% black scrim under sheets
+    bg: '#0C0D12',            // --ink
+    surface: '#15171F',       // --panel
+    surfaceElevated: '#1E212C', // --panel2
+    surfaceHover: '#1E212C',
+    text: '#F4F2EE',          // --text
+    textSecondary: '#9CA1B4', // --mute
+    muted: '#6B7086',         // --dim
+    dim: '#6B7086',           // --dim
+    border: '#2A2E3C',        // --line
+    borderSubtle: '#222531',
+    success: '#33D6B5',       // --teal
+    danger: '#FF5468',        // --coral
+    tabInactive: '#9CA1B4',   // --mute
+    onPrimary: '#2A1700',     // label on gold buttons
+    overlay: 'rgba(0, 0, 0, 0.5)',
     shadow: 'rgba(0, 0, 0, 0.35)',
-  },
+    },
   light: {
     ...BRAND,
-    primary: '#E8920A',
     primaryHover: '#E5740B',
-    primaryPressed: '#C9650A',
-    gradient: ['#E8920A', '#E5740B'] as const,
-    gradientHot: ['#E8920A', '#6D5BF0'] as const,
-    accent: '#6D5BF0',
-    accent2: '#0B9680',
+    primaryPressed: '#C9660A',
     primaryMuted: 'rgba(232, 146, 10, 0.12)',
     secondary: '#FFFFFF',
     galactic: '#ECE8E1',
-    bg: '#F6F4EF',             // --ink light
-    surface: '#FFFFFF',        // --panel light
-    surfaceElevated: '#ECE8E1',// --panel2 light
-    surfaceHover: '#E3DFD6',
-    text: '#15151B',
-    textSecondary: '#666B7E',
-    muted: '#666B7E',
-    dim: '#8F95A8',
-    border: '#DEDAD1',
-    borderSubtle: '#E8E4DC',
-    success: '#0B9680',
-    danger: '#E5384F',
-    tabInactive: '#8F95A8',
-    onPrimary: '#2A1700',
-    overlay: 'rgba(0, 0, 0, 0.5)',
+    bg: '#F6F4EF',            // --ink
+    surface: '#FFFFFF',       // --panel
+    surfaceElevated: '#ECE8E1', // --panel2
+    surfaceHover: '#ECE8E1',
+    text: '#15151B',          // --text
+    textSecondary: '#666B7E', // --mute
+    muted: '#8F95A8',         // --dim
+    dim: '#8F95A8',           // --dim
+    border: '#DEDAD1',        // --line
+    borderSubtle: '#E5E1D8',
+    success: '#0B9680',       // --teal
+    danger: '#E5384F',        // --coral
+    tabInactive: '#666B7E',   // --mute
+    onPrimary: '#2A1700',     // label on gold buttons
+    overlay: 'rgba(20, 18, 14, 0.45)',
     shadow: 'rgba(15, 17, 23, 0.08)',
-  },
+    },
 } as const;
 
 export type ThemeColors = typeof palettes.dark;
@@ -94,40 +88,34 @@ export const type = {
   h3:      { fontSize: 17, fontWeight: '700' as const, letterSpacing: -0.1, lineHeight: 22 },
   body:    { fontSize: 15.5, fontWeight: '600' as const, lineHeight: 22 },
   bodyBold:{ fontSize: 15.5, fontWeight: '700' as const, lineHeight: 22 },
-  secondary:{ fontSize: 14, fontWeight: '400' as const, lineHeight: 20 },
   caption: { fontSize: 12.5, fontWeight: '600' as const, lineHeight: 17 },
   micro:   { fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.55, lineHeight: 14 },
-  stat:    { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.4, lineHeight: 34 },
-  hero:    { fontSize: 54, fontWeight: '900' as const, letterSpacing: -1, lineHeight: 60 },
-  button:  { fontSize: 16, fontWeight: '700' as const, letterSpacing: -0.1 },
-  input:   { fontSize: 16, fontWeight: '500' as const, lineHeight: 21 },
-  nav:     { fontSize: 16, fontWeight: '700' as const, letterSpacing: 0 },
+  stat:    { fontSize: 54, fontWeight: '900' as const, letterSpacing: -1.1, lineHeight: 58 },
+  button:  { fontSize: 16, fontWeight: '700' as const, letterSpacing: 0 },
 } as const;
 
 /* ------------------------------------------------------------------ */
 /*  Spacing (4px base) & radii – guide values                          */
 /* ------------------------------------------------------------------ */
 export const spacing = {
-  xxs: 2,
-  xs:  4,
-  sm:  8,
-  md2: 12,
+  xxs: 4,
+  xs:  8,
+  sm:  12,
   md:  16,
-  lg2: 20,
   lg:  24,
   xl:  32,
   xxl: 44,
-  xxxl: 64,
+  xxxl: 44,
 } as const;
 
 export const radii = {
-  xs:   6,    // tags, small badges
-  sm:   11,   // icon wells
-  md:   12,   // compact buttons, segmented control
-  lg:   20,   // cards
-  xl:   26,   // bottom sheets
-  xxl:  36,
-  full: 999,  // chips, pills, avatars
+  xs:   6,
+  sm:   11,
+  md:   12,
+  lg:   20,
+  xl:   26,
+  xxl:  26,
+  full: 999,
 } as const;
 
 /* ------------------------------------------------------------------ */
