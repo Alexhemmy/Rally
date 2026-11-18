@@ -2,6 +2,7 @@
  * App-wide providers + themed navigation stack.
  * Fully driven by the Ink & Frost design system.
  */
+import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -16,6 +17,40 @@ import {
   Inter_800ExtraBold,
   Inter_900Black,
 } from '@expo-google-fonts/inter';
+
+// Global safety net: a screen crash shows what went wrong with a Retry,
+// instead of closing the app or hanging on the splash (UX guide: Error state).
+class RootErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#0C0D12', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 }}>
+          <Ionicons name={'warning-outline'} size={40} color={'#FFB429'} />
+          <Text style={{ color: '#F4F2EE', fontSize: 19, fontWeight: '800', textAlign: 'center' }}>Something went wrong</Text>
+          <Text style={{ color: '#9CA1B4', fontSize: 13.5, textAlign: 'center' }}>
+            {String(this.state.error && this.state.error.message ? this.state.error.message : 'An unexpected error occurred.')}
+          </Text>
+          <Text
+            onPress={() => this.setState({ error: null })}
+            style={{ color: '#FFB429', fontWeight: '800', fontSize: 15, paddingVertical: 10, paddingHorizontal: 24 }}
+          >
+            Try again
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function RootStack() {
   const { colors, isDark } = useTheme();
@@ -247,14 +282,17 @@ export default function RootLayout() {
     Inter_800ExtraBold,
     Inter_900Black,
   });
-  if (!fontsLoaded) return null;
+  // Fonts load async; the app renders immediately and swaps to Inter when
+  // ready, per the guide's fallback rule (system-ui while Inter loads).
 
   return (
     <ThemeProvider>
       <SessionProvider>
         <SafeAreaProvider>
           <BiometricGate>
-            <RootStack />
+            <RootErrorBoundary>
+              <RootStack />
+            </RootErrorBoundary>
           </BiometricGate>
         </SafeAreaProvider>
       </SessionProvider>
