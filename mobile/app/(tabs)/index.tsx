@@ -214,6 +214,7 @@ export default function HomeTab() {
   const stories: Post['author'][] = [];
   const seen = new Set<string>();
   for (const p of posts) {
+    if (!p || !p.author || !p.author.handle) continue; // guard against malformed feed rows
     if (!seen.has(p.author.handle)) {
       seen.add(p.author.handle);
       stories.push(p.author);
@@ -221,7 +222,7 @@ export default function HomeTab() {
   }
 
   const visiblePosts = posts
-    .filter((p) => !hiddenIds[p.id] && !hiddenAuthors[p.author.handle])
+    .filter((p) => p && p.author && p.author.handle && !hiddenIds[p.id] && !hiddenAuthors[p.author.handle])
     .slice()
     .sort((a, b) =>
       scope === 'rising'
