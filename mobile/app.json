@@ -4,7 +4,6 @@
     "slug": "rally",
     "scheme": "rally",
     "version": "1.0.0",
-    "newArchEnabled": true,
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
